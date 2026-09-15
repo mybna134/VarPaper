@@ -1,0 +1,79 @@
+# Wayvid Workspace
+# =================
+# 
+# v0.5+ 采用 GUI-first 架构，多 crate 工作区结构：
+# - wayvid-core:    核心类型和配置
+# - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
+# - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
+# - rust:           Flutter GUI 的 Rust service/FRB bridge
+# - wayvid-ctl:     精简 CLI 工具
+
+[workspace]
+resolver = "2"
+members = [
+    "crates/wayvid-core",
+    "crates/wayvid-engine",
+    "crates/wayvid-library",
+    "rust",
+    "crates/wayvid-ctl",
+]
+
+[workspace.package]
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/YangYuS8/wayvid"
+
+# 共享依赖版本 (workspace.dependencies)
+[workspace.dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Utilities
+dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+
+# Async
+tokio = { version = "1.0", features = ["sync", "rt-multi-thread"] }
+
+# Testing
+tempfile = "3.8"
+
+# Optimized release profile (based on Rust Performance Book)
+[profile.release]
+opt-level = 3              # Maximum optimization
+lto = "thin"              # Link-Time Optimization (thin = faster build, fat = smaller binary)
+codegen-units = 1          # Single codegen unit for maximum optimization
+strip = true               # Strip symbols for smaller binary size
+panic = "abort"            # Smaller binary, faster unwinding
+
+# Alternative ultra-optimized profile (use with: cargo build --profile release-opt)
+# Trades longer compile time for maximum runtime performance
+[profile.release-opt]
+inherits = "release"
+lto = "fat"               # Full LTO for maximum optimization
+opt-level = 3
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1
+
+# 注意: 旧的 [lib], [[bin]], [package.metadata.deb] 配置已移除
+# 各个 crate 现在有自己的 Cargo.toml 配置
+# 打包配置将在 crates/wayvid/Cargo.toml 中定义

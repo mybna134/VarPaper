@@ -1,0 +1,48 @@
+# Rust
+target/
+# Note: Cargo.lock should be committed for binary crates (wayvid is a binary project)
+# See: https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control-but-not-libraries
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.deb
+*.rpm
+*.AppImage
+packaging/*/*.tar.gz
+packaging/*/*.pkg.tar.zst
+packaging/aur/wayvid
+packaging/aur/src
+packaging/aur/pkg
+
+# AppImage build directory
+packaging/appimage/build/
+packaging/appimage/*.AppDir/
+
+# Local config (for testing)
+config.yaml
+test-videos/
+
+# Test artifacts
+test.log
+test_results/
+tests/
+
+# Nix
+result
+result-*
+
+# Documentation build artifacts
+docs/*.mo
+docs/po/*.mo

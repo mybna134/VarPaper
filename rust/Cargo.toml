@@ -1,0 +1,66 @@
+[package]
+name = "wayvid_gui"
+version = "0.5.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["wayvid contributors"]
+license = "MIT OR Apache-2.0"
+description = "GUI application for wayvid wallpaper manager"
+repository = "https://github.com/YangYuS8/wayvid"
+autobins = false
+
+[lib]
+name = "wayvid_gui"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Internal crates
+wayvid-core = { path = "../crates/wayvid-core" }
+wayvid-engine = { path = "../crates/wayvid-engine" }
+wayvid-library = { path = "../crates/wayvid-library" }
+
+# Flutter/Rust bridge
+flutter_rust_bridge = "=2.12.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "fs", "macros", "time"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# Utilities
+dirs = "5.0"
+open = "5.0"
+
+# Internationalization
+rust-i18n = "3"
+sys-locale = "0.3"
+
+# IPC communication
+interprocess = { version = "2.2", features = ["tokio"] }
+
+# System tray (SNI/StatusNotifierItem for Linux/Wayland)
+ksni = "0.2"
+
+# PNG decoding (for tray icon)
+png = "0.17"
+
+# Event loop (for engine communication)
+calloop = "0.14"
+
+[features]
+default = []
+
+[dev-dependencies]
+tempfile = "3.8"
