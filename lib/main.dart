@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -1833,28 +1834,32 @@ class _PaletteSettings extends StatelessWidget {
                   ),
                 ),
               ),
-            Tooltip(
-              message: l10n.text('Add custom color'),
-              child: IconButton.filledTonal(
-                icon: const Icon(Icons.add),
-                onPressed: () async {
-                  final color = await showDialog<int>(
-                    context: context,
-                    builder: (context) =>
-                        _ColorPickerDialog(initialColor: gui.themeColor),
-                  );
-                  if (color == null) return;
-                  controller.update(
-                    SettingsPatch(
-                      themeColor: color,
-                      customThemeColors:
-                          !_presetThemeColors.contains(color) &&
-                              !customColors.contains(color)
-                          ? [...customColors, color]
-                          : null,
-                    ),
-                  );
-                },
+            SizedBox(
+              width: 56,
+              height: 56,
+              child: Center(
+                child: IconButton.filledTonal(
+                  tooltip: l10n.text('Add custom color'),
+                  icon: const Icon(Icons.add),
+                  onPressed: () async {
+                    final color = await showDialog<int>(
+                      context: context,
+                      builder: (context) =>
+                          _ColorPickerDialog(initialColor: gui.themeColor),
+                    );
+                    if (color == null) return;
+                    controller.update(
+                      SettingsPatch(
+                        themeColor: color,
+                        customThemeColors:
+                            !_presetThemeColors.contains(color) &&
+                                !customColors.contains(color)
+                            ? [...customColors, color]
+                            : null,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -1955,106 +1960,54 @@ class _ColorPickerDialog extends StatefulWidget {
 }
 
 class _ColorPickerDialogState extends State<_ColorPickerDialog> {
-  late int _red;
-  late int _green;
-  late int _blue;
-  late final TextEditingController _hexController;
-  bool _invalidHex = false;
-
-  int get _color => 0xff000000 | (_red << 16) | (_green << 8) | _blue;
-  String get _hex => '#${_color.toRadixString(16).substring(2).toUpperCase()}';
+  late Color _color;
 
   @override
   void initState() {
     super.initState();
-    _red = (widget.initialColor >> 16) & 0xff;
-    _green = (widget.initialColor >> 8) & 0xff;
-    _blue = widget.initialColor & 0xff;
-    _hexController = TextEditingController(text: _hex);
+    _color = Color(widget.initialColor);
   }
-
-  @override
-  void dispose() {
-    _hexController.dispose();
-    super.dispose();
-  }
-
-  void _setChannel(int channel, int value) {
-    setState(() {
-      if (channel == 0) _red = value;
-      if (channel == 1) _green = value;
-      if (channel == 2) _blue = value;
-      _invalidHex = false;
-      _hexController.text = _hex;
-    });
-  }
-
-  Widget _slider(String label, int channel, int value) => Row(
-    children: [
-      SizedBox(width: 20, child: Text(label)),
-      Expanded(
-        child: Slider(
-          value: value.toDouble(),
-          min: 0,
-          max: 255,
-          divisions: 255,
-          onChanged: (value) => _setChannel(channel, value.round()),
-        ),
-      ),
-      SizedBox(width: 32, child: Text('$value')),
-    ],
-  );
 
   @override
   Widget build(BuildContext context) {
     final l10n = WayvidLocalizations.of(context);
-    final previewColor = Color(_color);
     final previewText =
-        ThemeData.estimateBrightnessForColor(previewColor) == Brightness.dark
+        ThemeData.estimateBrightnessForColor(_color) == Brightness.dark
         ? Colors.white
         : Colors.black;
     return AlertDialog(
+      scrollable: true,
       title: Text(l10n.text('Custom color')),
       content: SizedBox(
-        width: 340,
+        width: 320,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ColorPicker(
+              pickerColor: _color,
+              onColorChanged: (color) => setState(() {
+                _color = Color(color.toARGB32() | 0xff000000);
+              }),
+              enableAlpha: false,
+              hexInputBar: true,
+              labelTypes: const [ColorLabelType.rgb],
+              portraitOnly: true,
+              colorPickerWidth: 300,
+              pickerAreaHeightPercent: 0.75,
+              displayThumbColor: true,
+              pickerAreaBorderRadius: BorderRadius.circular(12),
+            ),
             Container(
-              height: 56,
+              height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: previewColor,
+                color: _color,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(_hex, style: TextStyle(color: previewText)),
-            ),
-            const SizedBox(height: 12),
-            _slider('R', 0, _red),
-            _slider('G', 1, _green),
-            _slider('B', 2, _blue),
-            TextField(
-              controller: _hexController,
-              decoration: InputDecoration(
-                labelText: l10n.text('Hex color'),
-                errorText: _invalidHex
-                    ? l10n.text('Enter a 6-digit hex color')
-                    : null,
+              child: Text(
+                '#${_color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+                style: TextStyle(color: previewText),
               ),
-              maxLength: 7,
-              onChanged: (value) {
-                final hex = value.startsWith('#') ? value.substring(1) : value;
-                final valid = RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex);
-                setState(() {
-                  _invalidHex = value.isNotEmpty && !valid;
-                  if (valid) {
-                    final rgb = int.parse(hex, radix: 16);
-                    _red = (rgb >> 16) & 0xff;
-                    _green = (rgb >> 8) & 0xff;
-                    _blue = rgb & 0xff;
-                  }
-                });
-              },
             ),
           ],
         ),
@@ -2065,7 +2018,7 @@ class _ColorPickerDialogState extends State<_ColorPickerDialog> {
           child: Text(l10n.text('Cancel')),
         ),
         FilledButton(
-          onPressed: _invalidHex ? null : () => Navigator.pop(context, _color),
+          onPressed: () => Navigator.pop(context, _color.toARGB32()),
           child: Text(l10n.text('Add color')),
         ),
       ],

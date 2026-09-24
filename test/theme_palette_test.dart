@@ -3,6 +3,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
 import 'package:varpaper/main.dart';
@@ -111,7 +112,7 @@ void main() {
   testWidgets('select, add, remove and reset palette in settings', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.physicalSize = const Size(800, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -135,6 +136,10 @@ void main() {
       final before = Theme.of(tester.element(find.text('Appearance')))
           .colorScheme
           .primary;
+      expect(
+        tester.getCenter(find.byTooltip('Add custom color')).dy,
+        closeTo(tester.getCenter(find.byTooltip('Theme color #673AB7')).dy, 1),
+      );
 
       await tester.tap(find.byTooltip('Theme color #03A9F4'));
       await tester.pumpAndSettle();
@@ -147,6 +152,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Add custom color'));
       await tester.pumpAndSettle();
+      expect(find.byType(ColorPicker), findsOneWidget);
       await tester.enterText(find.byType(TextField).last, '#123456');
       await tester.tap(find.text('Add color'));
       await tester.pumpAndSettle();

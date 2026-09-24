@@ -56,8 +56,6 @@ class WayvidLocalizations {
     'Add custom color': '添加自定义颜色',
     'Remove custom color': '移除自定义颜色',
     'Custom color': '自定义颜色',
-    'Hex color': '十六进制颜色',
-    'Enter a 6-digit hex color': '请输入 6 位十六进制颜色',
     'Add color': '添加颜色',
     'Reset palette': '重置调色板',
     'Cancel': '取消',
