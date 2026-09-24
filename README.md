@@ -11,6 +11,8 @@ Video wallpaper manager for Linux Wayland and X11 desktops
 
 [Project](https://github.com/mybna134/VarPaper) • [Releases](https://github.com/mybna134/VarPaper/releases)
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 </div>
 
 VarPaper is a Flutter desktop app with a Rust and mpv playback engine. It finds video files in folders you add and in locally installed Wallpaper Engine Workshop content. Choose a wallpaper in the library, then apply it to one monitor or all monitors.

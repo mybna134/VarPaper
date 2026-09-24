@@ -1,22 +1,8 @@
-name: Code Quality
+name: CI and Release
 
 on:
   push:
     branches: [ main, dev ]
-    # Release workflow runs on main; tag pushes do not need a second CI run.
-    tags-ignore:
-      - '**'
-    paths-ignore:
-      - 'docs/**'
-      - 'openspec/**'
-      - '**.md'
-      - 'LICENSE*'
-      - 'CHANGELOG.md'
-      - 'configs/**'
-      - 'examples/**'
-      - '.gitignore'
-      - '.editorconfig'
-      - 'cliff.toml'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -30,6 +16,10 @@ on:
       - '.gitignore'
       - '.editorconfig'
       - 'cliff.toml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -48,12 +38,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            clang cmake pkg-config \
+            libgtk-3-dev libayatana-appindicator3-dev \
             libwayland-dev \
             libmpv-dev \
             libgl1-mesa-dev \
             libegl1-mesa-dev \
             libxkbcommon-dev \
-            libfontconfig1-dev
+            libfontconfig1-dev \
+            libx11-dev libxrandr-dev libxfixes-dev
       
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -75,3 +68,133 @@ jobs:
         run: |
           bash -n scripts/build-version.sh scripts/build-linux.sh scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh
           python3 -m json.tool packaging/flatpak/manifest.json > /dev/null
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+
+      - name: Check Flutter sources
+        run: |
+          flutter clean
+          flutter pub get
+          flutter analyze lib/main.dart lib/src/l10n.dart lib/src/storage/settings_store.dart test
+          flutter test
+
+  packages:
+    name: Build .deb and .flatpak
+    if: needs.quality.result == 'success' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: quality
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake lld ninja-build pkg-config \
+            libgtk-3-dev libmpv-dev libwayland-dev libegl1-mesa-dev \
+            libgl1-mesa-dev libxkbcommon-dev libfontconfig1-dev \
+            libx11-dev libxrandr-dev libxfixes-dev \
+            libayatana-appindicator3-dev \
+            flatpak flatpak-builder
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+
+      - name: Install Flatpak runtime and SDK
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install --noninteractive --assumeyes flathub \
+            org.gnome.Platform//50 org.gnome.Sdk//50
+
+      - name: Determine release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(scripts/build-version.sh)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build Flutter Linux bundle
+        env:
+          VARPAPER_VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/build-linux.sh
+
+      - name: Build Debian package
+        run: packaging/deb/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify Debian package
+        run: |
+          dpkg-deb --contents dist/*.deb > /tmp/varpaper-deb-contents.txt
+          grep -q 'usr/lib/varpaper/wayvid-gui' /tmp/varpaper-deb-contents.txt
+          grep -q 'usr/share/doc/varpaper/LICENSE-APACHE' /tmp/varpaper-deb-contents.txt
+
+      - name: Upload Debian artifact
+        id: deb_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: varpaper-deb-${{ steps.version.outputs.version }}
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Build Flatpak package
+        run: packaging/flatpak/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify Flatpak package
+        run: test -s dist/*.flatpak
+
+      - name: Upload Flatpak artifact
+        id: flatpak_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: varpaper-flatpak-${{ steps.version.outputs.version }}
+          path: dist/*.flatpak
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.deb dist/*.flatpak --clobber
+          else
+            gh release create "$tag" dist/*.deb dist/*.flatpak \
+              --target "$GITHUB_SHA" --title "VarPaper $VERSION" --generate-notes
+          fi
+
+      - name: Delete temporary Actions artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEB_ARTIFACT_ID: ${{ steps.deb_artifact.outputs.artifact-id }}
+          FLATPAK_ARTIFACT_ID: ${{ steps.flatpak_artifact.outputs.artifact-id }}
+        run: |
+          set -euo pipefail
+          for artifact_id in "$DEB_ARTIFACT_ID" "$FLATPAK_ARTIFACT_ID"; do
+            gh api --method DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"
+          done

@@ -170,44 +170,6 @@ fn select_backend_for(session: &str, wayland: bool, x11: bool) -> Result<Backend
     }
 }
 
-#[cfg(test)]
-mod backend_tests {
-    use super::*;
-
-    #[test]
-    fn native_session_wins_over_xwayland_display() {
-        assert_eq!(
-            select_backend_for("wayland", true, true).unwrap(),
-            Backend::Wayland
-        );
-        assert_eq!(select_backend_for("x11", true, true).unwrap(), Backend::X11);
-        assert!(select_backend_for("x11", true, false).is_err());
-        assert!(select_backend_for("", false, false).is_err());
-    }
-
-    #[test]
-    fn wayland_backend_enumerates_outputs() {
-        if std::env::var_os("VARPAPER_TEST_WAYLAND").is_none() {
-            return;
-        }
-        let (handle, events) = spawn_engine(EngineConfig::default()).unwrap();
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        loop {
-            assert!(
-                std::time::Instant::now() < deadline,
-                "Wayland output did not appear"
-            );
-            match events.recv_timeout(std::time::Duration::from_millis(100)) {
-                Ok(EngineEvent::OutputAdded(_)) => break,
-                Ok(EngineEvent::Error(error)) => panic!("Wayland engine failed: {error}"),
-                _ => {}
-            }
-        }
-        handle.request_shutdown();
-        handle.join().unwrap();
-    }
-}
-
 /// Internal: Run engine in the current thread
 fn run_engine_thread(
     config: EngineConfig,
@@ -1046,4 +1008,42 @@ fn check_battery_status() -> bool {
     }
 
     false
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::*;
+
+    #[test]
+    fn native_session_wins_over_xwayland_display() {
+        assert_eq!(
+            select_backend_for("wayland", true, true).unwrap(),
+            Backend::Wayland
+        );
+        assert_eq!(select_backend_for("x11", true, true).unwrap(), Backend::X11);
+        assert!(select_backend_for("x11", true, false).is_err());
+        assert!(select_backend_for("", false, false).is_err());
+    }
+
+    #[test]
+    fn wayland_backend_enumerates_outputs() {
+        if std::env::var_os("VARPAPER_TEST_WAYLAND").is_none() {
+            return;
+        }
+        let (handle, events) = spawn_engine(EngineConfig::default()).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Wayland output did not appear"
+            );
+            match events.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(EngineEvent::OutputAdded(_)) => break,
+                Ok(EngineEvent::Error(error)) => panic!("Wayland engine failed: {error}"),
+                _ => {}
+            }
+        }
+        handle.request_shutdown();
+        handle.join().unwrap();
+    }
 }

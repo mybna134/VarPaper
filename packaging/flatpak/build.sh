@@ -62,20 +62,26 @@ while IFS= read -r -d '' elf; do
 done < <(find "$stage/bundle" -type f \( -name 'wayvid-gui' -o -name '*.so' -o -name '*.so.*' \) -print0)
 
 cp "$root/packaging/flatpak/manifest.json" "$work/manifest.json"
-flatpak-builder --state-dir="$work/state" --force-clean --repo="$work/repo" --default-branch=stable \
-  "$work/build-dir" "$work/manifest.json"
-flatpak-builder --state-dir="$work/state" --run "$work/build-dir" "$work/manifest.json" sh -c '
-  for elf in /app/lib/varpaper/wayvid-gui /app/lib/varpaper/lib/libwayvid_gui.so; do
-    result="$(LD_LIBRARY_PATH=/app/lib:/app/lib/varpaper/lib ldd "$elf" 2>&1)" || {
-      printf "%s\n" "$result" | grep -E "not found|version" >&2 || true
-      exit 1
-    }
-    if printf "%s\n" "$result" | grep -q "not found"; then
-      printf "%s\n" "$result" | grep "not found" >&2
-      exit 1
-    fi
-  done
-'
+(
+  cd "$work"
+  # Keep Flatpak Builder's state in the disposable work directory. This also
+  # lets --run use its default state path on older CI versions that reject
+  # --state-dir when running a command.
+  flatpak-builder --force-clean --repo=repo --default-branch=stable \
+    build-dir manifest.json
+  flatpak-builder --run build-dir manifest.json sh -c '
+    for elf in /app/lib/varpaper/wayvid-gui /app/lib/varpaper/lib/libwayvid_gui.so; do
+      result="$(LD_LIBRARY_PATH=/app/lib:/app/lib/varpaper/lib ldd "$elf" 2>&1)" || {
+        printf "%s\n" "$result" | grep -E "not found|version" >&2 || true
+        exit 1
+      }
+      if printf "%s\n" "$result" | grep -q "not found"; then
+        printf "%s\n" "$result" | grep "not found" >&2
+        exit 1
+      fi
+    done
+  '
+)
 package="$output/varpaper_${version}_$(uname -m).flatpak"
 flatpak build-bundle "$work/repo" "$package" "$app_id" stable
 [[ -s "$package" ]] || { echo "Flatpak bundle is empty: $package" >&2; exit 1; }
