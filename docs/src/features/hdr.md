@@ -24,9 +24,7 @@ hdr_mode: auto  # auto, force, disable
 
 ## Verify
 
-```bash
-wayvid-ctl status | grep hdr
-```
+Inspect HDR status in the Flutter Monitors and Settings views.
 
 ## Troubleshooting
 

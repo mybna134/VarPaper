@@ -9,10 +9,9 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 use wayland_client::protocol::wl_surface::WlSurface;
 
-use wayvid_core::OutputInfo;
-
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};
+use crate::types::OutputInfo;
 
 /// Playback state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,9 +75,7 @@ impl WallpaperSession {
     fn initialize_resources(
         &mut self,
         egl_context: &EglContext,
-        wl_surface: &WlSurface,
-        width: i32,
-        height: i32,
+        egl_window: EglWindow,
     ) -> Result<()> {
         if self.initialized {
             return Ok(());
@@ -86,11 +83,10 @@ impl WallpaperSession {
 
         info!(
             "Initializing rendering resources for {} ({}x{})",
-            self.output_info.name, width, height
+            self.output_info.name,
+            egl_window.width(),
+            egl_window.height()
         );
-
-        // Create EGL window for this surface
-        let egl_window = egl_context.create_window(wl_surface, width, height)?;
         info!("  ✓ EGL window created");
 
         // Make context current and load GL functions
@@ -149,10 +145,19 @@ impl WallpaperSession {
         };
 
         // Commit both resources only after the complete initialization succeeds.
+        let mut player = player;
+        let start_paused = self.state == PlaybackState::Paused;
+        if start_paused {
+            let _ = player.pause();
+        }
         self.egl_window = Some(egl_window);
         self.player = Some(player);
         self.initialized = true;
-        self.state = PlaybackState::Playing;
+        self.state = if start_paused {
+            PlaybackState::Paused
+        } else {
+            PlaybackState::Playing
+        };
 
         info!("✅ Session fully initialized for {}", self.output_info.name);
 
@@ -169,9 +174,34 @@ impl WallpaperSession {
     ) -> Result<()> {
         // Lazy initialization
         if !self.initialized {
-            self.initialize_resources(egl_context, wl_surface, width, height)?;
+            let window = egl_context.create_window(wl_surface, width, height)?;
+            self.initialize_resources(egl_context, window)?;
         }
 
+        self.render_initialized_frame(egl_context, width, height)
+    }
+
+    /// Render to a native X11 window using the same MPV playback state.
+    pub fn render_frame_to_x11_window(
+        &mut self,
+        egl_context: &EglContext,
+        window: x11::xlib::Window,
+        width: i32,
+        height: i32,
+    ) -> Result<()> {
+        if !self.initialized {
+            let surface = egl_context.create_x11_window(window, width, height)?;
+            self.initialize_resources(egl_context, surface)?;
+        }
+        self.render_initialized_frame(egl_context, width, height)
+    }
+
+    fn render_initialized_frame(
+        &mut self,
+        egl_context: &EglContext,
+        width: i32,
+        height: i32,
+    ) -> Result<()> {
         if self.state != PlaybackState::Playing {
             return Ok(());
         }
@@ -223,7 +253,7 @@ impl WallpaperSession {
 
     /// Pause playback
     pub fn pause(&mut self) {
-        if self.state == PlaybackState::Playing {
+        if self.state != PlaybackState::Paused {
             debug!("Pausing session for {}", self.output_info.name);
             if let Some(player) = &mut self.player {
                 let _ = player.pause();
@@ -248,6 +278,15 @@ impl WallpaperSession {
         self.volume = volume.clamp(0.0, 1.0);
         if let Some(player) = &mut self.player {
             let _ = player.set_volume((self.volume * 100.0) as f64);
+        }
+    }
+
+    /// Update settings supplied by Flutter without recreating the surface.
+    pub fn update_config(&mut self, config: VideoConfig) {
+        self.volume = config.volume.clamp(0.0, 1.0) as f32;
+        self.video_config = config;
+        if let Some(player) = &mut self.player {
+            let _ = player.update_config(&self.video_config);
         }
     }
 

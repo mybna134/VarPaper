@@ -3,9 +3,8 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use wayvid_core::OutputInfo;
-
 use crate::mpv::VideoConfig;
+use crate::types::OutputInfo;
 
 /// Commands sent from GUI to engine
 #[derive(Debug, Clone)]
@@ -31,6 +30,9 @@ pub enum EngineCommand {
         /// Volume level (0.0 - 1.0)
         volume: f32,
     },
+
+    /// Replace runtime playback configuration.
+    UpdateConfig(EngineConfig),
 
     /// Pause playback
     Pause {

@@ -17,18 +17,13 @@ target/
 Thumbs.db
 
 # Build artifacts
+build/
+.dart_tool/
+.flutter-plugins-dependencies
 *.deb
-*.rpm
-*.AppImage
-packaging/*/*.tar.gz
-packaging/*/*.pkg.tar.zst
-packaging/aur/wayvid
-packaging/aur/src
-packaging/aur/pkg
-
-# AppImage build directory
-packaging/appimage/build/
-packaging/appimage/*.AppDir/
+*.flatpak
+dist/
+.flatpak-builder/
 
 # Local config (for testing)
 config.yaml

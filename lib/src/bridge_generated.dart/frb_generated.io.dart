@@ -50,19 +50,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
-  bool dco_decode_box_autoadd_bool(dynamic raw);
-
-  @protected
-  double dco_decode_box_autoadd_f_32(dynamic raw);
+  EngineConfigDto dco_decode_box_autoadd_engine_config_dto(dynamic raw);
 
   @protected
   double dco_decode_box_autoadd_f_64(dynamic raw);
-
-  @protected
-  FpsLimitPatch dco_decode_box_autoadd_fps_limit_patch(dynamic raw);
-
-  @protected
-  SettingsPatch dco_decode_box_autoadd_settings_patch(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -74,22 +65,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError dco_decode_bridge_error(dynamic raw);
 
   @protected
-  double dco_decode_f_32(dynamic raw);
+  EngineConfigDto dco_decode_engine_config_dto(dynamic raw);
 
   @protected
   double dco_decode_f_64(dynamic raw);
 
   @protected
-  FpsLimitPatch dco_decode_fps_limit_patch(dynamic raw);
-
-  @protected
-  GuiSettingsDto dco_decode_gui_settings_dto(dynamic raw);
-
-  @protected
   int dco_decode_i_32(dynamic raw);
-
-  @protected
-  InitializationSnapshot dco_decode_initialization_snapshot(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
@@ -113,16 +95,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
-  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
-
-  @protected
-  double? dco_decode_opt_box_autoadd_f_32(dynamic raw);
-
-  @protected
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw);
-
-  @protected
-  FpsLimitPatch? dco_decode_opt_box_autoadd_fps_limit_patch(dynamic raw);
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -131,22 +104,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
 
   @protected
-  List<String>? dco_decode_opt_list_String(dynamic raw);
-
-  @protected
-  PlaybackSettingsDto dco_decode_playback_settings_dto(dynamic raw);
-
-  @protected
-  PowerSettingsDto dco_decode_power_settings_dto(dynamic raw);
+  PreviewDto dco_decode_preview_dto(dynamic raw);
 
   @protected
   ServiceEvent dco_decode_service_event(dynamic raw);
 
   @protected
-  SettingsDto dco_decode_settings_dto(dynamic raw);
-
-  @protected
-  SettingsPatch dco_decode_settings_patch(dynamic raw);
+  ServiceInfo dco_decode_service_info(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -194,23 +158,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
-  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
-
-  @protected
-  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer);
+  EngineConfigDto sse_decode_box_autoadd_engine_config_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer);
-
-  @protected
-  FpsLimitPatch sse_decode_box_autoadd_fps_limit_patch(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  SettingsPatch sse_decode_box_autoadd_settings_patch(
-    SseDeserializer deserializer,
-  );
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -222,24 +175,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
 
   @protected
-  double sse_decode_f_32(SseDeserializer deserializer);
+  EngineConfigDto sse_decode_engine_config_dto(SseDeserializer deserializer);
 
   @protected
   double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
-  FpsLimitPatch sse_decode_fps_limit_patch(SseDeserializer deserializer);
-
-  @protected
-  GuiSettingsDto sse_decode_gui_settings_dto(SseDeserializer deserializer);
-
-  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
-
-  @protected
-  InitializationSnapshot sse_decode_initialization_snapshot(
-    SseDeserializer deserializer,
-  );
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -267,18 +209,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
-  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
-
-  @protected
-  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer);
-
-  @protected
   double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer);
-
-  @protected
-  FpsLimitPatch? sse_decode_opt_box_autoadd_fps_limit_patch(
-    SseDeserializer deserializer,
-  );
 
   @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
@@ -287,24 +218,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
 
   @protected
-  List<String>? sse_decode_opt_list_String(SseDeserializer deserializer);
-
-  @protected
-  PlaybackSettingsDto sse_decode_playback_settings_dto(
-    SseDeserializer deserializer,
-  );
-
-  @protected
-  PowerSettingsDto sse_decode_power_settings_dto(SseDeserializer deserializer);
+  PreviewDto sse_decode_preview_dto(SseDeserializer deserializer);
 
   @protected
   ServiceEvent sse_decode_service_event(SseDeserializer deserializer);
 
   @protected
-  SettingsDto sse_decode_settings_dto(SseDeserializer deserializer);
-
-  @protected
-  SettingsPatch sse_decode_settings_patch(SseDeserializer deserializer);
+  ServiceInfo sse_decode_service_info(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -357,25 +277,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
-  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer);
+  void sse_encode_box_autoadd_engine_config_dto(
+    EngineConfigDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_box_autoadd_fps_limit_patch(
-    FpsLimitPatch self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_box_autoadd_settings_patch(
-    SettingsPatch self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
@@ -387,28 +295,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
 
   @protected
-  void sse_encode_f_32(double self, SseSerializer serializer);
+  void sse_encode_engine_config_dto(
+    EngineConfigDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
-  void sse_encode_fps_limit_patch(FpsLimitPatch self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_gui_settings_dto(
-    GuiSettingsDto self,
-    SseSerializer serializer,
-  );
-
-  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_initialization_snapshot(
-    InitializationSnapshot self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
@@ -444,19 +340,7 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer);
-
-  @protected
   void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_opt_box_autoadd_fps_limit_patch(
-    FpsLimitPatch? self,
-    SseSerializer serializer,
-  );
 
   @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
@@ -465,28 +349,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
 
   @protected
-  void sse_encode_opt_list_String(List<String>? self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_playback_settings_dto(
-    PlaybackSettingsDto self,
-    SseSerializer serializer,
-  );
-
-  @protected
-  void sse_encode_power_settings_dto(
-    PowerSettingsDto self,
-    SseSerializer serializer,
-  );
+  void sse_encode_preview_dto(PreviewDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_service_event(ServiceEvent self, SseSerializer serializer);
 
   @protected
-  void sse_encode_settings_dto(SettingsDto self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_settings_patch(SettingsPatch self, SseSerializer serializer);
+  void sse_encode_service_info(ServiceInfo self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);

@@ -15,17 +15,7 @@ The easiest way to use Workshop wallpapers is through the GUI:
 4. Browse Workshop wallpapers in **Library** tab
 5. Double-click to apply
 
-## Using CLI
-
-Apply Workshop wallpapers directly with wayvid-ctl:
-
-```bash
-# Find workshop items
-ls ~/.steam/steam/steamapps/workshop/content/431960/
-
-# Apply a workshop wallpaper
-wayvid-ctl apply ~/.steam/steam/steamapps/workshop/content/431960/<id>/video.mp4
-```
+Workshop wallpapers are scanned and applied from the Flutter Library view.
 
 ## Find Workshop ID
 

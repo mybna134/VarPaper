@@ -1,4 +1,4 @@
-//! EGL context management for OpenGL rendering on Wayland
+//! EGL context management for OpenGL rendering on Wayland and X11.
 
 use anyhow::{anyhow, Context, Result};
 use khronos_egl as egl;
@@ -16,7 +16,7 @@ pub struct EglContext {
 
 /// Per-surface EGL window
 pub struct EglWindow {
-    egl_window: wegl::WlEglSurface,
+    egl_window: Option<wegl::WlEglSurface>,
     egl_surface: egl::Surface,
     width: i32,
     height: i32,
@@ -25,6 +25,18 @@ pub struct EglWindow {
 impl EglContext {
     /// Initialize EGL display and create OpenGL context
     pub fn new(wl_display: *mut std::ffi::c_void) -> Result<Self> {
+        Self::new_with_visual(wl_display, None)
+    }
+
+    /// Initialize EGL for an X11 display using the screen's native visual.
+    pub fn new_x11(x11_display: *mut std::ffi::c_void, visual_id: i32) -> Result<Self> {
+        Self::new_with_visual(x11_display, Some(visual_id))
+    }
+
+    fn new_with_visual(
+        native_display: *mut std::ffi::c_void,
+        visual_id: Option<i32>,
+    ) -> Result<Self> {
         // 1. Load EGL library
         let instance = unsafe {
             egl::DynamicInstance::<egl::EGL1_4>::load_required()
@@ -34,7 +46,7 @@ impl EglContext {
         // 2. Get EGL display from Wayland display
         let display = unsafe {
             instance
-                .get_display(wl_display as egl::NativeDisplayType)
+                .get_display(native_display as egl::NativeDisplayType)
                 .context("Failed to get EGL display")?
         };
 
@@ -51,7 +63,7 @@ impl EglContext {
             .context("Failed to bind OpenGL API")?;
 
         // 5. Choose EGL config
-        let config_attribs = [
+        let mut config_attribs = vec![
             egl::SURFACE_TYPE,
             egl::WINDOW_BIT,
             egl::RENDERABLE_TYPE,
@@ -68,8 +80,11 @@ impl EglContext {
             24,
             egl::STENCIL_SIZE,
             8,
-            egl::NONE,
         ];
+        if let Some(visual_id) = visual_id {
+            config_attribs.extend([egl::NATIVE_VISUAL_ID, visual_id]);
+        }
+        config_attribs.push(egl::NONE);
 
         let configs = instance
             .choose_first_config(display, &config_attribs)
@@ -131,7 +146,32 @@ impl EglContext {
         tracing::debug!("EGL window surface created: {}x{}", width, height);
 
         Ok(EglWindow {
-            egl_window,
+            egl_window: Some(egl_window),
+            egl_surface,
+            width,
+            height,
+        })
+    }
+
+    /// Create an EGL surface for an X11 window. The X11 window must outlive this surface.
+    pub fn create_x11_window(
+        &self,
+        window: x11::xlib::Window,
+        width: i32,
+        height: i32,
+    ) -> Result<EglWindow> {
+        let egl_surface = unsafe {
+            self.instance
+                .create_window_surface(
+                    self.display,
+                    self.config,
+                    window as egl::NativeWindowType,
+                    None,
+                )
+                .context("Failed to create X11 EGL window surface")?
+        };
+        Ok(EglWindow {
+            egl_window: None,
             egl_surface,
             width,
             height,
@@ -214,7 +254,9 @@ impl EglWindow {
             return Ok(());
         }
 
-        self.egl_window.resize(width, height, 0, 0);
+        if let Some(window) = &self.egl_window {
+            window.resize(width, height, 0, 0);
+        }
         self.width = width;
         self.height = height;
 

@@ -1,6 +1,6 @@
 rust_input: "crate::bridge"
 rust_root: "rust"
 dart_output: "lib/src/bridge_generated.dart"
-rust_output: "src/frb_generated.rs"
+rust_output: "rust/src/frb_generated.rs"
 dart_root: "."
 web: false

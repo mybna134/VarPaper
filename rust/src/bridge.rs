@@ -1,21 +1,19 @@
-//! Stable Flutter-facing service facade.
+//! Flutter-owned service facade.
+//!
+//! This module deliberately contains no persistence, CLI, IPC, or tray code.
+//! Flutter owns state in Isar and uses this facade for Rust-side work.
 
 use std::collections::VecDeque;
-use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use wayvid_core::{SourceType, WallpaperItem, WallpaperType};
-use wayvid_library::{FolderScanner, LibraryDatabase, SteamLibrary, ThumbnailGenerator};
+use wayvid_engine::{EngineConfig, VideoConfig};
+use wayvid_library::{FolderScanner, SteamLibrary, ThumbnailGenerator};
 
-use crate::engine::{default_engine_config, EngineController};
-use crate::settings::{AppSettings, AutostartManager};
-use crate::single_instance;
-use crate::tray::{SystemTray, TrayAction};
+use crate::engine::EngineController;
 
-/// Error returned by all public bridge operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeError {
     pub code: String,
@@ -65,6 +63,7 @@ pub struct WallpaperDto {
     pub source_path: String,
     pub thumbnail_path: Option<String>,
     pub source_type: String,
+    pub wallpaper_category: String,
     pub wallpaper_type: String,
     pub metadata: WallpaperMetadataDto,
     pub added_at: String,
@@ -84,77 +83,34 @@ pub struct MonitorDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuiSettingsDto {
-    pub window_width: u32,
-    pub window_height: u32,
-    pub minimize_to_tray: bool,
-    pub start_minimized: bool,
-    pub theme: String,
-    pub language: String,
-    pub renderer: String,
-    pub sidebar_collapsed: bool,
-    pub detail_panel_visible: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlaybackSettingsDto {
-    pub volume: f32,
+pub struct EngineConfigDto {
+    pub volume: f64,
     pub fps_limit: Option<u32>,
-    pub preferred_monitor: Option<String>,
-    pub loop_mode: bool,
-    pub shuffle: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PowerSettingsDto {
+    pub loop_playback: bool,
+    pub layout: String,
+    pub hwdec: String,
+    pub mute: bool,
+    pub start_time: f64,
+    pub playback_rate: f64,
+    pub hdr_mode: String,
+    pub tone_mapping_algorithm: String,
+    pub tone_mapping_param: f64,
+    pub tone_mapping_mode: String,
+    pub tone_mapping_compute_peak: bool,
+    pub auto_play: bool,
     pub pause_on_battery: bool,
-    pub pause_on_fullscreen: bool,
-    pub battery_fps_limit: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SettingsDto {
-    pub gui: GuiSettingsDto,
-    pub playback: PlaybackSettingsDto,
-    pub autostart_enabled: bool,
-    pub restore_last_wallpaper: bool,
-    pub power: PowerSettingsDto,
-    pub library_folders: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SettingsPatch {
-    pub window_width: Option<u32>,
-    pub window_height: Option<u32>,
-    pub minimize_to_tray: Option<bool>,
-    pub start_minimized: Option<bool>,
-    pub theme: Option<String>,
-    pub language: Option<String>,
-    pub renderer: Option<String>,
-    pub sidebar_collapsed: Option<bool>,
-    pub detail_panel_visible: Option<bool>,
-    pub volume: Option<f32>,
-    pub fps_limit: Option<FpsLimitPatch>,
-    pub pause_on_battery: Option<bool>,
-    pub pause_on_fullscreen: Option<bool>,
-    pub autostart_enabled: Option<bool>,
-    pub restore_last_wallpaper: Option<bool>,
-    pub library_folders: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FpsLimitPatch {
-    Unlimited,
-    Value(u32),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct InitializationSnapshot {
-    pub settings: SettingsDto,
+pub struct ServiceInfo {
     pub workshop_available: bool,
     pub engine_running: bool,
-    pub tray_available: bool,
-    pub another_instance: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreviewDto {
+    pub image_path: Option<String>,
+    pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,30 +120,21 @@ pub enum ServiceEvent {
     WallpaperApplied { output: String, path: String },
     WallpaperCleared { output: String },
     OutputsChanged { outputs: Vec<MonitorDto> },
-    ShowWindow,
-    TrayAction { action: String },
     Error { code: String, message: String },
 }
 
 struct ServiceInner {
-    settings: AppSettings,
     engine: EngineController,
-    tray: Option<SystemTray>,
-    wallpapers: Vec<WallpaperItem>,
     events: VecDeque<ServiceEvent>,
-    monitors: Vec<MonitorDto>,
-    another_instance: bool,
 }
 
-/// Long-lived Rust backend owned by the Flutter application.
 #[derive(Clone)]
 pub struct WayvidService {
     inner: Arc<Mutex<ServiceInner>>,
 }
 
 impl WayvidService {
-    /// Construct the service without starting the playback engine.
-    pub fn new(args: Vec<String>) -> Result<Self, BridgeError> {
+    pub fn new() -> Result<Self, BridgeError> {
         tracing_subscriber::fmt()
             .with_env_filter(
                 tracing_subscriber::EnvFilter::from_default_env()
@@ -196,211 +143,174 @@ impl WayvidService {
             .try_init()
             .ok();
 
-        let mut settings = AppSettings::load().unwrap_or_default();
-        let force_minimized = args.iter().any(|arg| arg == "--minimized");
-        if force_minimized {
-            settings.gui.start_minimized = true;
-        }
-
-        let another_instance = single_instance::is_another_instance_running();
-        if another_instance {
-            let _ = single_instance::request_show_window();
-        }
-
-        let tray = if settings.gui.minimize_to_tray {
-            SystemTray::new()
-        } else {
-            None
-        };
-
         Ok(Self {
             inner: Arc::new(Mutex::new(ServiceInner {
-                settings,
                 engine: EngineController::new(),
-                tray,
-                wallpapers: Vec::new(),
                 events: VecDeque::new(),
-                monitors: Vec::new(),
-                another_instance,
             })),
         })
     }
 
-    pub fn initialize(&self) -> Result<InitializationSnapshot, BridgeError> {
-        let guard = self.lock()?;
-        Ok(InitializationSnapshot {
-            settings: settings_to_dto(&guard.settings),
+    pub fn initialize(&self) -> Result<ServiceInfo, BridgeError> {
+        Ok(ServiceInfo {
             workshop_available: SteamLibrary::try_discover().is_some(),
-            engine_running: guard.engine.is_running(),
-            tray_available: guard.tray.is_some(),
-            another_instance: guard.another_instance,
+            engine_running: self.lock()?.engine.is_running(),
         })
-    }
-
-    pub async fn load_library(&self) -> Result<Vec<WallpaperDto>, BridgeError> {
-        let result = tokio::task::spawn_blocking(|| {
-            let db = LibraryDatabase::open(LibraryDatabase::default_path())?;
-            Ok::<_, anyhow::Error>(db.list_wallpapers(&wayvid_library::WallpaperFilter::default())?)
-        })
-        .await
-        .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
-
-        let result_dto = result.iter().map(wallpaper_to_dto).collect::<Vec<_>>();
-        self.lock()?.wallpapers = result;
-        Ok(result_dto)
     }
 
     pub async fn scan_folder(&self, path: String) -> Result<Vec<WallpaperDto>, BridgeError> {
-        let path_buf = PathBuf::from(path.clone());
+        let path_buf = PathBuf::from(path);
         let items = tokio::task::spawn_blocking(move || {
-            let scanner = FolderScanner::new();
-            let items = scanner.scan_folder_parallel(&path_buf, true)?;
-            let db = LibraryDatabase::open(LibraryDatabase::default_path())?;
-            db.add_folder(&path_buf, true)?;
-            for item in &items {
-                db.upsert_wallpaper(item)?;
-            }
-            Ok::<_, anyhow::Error>(items)
+            FolderScanner::new()
+                .scan_folder_parallel(&path_buf, true)
+                .map_err(BridgeError::from)
         })
         .await
         .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
-
-        let dto = items.iter().map(wallpaper_to_dto).collect::<Vec<_>>();
-        let mut guard = self.lock()?;
-        merge_wallpapers(&mut guard.wallpapers, items);
-        guard.settings.library.folders = guard
-            .settings
-            .library
-            .folders
-            .iter()
-            .cloned()
-            .chain([PathBuf::from(path)])
-            .collect();
-        guard.settings.save().map_err(BridgeError::from)?;
-        Ok(dto)
+        Ok(items.iter().map(wallpaper_to_dto).collect())
     }
 
     pub async fn scan_workshop(&self) -> Result<Vec<WallpaperDto>, BridgeError> {
         let items = tokio::task::spawn_blocking(|| {
-            let mut scanner = wayvid_library::WorkshopScanner::discover()?;
-            scanner.scan_all().map_err(anyhow::Error::from)
+            let mut scanner =
+                wayvid_library::WorkshopScanner::discover().map_err(BridgeError::from)?;
+            scanner
+                .scan_all()
+                .map_err(|error| BridgeError::message("scan_failed", error.to_string()))
+        })
+        .await
+        .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
+        Ok(items.iter().map(wallpaper_to_dto).collect())
+    }
+
+    pub async fn load_preview(
+        &self,
+        wallpaper_id: String,
+        path: String,
+        wallpaper_type: String,
+        width: u32,
+        height: u32,
+    ) -> Result<PreviewDto, BridgeError> {
+        let source = PathBuf::from(path);
+        if wallpaper_type == "image" && is_direct_image(&source) {
+            return Ok(PreviewDto {
+                image_path: Some(source.to_string_lossy().to_string()),
+                bytes: Vec::new(),
+            });
+        }
+
+        let cache_path = preview_cache_path(&wallpaper_id);
+        if let Ok(bytes) = tokio::fs::read(&cache_path).await {
+            return Ok(PreviewDto {
+                image_path: None,
+                bytes,
+            });
+        }
+
+        let bytes = tokio::task::spawn_blocking(move || {
+            ThumbnailGenerator::with_size(width, height)
+                .generate(&source)
+                .map(|result| result.data)
+                .map_err(|error| BridgeError::message("preview_failed", error.to_string()))
         })
         .await
         .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
 
-        let dto = items.iter().map(wallpaper_to_dto).collect::<Vec<_>>();
-        let mut guard = self.lock()?;
-        merge_wallpapers(&mut guard.wallpapers, items);
-        Ok(dto)
-    }
-
-    pub async fn refresh_monitors(&self) -> Result<Vec<MonitorDto>, BridgeError> {
-        let monitors = tokio::task::spawn_blocking(detect_monitors)
-            .await
-            .map_err(|error| BridgeError::message("join_failed", error.to_string()))?;
-        let mut guard = self.lock()?;
-        guard.monitors = monitors.clone();
-        guard.events.push_back(ServiceEvent::OutputsChanged {
-            outputs: monitors.clone(),
-        });
-        Ok(monitors)
-    }
-
-    pub async fn load_thumbnail(
-        &self,
-        wallpaper_id: String,
-        path: String,
-        width: u32,
-        height: u32,
-    ) -> Result<Vec<u8>, BridgeError> {
-        let cache_dir = thumbnail_cache_dir();
-        let cache_path = thumbnail_cache_path(&cache_dir, &wallpaper_id);
-        if let Ok(data) = tokio::fs::read(&cache_path).await {
-            return Ok(data);
-        }
-
-        let source = PathBuf::from(path);
-        let result = tokio::task::spawn_blocking(move || {
-            ThumbnailGenerator::with_size(width, height)
-                .generate(&source)
-                .map(|result| result.data)
-        })
-        .await
-        .map_err(|error| BridgeError::message("join_failed", error.to_string()))?
-        .map_err(|error| BridgeError::message("thumbnail_failed", error.to_string()))?;
-
         if let Some(parent) = cache_path.parent() {
             tokio::fs::create_dir_all(parent).await.ok();
         }
-        tokio::fs::write(cache_path, &result).await.ok();
-        Ok(result)
+        tokio::fs::write(cache_path, &bytes).await.ok();
+        Ok(PreviewDto {
+            image_path: None,
+            bytes,
+        })
     }
 
-    pub async fn start_engine(&self) -> Result<(), BridgeError> {
+    pub async fn refresh_monitors(&self) -> Result<Vec<MonitorDto>, BridgeError> {
         let mut guard = self.lock()?;
         if guard.engine.is_running() {
-            return Ok(());
+            guard
+                .engine
+                .wait_for_outputs(Duration::from_secs(5))
+                .map_err(|message| BridgeError::message("monitors_unavailable", message))?;
+            let mut outputs: Vec<_> = guard
+                .engine
+                .outputs()
+                .iter()
+                .map(monitor_from_engine)
+                .collect();
+            outputs.sort_by(|a, b| a.name.cmp(&b.name));
+            if let Some(first) = outputs.first_mut() {
+                first.primary = true;
+            }
+            Ok(outputs)
+        } else if std::env::var("XDG_SESSION_TYPE").as_deref() == Ok("x11") {
+            let mut outputs: Vec<_> = wayvid_engine::discover_x11_outputs()
+                .map_err(|error| BridgeError::message("monitors_unavailable", error.to_string()))?
+                .iter()
+                .map(monitor_from_engine)
+                .collect();
+            outputs.sort_by(|a, b| a.name.cmp(&b.name));
+            if let Some(first) = outputs.first_mut() {
+                first.primary = true;
+            }
+            Ok(outputs)
+        } else {
+            Ok(Vec::new())
         }
-        let config = default_engine_config(&guard.settings);
-        guard
-            .engine
-            .start(config)
-            .map_err(|message| BridgeError::message("engine_start_failed", message))?;
-        guard.settings.autostart.engine_running = true;
-        guard.settings.save().map_err(BridgeError::from)?;
-        guard.events.push_back(ServiceEvent::EngineStarted);
+    }
+
+    pub async fn create_engine(&self, config: EngineConfigDto) -> Result<(), BridgeError> {
+        let mut guard = self.lock()?;
+        if !guard.engine.is_running() {
+            guard
+                .engine
+                .start(config_to_engine(config))
+                .map_err(|message| BridgeError::message("engine_start_failed", message))?;
+            guard.events.push_back(ServiceEvent::EngineStarted);
+        }
         Ok(())
+    }
+
+    pub async fn update_engine_config(&self, config: EngineConfigDto) -> Result<(), BridgeError> {
+        self.lock()?
+            .engine
+            .update_config(config_to_engine(config))
+            .map_err(|message| BridgeError::message("engine_config_failed", message))
     }
 
     pub async fn stop_engine(&self) -> Result<(), BridgeError> {
         let mut guard = self.lock()?;
         guard.engine.stop();
-        guard.settings.autostart.engine_running = false;
-        guard.settings.save().map_err(BridgeError::from)?;
         guard.events.push_back(ServiceEvent::EngineStopped);
         Ok(())
     }
 
     pub async fn apply_wallpaper(
         &self,
-        wallpaper_id: String,
+        path: String,
         output: Option<String>,
     ) -> Result<(), BridgeError> {
-        if !self.lock()?.engine.is_running() {
-            self.start_engine().await?;
-        }
         let mut guard = self.lock()?;
         guard
             .engine
             .wait_for_outputs(Duration::from_secs(5))
             .map_err(|message| BridgeError::message("engine_not_ready", message))?;
-        let wallpaper = guard
-            .wallpapers
-            .iter()
-            .find(|item| item.id == wallpaper_id)
-            .cloned()
-            .ok_or_else(|| BridgeError::message("wallpaper_not_found", wallpaper_id.clone()))?;
-        let path = wallpaper.source_path.clone();
-        let output_name = output.clone().unwrap_or_else(|| "all".to_string());
         guard
             .engine
-            .apply_wallpaper(output.clone(), path.clone())
+            .apply_wallpaper(output.clone(), PathBuf::from(&path))
             .map_err(|message| BridgeError::message("apply_failed", message))?;
-        let monitors = guard.monitors.clone();
-        save_wallpaper_state(&mut guard.settings, &monitors, output.as_deref(), &path);
-        guard.settings.save().map_err(BridgeError::from)?;
         guard.events.push_back(ServiceEvent::WallpaperApplied {
-            output: output_name,
-            path: path.to_string_lossy().to_string(),
+            output: output.unwrap_or_else(|| "all".to_string()),
+            path,
         });
         Ok(())
     }
 
     pub async fn clear_wallpaper(&self, output: Option<String>) -> Result<(), BridgeError> {
-        let guard = self.lock()?;
-        guard
+        self.lock()?
             .engine
-            .clear_wallpaper(output.clone())
+            .clear_wallpaper(output)
             .map_err(|message| BridgeError::message("clear_failed", message))
     }
 
@@ -418,17 +328,6 @@ impl WayvidService {
             .map_err(|message| BridgeError::message("resume_failed", message))
     }
 
-    pub fn get_settings(&self) -> Result<SettingsDto, BridgeError> {
-        Ok(settings_to_dto(&self.lock()?.settings))
-    }
-
-    pub fn update_settings(&self, patch: SettingsPatch) -> Result<SettingsDto, BridgeError> {
-        let mut guard = self.lock()?;
-        apply_settings_patch(&mut guard.settings, patch)?;
-        guard.settings.save().map_err(BridgeError::from)?;
-        Ok(settings_to_dto(&guard.settings))
-    }
-
     pub fn poll_events(&self) -> Result<Vec<ServiceEvent>, BridgeError> {
         let mut guard = self.lock()?;
         for event in guard.engine.poll_events() {
@@ -443,12 +342,26 @@ impl WayvidService {
                     guard.events.push_back(ServiceEvent::WallpaperApplied {
                         output,
                         path: path.to_string_lossy().to_string(),
-                    });
+                    })
                 }
-                wayvid_engine::EngineEvent::WallpaperCleared { output } => {
+                wayvid_engine::EngineEvent::WallpaperCleared { output } => guard
+                    .events
+                    .push_back(ServiceEvent::WallpaperCleared { output }),
+                wayvid_engine::EngineEvent::OutputAdded(_)
+                | wayvid_engine::EngineEvent::OutputRemoved(_) => {
+                    let mut outputs: Vec<_> = guard
+                        .engine
+                        .outputs()
+                        .iter()
+                        .map(monitor_from_engine)
+                        .collect();
+                    outputs.sort_by(|a, b| a.name.cmp(&b.name));
+                    if let Some(first) = outputs.first_mut() {
+                        first.primary = true;
+                    }
                     guard
                         .events
-                        .push_back(ServiceEvent::WallpaperCleared { output });
+                        .push_back(ServiceEvent::OutputsChanged { outputs })
                 }
                 wayvid_engine::EngineEvent::Error(message) => {
                     guard.events.push_back(ServiceEvent::Error {
@@ -456,36 +369,10 @@ impl WayvidService {
                         message,
                     })
                 }
-                wayvid_engine::EngineEvent::OutputAdded(_)
-                | wayvid_engine::EngineEvent::OutputRemoved(_)
-                | wayvid_engine::EngineEvent::OutputsList(_)
+                wayvid_engine::EngineEvent::OutputsList(_)
                 | wayvid_engine::EngineEvent::Status(_) => {}
             }
         }
-
-        if guard.engine.check_show_window_request() {
-            guard.events.push_back(ServiceEvent::ShowWindow);
-        }
-        let tray_actions = if let Some(tray) = &guard.tray {
-            let mut actions = Vec::new();
-            while let Some(action) = tray.try_recv_action() {
-                actions.push(match action {
-                    TrayAction::Show => "show",
-                    TrayAction::Hide => "hide",
-                    TrayAction::TogglePause => "toggle_pause",
-                    TrayAction::Quit => "quit",
-                });
-            }
-            actions
-        } else {
-            Vec::new()
-        };
-        for action in tray_actions {
-            guard.events.push_back(ServiceEvent::TrayAction {
-                action: action.to_string(),
-            });
-        }
-
         Ok(guard.events.drain(..).collect())
     }
 
@@ -494,11 +381,7 @@ impl WayvidService {
     }
 
     pub async fn shutdown(&self) -> Result<(), BridgeError> {
-        let mut guard = self.lock()?;
-        guard.engine.stop();
-        if let Some(tray) = &guard.tray {
-            tray.shutdown();
-        }
+        self.lock()?.engine.stop();
         Ok(())
     }
 
@@ -509,103 +392,68 @@ impl WayvidService {
     }
 }
 
-fn settings_to_dto(settings: &AppSettings) -> SettingsDto {
-    SettingsDto {
-        gui: GuiSettingsDto {
-            window_width: settings.gui.window_width,
-            window_height: settings.gui.window_height,
-            minimize_to_tray: settings.gui.minimize_to_tray,
-            start_minimized: settings.gui.start_minimized,
-            theme: settings.gui.theme.clone(),
-            language: settings.gui.language.clone(),
-            renderer: settings.gui.renderer.clone(),
-            sidebar_collapsed: settings.gui.sidebar_collapsed,
-            detail_panel_visible: settings.gui.detail_panel_visible,
+fn config_to_engine(config: EngineConfigDto) -> EngineConfig {
+    EngineConfig {
+        video: VideoConfig {
+            loop_playback: config.loop_playback,
+            layout: parse_layout(&config.layout),
+            hwdec: parse_hwdec(&config.hwdec),
+            mute: config.mute,
+            volume: config.volume.clamp(0.0, 1.0),
+            start_time: config.start_time.max(0.0),
+            playback_rate: config.playback_rate.clamp(0.1, 10.0),
+            hdr_mode: parse_hdr_mode(&config.hdr_mode),
+            tone_mapping: wayvid_engine::ToneMappingConfig {
+                algorithm: parse_tone_mapping_algorithm(&config.tone_mapping_algorithm),
+                param: config.tone_mapping_param,
+                compute_peak: config.tone_mapping_compute_peak,
+                mode: config.tone_mapping_mode,
+            },
+            ..VideoConfig::default()
         },
-        playback: PlaybackSettingsDto {
-            volume: settings.playback.volume,
-            fps_limit: settings.playback.fps_limit,
-            preferred_monitor: settings.playback.preferred_monitor.clone(),
-            loop_mode: settings.playback.loop_mode,
-            shuffle: settings.playback.shuffle,
-        },
-        autostart_enabled: AutostartManager::is_enabled(),
-        restore_last_wallpaper: settings.autostart.restore_last_wallpaper,
-        power: PowerSettingsDto {
-            pause_on_battery: settings.power.pause_on_battery,
-            pause_on_fullscreen: settings.power.pause_on_fullscreen,
-            battery_fps_limit: settings.power.battery_fps_limit,
-        },
-        library_folders: settings
-            .library
-            .folders
-            .iter()
-            .map(|path| path.to_string_lossy().to_string())
-            .collect(),
+        auto_play: config.auto_play,
+        fps_limit: config.fps_limit.filter(|value| *value > 0),
+        pause_on_battery: config.pause_on_battery,
     }
 }
 
-fn apply_settings_patch(
-    settings: &mut AppSettings,
-    patch: SettingsPatch,
-) -> Result<(), BridgeError> {
-    if let Some(value) = patch.window_width {
-        settings.gui.window_width = value.max(800);
+fn parse_layout(value: &str) -> wayvid_engine::LayoutMode {
+    match value {
+        "contain" => wayvid_engine::LayoutMode::Contain,
+        "stretch" => wayvid_engine::LayoutMode::Stretch,
+        "cover" => wayvid_engine::LayoutMode::Cover,
+        "centre" | "center" => wayvid_engine::LayoutMode::Centre,
+        _ => wayvid_engine::LayoutMode::Fill,
     }
-    if let Some(value) = patch.window_height {
-        settings.gui.window_height = value.max(600);
-    }
-    if let Some(value) = patch.minimize_to_tray {
-        settings.gui.minimize_to_tray = value;
-    }
-    if let Some(value) = patch.start_minimized {
-        settings.gui.start_minimized = value;
-    }
-    if let Some(value) = patch.theme {
-        settings.gui.theme = value;
-    }
-    if let Some(value) = patch.language {
-        settings.gui.language = value;
-    }
-    if let Some(value) = patch.renderer {
-        settings.gui.renderer = value;
-    }
-    if let Some(value) = patch.sidebar_collapsed {
-        settings.gui.sidebar_collapsed = value;
-    }
-    if let Some(value) = patch.detail_panel_visible {
-        settings.gui.detail_panel_visible = value;
-    }
-    if let Some(value) = patch.volume {
-        settings.playback.volume = value.clamp(0.0, 1.0);
-    }
-    if let Some(value) = patch.fps_limit {
-        settings.playback.fps_limit = match value {
-            FpsLimitPatch::Unlimited => None,
-            FpsLimitPatch::Value(value) => Some(value),
-        };
-    }
-    if let Some(value) = patch.pause_on_battery {
-        settings.power.pause_on_battery = value;
-    }
-    if let Some(value) = patch.pause_on_fullscreen {
-        settings.power.pause_on_fullscreen = value;
-    }
-    if let Some(value) = patch.autostart_enabled {
-        AutostartManager::set_enabled(value)
-            .map_err(|error| BridgeError::message("autostart_failed", error.to_string()))?;
-        settings.autostart.enabled = value;
-    }
-    if let Some(value) = patch.restore_last_wallpaper {
-        settings.autostart.restore_last_wallpaper = value;
-    }
-    if let Some(value) = patch.library_folders {
-        settings.library.folders = value.into_iter().map(PathBuf::from).collect();
-    }
-    Ok(())
 }
 
-fn wallpaper_to_dto(item: &WallpaperItem) -> WallpaperDto {
+fn parse_hwdec(value: &str) -> wayvid_engine::HwdecMode {
+    match value {
+        "force" => wayvid_engine::HwdecMode::Force,
+        "none" | "no" => wayvid_engine::HwdecMode::No,
+        _ => wayvid_engine::HwdecMode::Auto,
+    }
+}
+
+fn parse_hdr_mode(value: &str) -> wayvid_engine::HdrMode {
+    match value {
+        "force" => wayvid_engine::HdrMode::Force,
+        "disable" | "disabled" => wayvid_engine::HdrMode::Disable,
+        _ => wayvid_engine::HdrMode::Auto,
+    }
+}
+
+fn parse_tone_mapping_algorithm(value: &str) -> wayvid_engine::types::ToneMappingAlgorithm {
+    match value {
+        "mobius" => wayvid_engine::types::ToneMappingAlgorithm::Mobius,
+        "reinhard" => wayvid_engine::types::ToneMappingAlgorithm::Reinhard,
+        "bt2390" | "bt.2390" => wayvid_engine::types::ToneMappingAlgorithm::Bt2390,
+        "clip" => wayvid_engine::types::ToneMappingAlgorithm::Clip,
+        _ => wayvid_engine::types::ToneMappingAlgorithm::Hable,
+    }
+}
+
+fn wallpaper_to_dto(item: &wayvid_library::WallpaperItem) -> WallpaperDto {
     let (resolution_width, resolution_height) = item
         .metadata
         .resolution
@@ -619,8 +467,15 @@ fn wallpaper_to_dto(item: &WallpaperItem) -> WallpaperDto {
             .thumbnail_path
             .as_ref()
             .map(|path| path.to_string_lossy().to_string()),
-        source_type: source_type_name(item.source_type).to_string(),
-        wallpaper_type: wallpaper_type_name(item.wallpaper_type).to_string(),
+        source_type: item.source_type.as_str().to_string(),
+        wallpaper_category: match item.wallpaper_type {
+            wayvid_library::WallpaperType::Scene => "scene",
+            wayvid_library::WallpaperType::Video
+            | wayvid_library::WallpaperType::Gif
+            | wayvid_library::WallpaperType::Image => "video",
+        }
+        .to_string(),
+        wallpaper_type: item.wallpaper_type.as_str().to_string(),
         metadata: WallpaperMetadataDto {
             title: item.metadata.title.clone(),
             author: item.metadata.author.clone(),
@@ -633,170 +488,40 @@ fn wallpaper_to_dto(item: &WallpaperItem) -> WallpaperDto {
             workshop_id: item.metadata.workshop_id,
         },
         added_at: item.added_at.to_rfc3339(),
-        last_used: item.last_used.map(|date| date.to_rfc3339()),
+        last_used: item.last_used.as_ref().map(|date| date.to_rfc3339()),
     }
 }
 
-fn source_type_name(value: SourceType) -> &'static str {
-    match value {
-        SourceType::LocalFile => "local_file",
-        SourceType::LocalDirectory => "local_directory",
-        SourceType::SteamWorkshop => "steam_workshop",
+fn monitor_from_engine(info: &wayvid_engine::OutputInfo) -> MonitorDto {
+    MonitorDto {
+        name: info.name.clone(),
+        width: info.width.max(0) as u32,
+        height: info.height.max(0) as u32,
+        x: info.position.0,
+        y: info.position.1,
+        scale: info.scale,
+        primary: false,
+        current_wallpaper: None,
     }
 }
 
-fn wallpaper_type_name(value: WallpaperType) -> &'static str {
-    match value {
-        WallpaperType::Video => "video",
-        WallpaperType::Image => "image",
-        WallpaperType::Gif => "gif",
-        WallpaperType::Scene => "scene",
-    }
+fn is_direct_image(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase())
+            .as_deref(),
+        Some("png" | "jpg" | "jpeg" | "webp" | "bmp")
+    )
 }
 
-fn merge_wallpapers(target: &mut Vec<WallpaperItem>, items: Vec<WallpaperItem>) {
-    for item in items {
-        if let Some(existing) = target.iter_mut().find(|existing| existing.id == item.id) {
-            *existing = item;
-        } else {
-            target.push(item);
-        }
-    }
-}
-
-fn save_wallpaper_state(
-    settings: &mut AppSettings,
-    monitors: &[MonitorDto],
-    output: Option<&str>,
-    path: &Path,
-) {
-    let names = output
-        .map(|name| vec![name.to_string()])
-        .unwrap_or_else(|| {
-            monitors
-                .iter()
-                .map(|monitor| monitor.name.clone())
-                .collect()
-        });
-    for monitor in names {
-        let state = crate::settings::MonitorState {
-            monitor: monitor.clone(),
-            wallpaper_path: Some(path.to_path_buf()),
-        };
-        if let Some(existing) = settings
-            .autostart
-            .monitor_states
-            .iter_mut()
-            .find(|item| item.monitor == monitor)
-        {
-            *existing = state;
-        } else {
-            settings.autostart.monitor_states.push(state);
-        }
-    }
-}
-
-fn thumbnail_cache_dir() -> PathBuf {
+fn preview_cache_path(id: &str) -> PathBuf {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    use std::hash::{Hash, Hasher};
+    id.hash(&mut hasher);
     dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("wayvid")
-        .join("thumbnails")
-}
-
-fn thumbnail_cache_path(cache_dir: &Path, id: &str) -> PathBuf {
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    id.hash(&mut hasher);
-    cache_dir.join(format!("{:x}.webp", hasher.finish()))
-}
-
-fn detect_monitors() -> Vec<MonitorDto> {
-    let output = std::process::Command::new("wlr-randr").output();
-    let Ok(output) = output else {
-        return Vec::new();
-    };
-    if !output.status.success() {
-        return Vec::new();
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut monitors = Vec::new();
-    let mut current: Option<MonitorDto> = None;
-    for line in stdout.lines() {
-        if !line.starts_with(' ') && !line.is_empty() {
-            if let Some(monitor) = current.take() {
-                monitors.push(monitor);
-            }
-            let name = line
-                .split_whitespace()
-                .next()
-                .unwrap_or_default()
-                .to_string();
-            if !name.is_empty() {
-                current = Some(MonitorDto {
-                    name,
-                    width: 0,
-                    height: 0,
-                    x: 0,
-                    y: 0,
-                    scale: 1.0,
-                    primary: monitors.is_empty(),
-                    current_wallpaper: None,
-                });
-            }
-        } else if let Some(monitor) = current.as_mut() {
-            let line = line.trim();
-            if line.contains("current") && line.contains(" px") {
-                if let Some(resolution) = line.split(" px").next() {
-                    let parts: Vec<_> = resolution.split('x').collect();
-                    if parts.len() == 2 {
-                        monitor.width = parts[0].trim().parse().unwrap_or(0);
-                        monitor.height = parts[1].trim().parse().unwrap_or(0);
-                    }
-                }
-            } else if let Some(position) = line.strip_prefix("Position:") {
-                let parts: Vec<_> = position.trim().split(',').collect();
-                if parts.len() == 2 {
-                    monitor.x = parts[0].trim().parse().unwrap_or(0);
-                    monitor.y = parts[1].trim().parse().unwrap_or(0);
-                }
-            } else if let Some(scale) = line.strip_prefix("Scale:") {
-                monitor.scale = scale.trim().parse().unwrap_or(1.0);
-            }
-        }
-    }
-    if let Some(monitor) = current {
-        monitors.push(monitor);
-    }
-    monitors
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn thumbnail_cache_path_is_stable() {
-        let first = thumbnail_cache_path(Path::new("/tmp/cache"), "wallpaper");
-        let second = thumbnail_cache_path(Path::new("/tmp/cache"), "wallpaper");
-        assert_eq!(first, second);
-        assert!(first
-            .extension()
-            .is_some_and(|extension| extension == "webp"));
-    }
-
-    #[test]
-    fn settings_patch_clamps_values() {
-        let mut settings = AppSettings::default();
-        apply_settings_patch(
-            &mut settings,
-            SettingsPatch {
-                volume: Some(2.0),
-                window_width: Some(1),
-                ..Default::default()
-            },
-        )
-        .unwrap();
-        assert_eq!(settings.playback.volume, 1.0);
-        assert_eq!(settings.gui.window_width, 800);
-    }
+        .join("previews")
+        .join(format!("{:x}.webp", hasher.finish()))
 }

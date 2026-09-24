@@ -12,9 +12,9 @@ use std::sync::OnceLock;
 use anyhow::{anyhow, Result};
 use tracing::{debug, info, warn};
 
-use wayvid_core::{
-    hdr::{parse_colorspace, parse_transfer_function, HdrMetadata, HdrMode, ToneMappingConfig},
-    HwdecMode, LayoutMode, OutputInfo,
+use crate::types::{
+    parse_colorspace, parse_transfer_function, HdrMetadata, HdrMode, HwdecMode, LayoutMode,
+    OutputInfo, ToneMappingConfig,
 };
 
 use crate::egl::EglContext;
@@ -215,19 +215,14 @@ impl MpvPlayer {
         set_option("cache-secs", "3");
         set_option("demuxer-readahead-secs", "2");
 
-        // Audio disabled by default for wallpapers (can be re-enabled)
-        set_option("audio", "no"); // Disable audio pipeline entirely
+        // Keep an audio track available so tray unmute works without reloading.
+        set_option("audio", "auto");
+        set_option("mute", if config.mute { "yes" } else { "no" });
+        set_option("volume", &format!("{}", (config.volume * 100.0) as i64));
 
         // Playback settings
         if config.loop_playback {
             set_option("loop-file", "inf");
-        }
-
-        // Re-enable audio if not muted (overrides the default audio=no)
-        if !config.mute {
-            set_option("audio", "auto");
-            let volume = format!("{}", (config.volume * 100.0) as i64);
-            set_option("volume", &volume);
         }
 
         // Start time
@@ -738,6 +733,41 @@ impl MpvPlayer {
         };
         if ret < 0 {
             return Err(anyhow!("Failed to set volume: error {}", ret));
+        }
+        Ok(())
+    }
+
+    /// Apply settings that can be changed while the player is alive.
+    pub fn update_config(&mut self, config: &VideoConfig) -> Result<()> {
+        let mute = CString::new("mute")?;
+        let value = CString::new(if config.mute { "yes" } else { "no" })?;
+        let result = unsafe {
+            libmpv_sys::mpv_set_property_string(self.handle, mute.as_ptr(), value.as_ptr())
+        };
+        if result < 0 {
+            return Err(anyhow!("Failed to update mute: error {}", result));
+        }
+        self.set_volume(config.volume)?;
+        self.set_runtime_option(
+            "speed",
+            &format!("{}", config.playback_rate.clamp(0.1, 10.0)),
+        )?;
+        self.set_runtime_option("loop-file", if config.loop_playback { "inf" } else { "no" })?;
+        Ok(())
+    }
+
+    fn set_runtime_option(&self, name: &str, value: &str) -> Result<()> {
+        let name = CString::new(name)?;
+        let value = CString::new(value)?;
+        let ret = unsafe {
+            libmpv_sys::mpv_set_option_string(self.handle, name.as_ptr(), value.as_ptr())
+        };
+        if ret < 0 {
+            return Err(anyhow!(
+                "Failed to update {}: error {}",
+                name.to_string_lossy(),
+                ret
+            ));
         }
         Ok(())
     }

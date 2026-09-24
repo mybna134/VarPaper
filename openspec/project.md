@@ -41,9 +41,9 @@ wayvid is a lightweight, high-performance dynamic video wallpaper application fo
 - `flutter_riverpod` 2 - Flutter application state management
 
 ### Supported Platforms
-- **Primary**: Arch Linux, NixOS
+- **Primary**: Linux x86_64 (.deb and .flatpak releases)
 - **Compositors**: Hyprland (full), Niri (full), Sway (partial), River (partial)
-- **Architectures**: x86_64, aarch64
+- **Architectures**: x86_64
 
 ## Project Conventions
 
@@ -153,8 +153,8 @@ This applies to:
 - `gui`: GUI control panel
 - `ctl`: CLI/IPC
 - `we`: Wallpaper Engine integration
-- `aur`: AUR packaging
-- `nix`: Nix packaging
+- `deb`: Debian package
+- `flatpak`: Flatpak package
 
 **Examples:**
 ```
@@ -225,10 +225,8 @@ chore(deps): Update wayland-protocols to 0.32
 - **Startup Time**: < 2 seconds from launch to first frame
 
 ### Packaging Constraints
-- **AUR**: Builds from source (git) or binary (stable)
-- **Nix**: Flake-based, hermetic builds
-- **Debian**: `cargo-deb` generated packages
-- **AppImage**: Bundles all dependencies except libmpv/wayland
+- **Debian**: `dpkg-deb` packages the Flutter Linux release bundle
+- **Flatpak**: `flatpak-builder` packages the same bundle with GNOME 50 runtime
 
 ### Security Constraints
 - **No Root**: Must run as unprivileged user
@@ -277,5 +275,5 @@ chore(deps): Update wayland-protocols to 0.32
 - `rustfmt` - Code formatting
 - `mdbook` - Documentation generation
 - `git-cliff` - Changelog generation
-- `cargo-deb` - Debian package builder
-- `appimagetool` - AppImage builder
+- `dpkg-deb` - Debian package builder
+- `flatpak-builder` - Flatpak package builder

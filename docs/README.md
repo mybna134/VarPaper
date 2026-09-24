@@ -241,4 +241,4 @@ docs/
 
 ## 📜 License
 
-Same as wayvid project (MIT License).
+VarPaper is licensed under GNU GPL v3 only; see the repository NOTICE for upstream attribution.

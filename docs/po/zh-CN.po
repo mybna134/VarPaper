@@ -271,8 +271,8 @@ msgid "License"
 msgstr "许可证"
 
 #: src/introduction.md:43
-msgid "wayvid is dual-licensed under MIT OR Apache-2.0."
-msgstr "wayvid 在 MIT 或 Apache-2.0 下获得双重许可。"
+msgid "VarPaper is licensed under GNU GPL v3 only."
+msgstr "VarPaper 采用 GNU GPL v3 唯一版本许可。"
 
 #: src/user-guide/quick-start.md:3
 msgid "Get wayvid running in 5 minutes."
@@ -4444,8 +4444,8 @@ msgstr "随访：1-2天"
 
 #: src/dev/contributing.md:116
 msgid ""
-"By contributing, you agree to license your code under MIT OR Apache-2.0."
-msgstr "贡献代码即表示您同意以 MIT 或 Apache-2.0 许可证授权您的代码。"
+"By contributing, you agree to license your code under GNU GPL v3 only."
+msgstr "贡献代码即表示您同意以 GNU GPL v3 唯一版本许可授权您的代码。"
 
 #: src/dev/contributing.md:118
 msgid "Questions?"

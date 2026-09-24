@@ -21,15 +21,16 @@ pub mod egl;
 pub mod engine;
 pub mod frame_timing;
 pub mod mpv;
+pub mod types;
 pub mod wayland;
 
 // Re-exports - Engine API
 pub use engine::{
-    spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle, EngineStatus,
-    WallpaperSession,
+    discover_x11_outputs, spawn_engine, EngineCommand, EngineConfig, EngineEvent, EngineHandle,
+    EngineStatus, WallpaperSession,
 };
 
-// Re-export calloop Sender for IPC integration
+// Re-export the command sender for the in-process Flutter service.
 pub use calloop::channel::Sender as CommandSender;
 
 // Re-exports - Low-level components
@@ -38,8 +39,7 @@ pub use frame_timing::FrameTiming;
 pub use mpv::{MpvPlayer, VideoConfig};
 pub use wayland::{LayerSurface, OutputManager};
 
-// Re-exports from wayvid-core
-pub use wayvid_core::{
-    calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode, LayoutTransform, OutputInfo,
-    RenderBackend, ToneMappingConfig,
+pub use types::{
+    calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode, LayoutTransform,
+    OutputHdrCapabilities, OutputInfo, RenderBackend, ToneMappingConfig, TransferFunction,
 };

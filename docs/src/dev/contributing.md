@@ -39,4 +39,4 @@ Include:
 
 ## License
 
-MIT OR Apache-2.0
+GNU GPL v3 only. See the repository NOTICE for upstream attribution.

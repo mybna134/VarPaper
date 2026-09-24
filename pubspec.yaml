@@ -1,5 +1,5 @@
-name: wayvid_gui
-description: "Flutter GUI for wayvid, backed by Rust and flutter_rust_bridge."
+name: varpaper
+description: "VarPaper wallpaper manager, backed by Rust and flutter_rust_bridge."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -38,6 +38,12 @@ dependencies:
   flutter_rust_bridge: 2.12.0
   flutter_riverpod: ^2.6.1
   freezed_annotation: ^3.0.0
+  isar_community: 3.3.2
+  isar_community_flutter_libs: 3.3.2
+  menu_base: ^0.1.1
+  path_provider: ^2.1.5
+  shimmer: ^4.0.0
+  tray_manager: ^0.5.3
   window_manager: ^0.5.1
 
   # The following adds the Cupertino Icons font to your application.
@@ -55,6 +61,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.7.1
   freezed: ^3.0.0
+  isar_community_generator: 3.3.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -68,6 +75,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - packaging/varpaper.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

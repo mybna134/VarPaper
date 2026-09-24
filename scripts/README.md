@@ -1,6 +1,6 @@
 # Development Scripts
 
-Useful development and testing scripts for wayvid v0.5 workspace.
+Development and packaging scripts for VarPaper.
 
 ## Available Scripts
 
@@ -8,6 +8,7 @@ Useful development and testing scripts for wayvid v0.5 workspace.
 - `dev-check.sh` - Check development environment setup
 - `quick-check.sh` - Fast workspace checks (format, clippy)
 - `pre-push-check.sh` - Full pre-commit validation (tests, build)
+- `build-packages.sh` - Build the `.deb` and `.flatpak` release packages
 
 ## Usage
 
@@ -41,10 +42,8 @@ The project uses Rust's built-in test framework across the workspace:
 cargo test --workspace
 
 # Run tests for a specific crate
-cargo test -p wayvid-core
 cargo test -p wayvid-library
 cargo test -p wayvid_gui
-cargo test -p wayvid-ctl
 cargo test -p wayvid-engine
 ```
 
@@ -57,9 +56,9 @@ cargo build --workspace
 # Release build
 cargo build --release --workspace
 
+# Linux release packages (.deb and .flatpak)
+./scripts/build-packages.sh
+
 # Run GUI
 flutter run -d linux
-
-# Run CLI
-./target/release/wayvid-ctl status
 ```

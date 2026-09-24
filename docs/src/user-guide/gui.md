@@ -54,7 +54,7 @@ wayvid automatically saves your wallpaper settings and restores them on restart:
 
 - **Per-monitor wallpapers**: Each monitor remembers its wallpaper
 - **Engine state**: Engine auto-starts if it was running before
-- **Settings location**: `~/.config/wayvid/settings.yaml`
+- **Settings location**: Flutter application support directory (Isar Community)
 
 To enable full persistence:
 1. Enable "Start with system" in Settings
@@ -89,8 +89,9 @@ exec-once = wayvid-gui
 ## Troubleshooting
 
 **No monitors shown:**
-- Check Wayland session is running
-- Ensure compositor supports wlr-layer-shell
+- Check that a Wayland or X11 desktop session is running
+- On Wayland, ensure the compositor supports wlr-layer-shell
+- On X11, ensure RandR is available
 
 **Fonts broken (Chinese):**
 ```bash
@@ -98,5 +99,5 @@ sudo pacman -S noto-fonts-cjk  # Arch
 ```
 
 **Thumbnails not loading:**
-- Check `~/.cache/wayvid/thumbnails/` permissions
+- Check the application cache directory permissions
 - Ensure ffmpeg is installed for video thumbnails

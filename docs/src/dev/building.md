@@ -1,58 +1,38 @@
 # Building
 
-## Dependencies
+The Linux release build creates one Flutter bundle with the Rust playback engine and packages it as `.deb` and `.flatpak`.
 
-**Arch:**
+## Requirements
+
+- Flutter 3.47.4 and a stable Rust toolchain
+- GTK 3, libmpv, Wayland, EGL, and Ayatana AppIndicator development packages
+- `dpkg-deb`, `flatpak-builder`, and the GNOME 50 Flatpak runtime and SDK
+- Ubuntu 24.04 for release Flatpak builds
+
+## Build both packages
+
 ```bash
-sudo pacman -S rust mpv wayland wayland-protocols libxkbcommon fontconfig mesa
+./scripts/build-packages.sh
 ```
 
-**Ubuntu/Debian:**
+The script runs a clean Flutter Linux release build once, then writes the two packages to `dist/`. Pass a version argument to override the version in `pubspec.yaml`:
+
 ```bash
-sudo apt install cargo libmpv-dev libwayland-dev libxkbcommon-dev libfontconfig-dev libegl-dev
+./scripts/build-packages.sh 0.5.0
 ```
 
-**Fedora:**
+To repackage an existing Flutter bundle during development:
+
 ```bash
-sudo dnf install cargo mpv-libs-devel wayland-devel libxkbcommon-devel fontconfig-devel mesa-libEGL-devel
+VARPAPER_SKIP_BUILD=1 ./scripts/build-packages.sh 0.5.0
 ```
 
-## Build
+This mode still checks the Flatpak bundle's runtime library dependencies. It fails when host libraries require a newer glibc than the GNOME 50 runtime provides.
+
+## Checks
 
 ```bash
-git clone https://github.com/YangYuS8/wayvid
-cd wayvid
-
-# Release build: Flutter GUI bundle plus Rust CLI
-flutter build linux --release
-cargo build --release -p wayvid-ctl
-
-# Install using script (recommended)
-./scripts/install.sh --user
-
-# Or manual install
-sudo install -d /usr/local/lib/wayvid
-sudo cp -a build/linux/x64/release/bundle/. /usr/local/lib/wayvid/
-sudo install -Dm755 packaging/wayvid-gui-wrapper /usr/local/bin/wayvid-gui
-sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
-```
-
-## Binaries
-
-v0.5 produces a Flutter application bundle and one CLI binary:
-- `wayvid-gui` - Wrapper for the root Flutter bundle with Rust service
-- `wayvid-ctl` - CLI control tool for scripting
-
-## Test
-
-```bash
-cargo test --workspace
-cargo clippy --workspace
-```
-
-## Verify
-
-```bash
-wayvid-gui --version
-wayvid-ctl --version
+flutter analyze lib/main.dart lib/src/l10n.dart test/widget_test.dart
+flutter test
+dpkg-deb --info dist/*.deb
 ```

@@ -4,16 +4,11 @@ version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
-license = "MIT OR Apache-2.0"
-description = "Wallpaper library management for wayvid (SQLite + thumbnails)"
+license = "GPL-3.0-only"
+description = "In-memory wallpaper scanning and preview extraction for wayvid"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
-wayvid-core = { path = "../wayvid-core" }
-
-# Database
-rusqlite = { version = "0.32", features = ["bundled"] }
-
 # Image processing
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
 

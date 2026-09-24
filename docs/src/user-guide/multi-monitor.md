@@ -10,7 +10,7 @@
 ## List Outputs
 
 ```bash
-wayvid-ctl outputs
+Open the Monitors view in the Flutter application
 # eDP-1: 1920x1080 @ (0, 0)
 # DP-1: 2560x1440 @ (1920, 0)
 ```
@@ -20,8 +20,7 @@ wayvid-ctl outputs
 ### Via CLI
 
 ```bash
-wayvid-ctl apply ~/Videos/left.mp4 --output DP-1
-wayvid-ctl apply ~/Videos/right.mp4 --output HDMI-A-1
+Select each output in the Flutter application and apply the desired wallpaper
 ```
 
 ### Via Config File
@@ -45,7 +44,7 @@ per_output:
 ## Same Video All Monitors
 
 ```bash
-wayvid-ctl apply ~/Videos/wallpaper.mp4
+Use Apply in Library to apply to all outputs
 ```
 
 Or via config:
@@ -58,10 +57,7 @@ source:
 ## Control Per Output
 
 ```bash
-wayvid-ctl pause --output DP-1
-wayvid-ctl resume --output DP-1
-wayvid-ctl stop --output DP-1
-wayvid-ctl apply ~/Videos/new.mp4 --output DP-1
+Use Pause, Resume, Clear, and Apply in the Flutter application
 ```
 
 ## Hotplug

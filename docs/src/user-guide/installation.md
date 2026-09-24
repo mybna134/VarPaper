@@ -1,173 +1,45 @@
 # Installation
 
-## Arch Linux (AUR)
+VarPaper publishes Linux packages for x86_64 in two formats: `.deb` and `.flatpak`.
+
+## Debian and Ubuntu
+
+Download the `.deb` from the [latest release](https://github.com/mybna134/lwe-flutter/releases/latest), then install it:
 
 ```bash
-yay -S wayvid
+sudo apt install ./varpaper_*_amd64.deb
+varpaper
 ```
 
-## Nix / NixOS
+The package installs the Flutter application bundle, desktop entry, icon, and license notices. System libraries such as GTK and libmpv are installed through the package manager.
 
-### Direct run (no installation)
+## Flatpak
+
+Install the GNOME 50 runtime from Flathub, download the `.flatpak` from the [latest release](https://github.com/mybna134/lwe-flutter/releases/latest), then run:
 
 ```bash
-# Run wayvid-gui directly from GitHub
-nix run github:YangYuS8/wayvid
-
-# Run wayvid-ctl
-nix run github:YangYuS8/wayvid#wayvid-ctl -- status
+flatpak install ./varpaper_*_x86_64.flatpak
+flatpak run io.github.mybna134.varpaper
 ```
 
-### Install to profile
+The Flatpak has access to the home directory so it can find local wallpapers and Steam Workshop content.
+
+## Build packages from source
+
+Install Flutter, Rust, Linux development libraries, `dpkg-deb`, `flatpak-builder`, and the GNOME 50 Flatpak runtime and SDK. Then run:
 
 ```bash
-nix profile install github:YangYuS8/wayvid
+git clone https://github.com/mybna134/lwe-flutter.git
+cd lwe-flutter
+./scripts/build-packages.sh
 ```
 
-### NixOS configuration
-
-Add to your `flake.nix`:
-
-```nix
-{
-  inputs.wayvid.url = "github:YangYuS8/wayvid";
-  
-  # In your system configuration:
-  environment.systemPackages = [
-    inputs.wayvid.packages.${system}.default
-  ];
-}
-```
-
-### Home Manager
-
-```nix
-home.packages = [
-  inputs.wayvid.packages.${system}.default
-];
-```
-
-## AppImage
-
-```bash
-# Download
-wget https://github.com/YangYuS8/wayvid/releases/latest/download/wayvid-x86_64.AppImage
-chmod +x wayvid-x86_64.AppImage
-
-# Run
-./wayvid-x86_64.AppImage
-```
-
-## From Source
-
-### Dependencies
-
-```bash
-# Arch
-sudo pacman -S flutter rust mpv wayland wayland-protocols libxkbcommon fontconfig mesa
-
-# Ubuntu/Debian
-sudo apt install flutter cargo libmpv-dev libwayland-dev libxkbcommon-dev libfontconfig-dev libegl-dev
-
-# Fedora
-sudo dnf install flutter cargo mpv-libs-devel wayland-devel libxkbcommon-devel fontconfig-devel mesa-libEGL-devel
-```
-
-### Build
-
-```bash
-git clone https://github.com/YangYuS8/wayvid
-cd wayvid
-# Build the root Flutter GUI bundle and Rust CLI
-flutter build linux --release
-cargo build --release -p wayvid-ctl
-```
-
-### Install (User)
-
-Using the installation script (recommended):
-
-```bash
-./scripts/install.sh --user
-```
-
-This installs to `~/.local/bin/` and adds a desktop entry.
-
-### Install (System)
-
-```bash
-sudo ./scripts/install.sh --system
-```
-
-### Manual Install
-
-```bash
-# User install
-install -d ~/.local/lib/wayvid
-cp -a build/linux/x64/release/bundle/. ~/.local/lib/wayvid/
-install -Dm755 packaging/wayvid-gui-wrapper ~/.local/bin/wayvid-gui
-install -Dm755 target/release/wayvid-ctl ~/.local/bin/wayvid-ctl
-install -Dm644 packaging/wayvid-gui.desktop ~/.local/share/applications/wayvid.desktop
-install -Dm644 logo.svg ~/.local/share/icons/hicolor/scalable/apps/wayvid.svg
-
-# System install
-sudo install -d /usr/local/lib/wayvid
-sudo cp -a build/linux/x64/release/bundle/. /usr/local/lib/wayvid/
-sudo install -Dm755 packaging/wayvid-gui-wrapper /usr/local/bin/wayvid-gui
-sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/wayvid-ctl
-```
-
-## Verify
-
-```bash
-wayvid-gui --version
-wayvid-ctl --version
-```
-
-## Autostart Configuration
-
-### Method 1: GUI Settings (Recommended)
-
-Enable "Autostart" in Settings > General. This creates an XDG autostart entry at `~/.config/autostart/wayvid.desktop`.
-
-### Method 2: niri spawn-at-startup
-
-For [niri](https://github.com/YaLTeR/niri) users, add to `~/.config/niri/config.kdl`:
-
-```kdl
-spawn-at-startup "wayvid-gui" "--minimized"
-```
-
-Note: niri's systemd session also supports XDG autostart, so Method 1 works too.
-
-### Method 3: Hyprland exec-once
-
-For [Hyprland](https://hyprland.org/) users, add to `~/.config/hypr/hyprland.conf`:
-
-```conf
-exec-once = wayvid-gui --minimized
-```
-
-### Method 4: Sway exec
-
-For [Sway](https://swaywm.org/) users, add to `~/.config/sway/config`:
-
-```conf
-exec wayvid-gui --minimized
-```
+Both packages are written to `dist/`. Build on Ubuntu 24.04 for a Flatpak whose media libraries are compatible with the GNOME 50 runtime.
 
 ## Uninstall
 
 ```bash
-# Using uninstall script
-./scripts/uninstall.sh --user
-
-# AUR
-yay -R wayvid
-
-# Nix
-nix profile remove wayvid
-
-# Manual cleanup
-rm -rf ~/.config/wayvid ~/.cache/wayvid
+sudo apt remove varpaper
+# or
+flatpak uninstall io.github.mybna134.varpaper
 ```

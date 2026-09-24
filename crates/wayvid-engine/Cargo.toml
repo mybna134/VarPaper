@@ -4,13 +4,11 @@ version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
-license = "MIT OR Apache-2.0"
-description = "Video rendering engine for wayvid (Wayland + MPV)"
+license = "GPL-3.0-only"
+description = "Video rendering engine for VarPaper (Wayland/X11 + MPV)"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
-wayvid-core = { path = "../wayvid-core" }
-
 # Wayland client
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
@@ -21,6 +19,7 @@ smithay-client-toolkit = { version = "0.19", default-features = false, features 
 khronos-egl = { version = "6.0", features = ["dynamic"] }
 gl = "0.14"
 wayland-egl = "0.32"
+x11 = { version = "2.21", features = ["xlib", "xrandr", "xfixes"] }
 
 # Vulkan (optional)
 ash = { version = "0.38", optional = true }
@@ -33,6 +32,7 @@ libmpv-sys = "3.1"
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 
 # Logging
 tracing = "0.1"

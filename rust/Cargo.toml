@@ -4,7 +4,7 @@ version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-only"
 description = "GUI application for wayvid wallpaper manager"
 repository = "https://github.com/YangYuS8/wayvid"
 autobins = false
@@ -16,7 +16,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Internal crates
-wayvid-core = { path = "../crates/wayvid-core" }
 wayvid-engine = { path = "../crates/wayvid-engine" }
 wayvid-library = { path = "../crates/wayvid-library" }
 
@@ -37,24 +36,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_yaml = "0.9"
 
 # Utilities
 dirs = "5.0"
 open = "5.0"
-
-# Internationalization
-rust-i18n = "3"
-sys-locale = "0.3"
-
-# IPC communication
-interprocess = { version = "2.2", features = ["tokio"] }
-
-# System tray (SNI/StatusNotifierItem for Linux/Wayland)
-ksni = "0.2"
-
-# PNG decoding (for tray icon)
-png = "0.17"
 
 # Event loop (for engine communication)
 calloop = "0.14"

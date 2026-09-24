@@ -21,7 +21,7 @@ use rayon::prelude::*;
 use tracing::{debug, info, warn};
 use walkdir::WalkDir;
 
-use wayvid_core::{SourceType, WallpaperItem, WallpaperType};
+use crate::{SourceType, WallpaperItem, WallpaperType};
 
 /// File scanner for discovering wallpapers
 #[derive(Debug, Clone)]

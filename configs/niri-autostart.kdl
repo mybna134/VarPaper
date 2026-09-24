@@ -32,7 +32,7 @@
 // Add this to your niri config.kdl if you prefer not using systemd:
 // Note: Enable "Start minimized" in wayvid Settings to start in tray
 //
-// spawn-at-startup "wayvid-gui"
+// spawn-at-startup "varpaper"
 
 
 // ----------------------------------------------------------------------------
@@ -53,25 +53,10 @@
 // ============================================================================
 // Quick Setup Guide
 // ============================================================================
-// 1. Install wayvid (AUR: yay -S wayvid, or build from source)
-//
-// 2. Copy systemd service file (if not installed via package):
-//    mkdir -p ~/.config/systemd/user
-//    cp /path/to/wayvid/systemd/wayvid.service ~/.config/systemd/user/
-//    systemctl --user daemon-reload
-//
-// 3. Enable wayvid to start with niri:
-//    systemctl --user add-wants niri.service wayvid.service
-//
-// 4. Create config file:
-//    mkdir -p ~/.config/wayvid
-//    cat > ~/.config/wayvid/config.yaml << 'EOF'
-//    source:
-//      type: file
-//      path: ~/Videos/wallpaper.mp4
-//    layout: fill
-//    volume: 0
-//    EOF
+// 1. Install the VarPaper .deb or .flatpak package.
+// 2. Start varpaper (or flatpak run io.github.mybna134.varpaper).
+// 3. Configure wallpaper and autostart in the Flutter UI.
+//    Settings are stored in the application's Isar database.
 //
 // 5. Restart niri or run: systemctl --user start wayvid
 

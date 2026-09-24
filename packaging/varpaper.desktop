@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=VarPaper
+GenericName=Wallpaper Manager
+Comment=Animated wallpaper manager for Wayland
+Exec=varpaper
+Icon=io.github.mybna134.varpaper
+Terminal=false
+Categories=Utility;Video;
+Keywords=wallpaper;wayland;video;background;
+StartupNotify=true

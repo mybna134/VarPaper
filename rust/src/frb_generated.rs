@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1181887649;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1913217904;
 
 // Section: executor
 
@@ -72,7 +72,7 @@ fn wire__crate__bridge__WayvidService_apply_wallpaper_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
             >>::sse_decode(&mut deserializer);
-            let api_wallpaper_id = <String>::sse_decode(&mut deserializer);
+            let api_path = <String>::sse_decode(&mut deserializer);
             let api_output = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| async move {
@@ -97,7 +97,7 @@ fn wire__crate__bridge__WayvidService_apply_wallpaper_impl(
                         let api_that_guard = api_that_guard.unwrap();
                         let output_ok = crate::bridge::WayvidService::apply_wallpaper(
                             &*api_that_guard,
-                            api_wallpaper_id,
+                            api_path,
                             api_output,
                         )
                         .await?;
@@ -169,15 +169,15 @@ fn wire__crate__bridge__WayvidService_clear_wallpaper_impl(
         },
     )
 }
-fn wire__crate__bridge__WayvidService_get_settings_impl(
+fn wire__crate__bridge__WayvidService_create_engine_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "WayvidService_get_settings",
+            debug_name: "WayvidService_create_engine",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -194,26 +194,37 @@ fn wire__crate__bridge__WayvidService_get_settings_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
             >>::sse_decode(&mut deserializer);
+            let api_config = <crate::bridge::EngineConfigDto>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| {
-                transform_result_sse::<_, crate::bridge::BridgeError>((move || {
-                    let mut api_that_guard = None;
-                    let decode_indices_ =
-                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
-                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                &api_that, 0, false,
-                            ),
-                        ]);
-                    for i in decode_indices_ {
-                        match i {
-                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
-                            _ => unreachable!(),
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
                         }
-                    }
-                    let api_that_guard = api_that_guard.unwrap();
-                    let output_ok = crate::bridge::WayvidService::get_settings(&*api_that_guard)?;
-                    Ok(output_ok)
-                })())
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::bridge::WayvidService::create_engine(
+                            &*api_that_guard,
+                            api_config,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
         },
     )
@@ -267,7 +278,7 @@ fn wire__crate__bridge__WayvidService_initialize_impl(
         },
     )
 }
-fn wire__crate__bridge__WayvidService_load_library_impl(
+fn wire__crate__bridge__WayvidService_load_preview_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -275,63 +286,7 @@ fn wire__crate__bridge__WayvidService_load_library_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "WayvidService_load_library",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
-            >>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, crate::bridge::BridgeError>(
-                    (move || async move {
-                        let mut api_that_guard = None;
-                        let decode_indices_ =
-                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
-                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                    &api_that, 0, false,
-                                )],
-                            );
-                        for i in decode_indices_ {
-                            match i {
-                                0 => {
-                                    api_that_guard =
-                                        Some(api_that.lockable_decode_async_ref().await)
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        let api_that_guard = api_that_guard.unwrap();
-                        let output_ok =
-                            crate::bridge::WayvidService::load_library(&*api_that_guard).await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
-fn wire__crate__bridge__WayvidService_load_thumbnail_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "WayvidService_load_thumbnail",
+            debug_name: "WayvidService_load_preview",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -350,6 +305,7 @@ fn wire__crate__bridge__WayvidService_load_thumbnail_impl(
             >>::sse_decode(&mut deserializer);
             let api_wallpaper_id = <String>::sse_decode(&mut deserializer);
             let api_path = <String>::sse_decode(&mut deserializer);
+            let api_wallpaper_type = <String>::sse_decode(&mut deserializer);
             let api_width = <u32>::sse_decode(&mut deserializer);
             let api_height = <u32>::sse_decode(&mut deserializer);
             deserializer.end();
@@ -373,10 +329,11 @@ fn wire__crate__bridge__WayvidService_load_thumbnail_impl(
                             }
                         }
                         let api_that_guard = api_that_guard.unwrap();
-                        let output_ok = crate::bridge::WayvidService::load_thumbnail(
+                        let output_ok = crate::bridge::WayvidService::load_preview(
                             &*api_that_guard,
                             api_wallpaper_id,
                             api_path,
+                            api_wallpaper_type,
                             api_width,
                             api_height,
                         )
@@ -411,11 +368,10 @@ fn wire__crate__bridge__WayvidService_new_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_args = <Vec<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, crate::bridge::BridgeError>((move || {
-                    let output_ok = crate::bridge::WayvidService::new(api_args)?;
+                    let output_ok = crate::bridge::WayvidService::new()?;
                     Ok(output_ok)
                 })())
             }
@@ -872,62 +828,6 @@ fn wire__crate__bridge__WayvidService_shutdown_impl(
         },
     )
 }
-fn wire__crate__bridge__WayvidService_start_engine_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "WayvidService_start_engine",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
-                )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_that = <RustOpaqueMoi<
-                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
-            >>::sse_decode(&mut deserializer);
-            deserializer.end();
-            move |context| async move {
-                transform_result_sse::<_, crate::bridge::BridgeError>(
-                    (move || async move {
-                        let mut api_that_guard = None;
-                        let decode_indices_ =
-                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
-                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                    &api_that, 0, false,
-                                )],
-                            );
-                        for i in decode_indices_ {
-                            match i {
-                                0 => {
-                                    api_that_guard =
-                                        Some(api_that.lockable_decode_async_ref().await)
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        let api_that_guard = api_that_guard.unwrap();
-                        let output_ok =
-                            crate::bridge::WayvidService::start_engine(&*api_that_guard).await?;
-                        Ok(output_ok)
-                    })()
-                    .await,
-                )
-            }
-        },
-    )
-}
 fn wire__crate__bridge__WayvidService_stop_engine_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -984,15 +884,15 @@ fn wire__crate__bridge__WayvidService_stop_engine_impl(
         },
     )
 }
-fn wire__crate__bridge__WayvidService_update_settings_impl(
+fn wire__crate__bridge__WayvidService_update_engine_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "WayvidService_update_settings",
+            debug_name: "WayvidService_update_engine_config",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -1009,60 +909,37 @@ fn wire__crate__bridge__WayvidService_update_settings_impl(
             let api_that = <RustOpaqueMoi<
                 flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
             >>::sse_decode(&mut deserializer);
-            let api_patch = <crate::bridge::SettingsPatch>::sse_decode(&mut deserializer);
+            let api_config = <crate::bridge::EngineConfigDto>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| {
-                transform_result_sse::<_, crate::bridge::BridgeError>((move || {
-                    let mut api_that_guard = None;
-                    let decode_indices_ =
-                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
-                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
-                                &api_that, 0, false,
-                            ),
-                        ]);
-                    for i in decode_indices_ {
-                        match i {
-                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
-                            _ => unreachable!(),
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
                         }
-                    }
-                    let api_that_guard = api_that_guard.unwrap();
-                    let output_ok =
-                        crate::bridge::WayvidService::update_settings(&*api_that_guard, api_patch)?;
-                    Ok(output_ok)
-                })())
-            }
-        },
-    )
-}
-fn wire__crate__bridge__settings_patch_default_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
-        flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "settings_patch_default",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
-        },
-        move || {
-            let message = unsafe {
-                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
-                    ptr_,
-                    rust_vec_len_,
-                    data_len_,
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::bridge::WayvidService::update_engine_config(
+                            &*api_that_guard,
+                            api_config,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
                 )
-            };
-            let mut deserializer =
-                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok(crate::bridge::SettingsPatch::default())?;
-                    Ok(output_ok)
-                })())
             }
         },
     )
@@ -1123,10 +1000,41 @@ impl SseDecode for crate::bridge::BridgeError {
     }
 }
 
-impl SseDecode for f32 {
+impl SseDecode for crate::bridge::EngineConfigDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        deserializer.cursor.read_f32::<NativeEndian>().unwrap()
+        let mut var_volume = <f64>::sse_decode(deserializer);
+        let mut var_fpsLimit = <Option<u32>>::sse_decode(deserializer);
+        let mut var_loopPlayback = <bool>::sse_decode(deserializer);
+        let mut var_layout = <String>::sse_decode(deserializer);
+        let mut var_hwdec = <String>::sse_decode(deserializer);
+        let mut var_mute = <bool>::sse_decode(deserializer);
+        let mut var_startTime = <f64>::sse_decode(deserializer);
+        let mut var_playbackRate = <f64>::sse_decode(deserializer);
+        let mut var_hdrMode = <String>::sse_decode(deserializer);
+        let mut var_toneMappingAlgorithm = <String>::sse_decode(deserializer);
+        let mut var_toneMappingParam = <f64>::sse_decode(deserializer);
+        let mut var_toneMappingMode = <String>::sse_decode(deserializer);
+        let mut var_toneMappingComputePeak = <bool>::sse_decode(deserializer);
+        let mut var_autoPlay = <bool>::sse_decode(deserializer);
+        let mut var_pauseOnBattery = <bool>::sse_decode(deserializer);
+        return crate::bridge::EngineConfigDto {
+            volume: var_volume,
+            fps_limit: var_fpsLimit,
+            loop_playback: var_loopPlayback,
+            layout: var_layout,
+            hwdec: var_hwdec,
+            mute: var_mute,
+            start_time: var_startTime,
+            playback_rate: var_playbackRate,
+            hdr_mode: var_hdrMode,
+            tone_mapping_algorithm: var_toneMappingAlgorithm,
+            tone_mapping_param: var_toneMappingParam,
+            tone_mapping_mode: var_toneMappingMode,
+            tone_mapping_compute_peak: var_toneMappingComputePeak,
+            auto_play: var_autoPlay,
+            pause_on_battery: var_pauseOnBattery,
+        };
     }
 }
 
@@ -1137,73 +1045,10 @@ impl SseDecode for f64 {
     }
 }
 
-impl SseDecode for crate::bridge::FpsLimitPatch {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut tag_ = <i32>::sse_decode(deserializer);
-        match tag_ {
-            0 => {
-                return crate::bridge::FpsLimitPatch::Unlimited;
-            }
-            1 => {
-                let mut var_field0 = <u32>::sse_decode(deserializer);
-                return crate::bridge::FpsLimitPatch::Value(var_field0);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseDecode for crate::bridge::GuiSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_windowWidth = <u32>::sse_decode(deserializer);
-        let mut var_windowHeight = <u32>::sse_decode(deserializer);
-        let mut var_minimizeToTray = <bool>::sse_decode(deserializer);
-        let mut var_startMinimized = <bool>::sse_decode(deserializer);
-        let mut var_theme = <String>::sse_decode(deserializer);
-        let mut var_language = <String>::sse_decode(deserializer);
-        let mut var_renderer = <String>::sse_decode(deserializer);
-        let mut var_sidebarCollapsed = <bool>::sse_decode(deserializer);
-        let mut var_detailPanelVisible = <bool>::sse_decode(deserializer);
-        return crate::bridge::GuiSettingsDto {
-            window_width: var_windowWidth,
-            window_height: var_windowHeight,
-            minimize_to_tray: var_minimizeToTray,
-            start_minimized: var_startMinimized,
-            theme: var_theme,
-            language: var_language,
-            renderer: var_renderer,
-            sidebar_collapsed: var_sidebarCollapsed,
-            detail_panel_visible: var_detailPanelVisible,
-        };
-    }
-}
-
 impl SseDecode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         deserializer.cursor.read_i32::<NativeEndian>().unwrap()
-    }
-}
-
-impl SseDecode for crate::bridge::InitializationSnapshot {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_settings = <crate::bridge::SettingsDto>::sse_decode(deserializer);
-        let mut var_workshopAvailable = <bool>::sse_decode(deserializer);
-        let mut var_engineRunning = <bool>::sse_decode(deserializer);
-        let mut var_trayAvailable = <bool>::sse_decode(deserializer);
-        let mut var_anotherInstance = <bool>::sse_decode(deserializer);
-        return crate::bridge::InitializationSnapshot {
-            settings: var_settings,
-            workshop_available: var_workshopAvailable,
-            engine_running: var_engineRunning,
-            tray_available: var_trayAvailable,
-            another_instance: var_anotherInstance,
-        };
     }
 }
 
@@ -1302,44 +1147,11 @@ impl SseDecode for Option<String> {
     }
 }
 
-impl SseDecode for Option<bool> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<bool>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<f32> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<f32>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
 impl SseDecode for Option<f64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<f64>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for Option<crate::bridge::FpsLimitPatch> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<crate::bridge::FpsLimitPatch>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -1368,45 +1180,14 @@ impl SseDecode for Option<u64> {
     }
 }
 
-impl SseDecode for Option<Vec<String>> {
+impl SseDecode for crate::bridge::PreviewDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<Vec<String>>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
-    }
-}
-
-impl SseDecode for crate::bridge::PlaybackSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_volume = <f32>::sse_decode(deserializer);
-        let mut var_fpsLimit = <Option<u32>>::sse_decode(deserializer);
-        let mut var_preferredMonitor = <Option<String>>::sse_decode(deserializer);
-        let mut var_loopMode = <bool>::sse_decode(deserializer);
-        let mut var_shuffle = <bool>::sse_decode(deserializer);
-        return crate::bridge::PlaybackSettingsDto {
-            volume: var_volume,
-            fps_limit: var_fpsLimit,
-            preferred_monitor: var_preferredMonitor,
-            loop_mode: var_loopMode,
-            shuffle: var_shuffle,
-        };
-    }
-}
-
-impl SseDecode for crate::bridge::PowerSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_pauseOnBattery = <bool>::sse_decode(deserializer);
-        let mut var_pauseOnFullscreen = <bool>::sse_decode(deserializer);
-        let mut var_batteryFpsLimit = <Option<u32>>::sse_decode(deserializer);
-        return crate::bridge::PowerSettingsDto {
-            pause_on_battery: var_pauseOnBattery,
-            pause_on_fullscreen: var_pauseOnFullscreen,
-            battery_fps_limit: var_batteryFpsLimit,
+        let mut var_imagePath = <Option<String>>::sse_decode(deserializer);
+        let mut var_bytes = <Vec<u8>>::sse_decode(deserializer);
+        return crate::bridge::PreviewDto {
+            image_path: var_imagePath,
+            bytes: var_bytes,
         };
     }
 }
@@ -1441,13 +1222,6 @@ impl SseDecode for crate::bridge::ServiceEvent {
                 };
             }
             5 => {
-                return crate::bridge::ServiceEvent::ShowWindow;
-            }
-            6 => {
-                let mut var_action = <String>::sse_decode(deserializer);
-                return crate::bridge::ServiceEvent::TrayAction { action: var_action };
-            }
-            7 => {
                 let mut var_code = <String>::sse_decode(deserializer);
                 let mut var_message = <String>::sse_decode(deserializer);
                 return crate::bridge::ServiceEvent::Error {
@@ -1462,62 +1236,14 @@ impl SseDecode for crate::bridge::ServiceEvent {
     }
 }
 
-impl SseDecode for crate::bridge::SettingsDto {
+impl SseDecode for crate::bridge::ServiceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_gui = <crate::bridge::GuiSettingsDto>::sse_decode(deserializer);
-        let mut var_playback = <crate::bridge::PlaybackSettingsDto>::sse_decode(deserializer);
-        let mut var_autostartEnabled = <bool>::sse_decode(deserializer);
-        let mut var_restoreLastWallpaper = <bool>::sse_decode(deserializer);
-        let mut var_power = <crate::bridge::PowerSettingsDto>::sse_decode(deserializer);
-        let mut var_libraryFolders = <Vec<String>>::sse_decode(deserializer);
-        return crate::bridge::SettingsDto {
-            gui: var_gui,
-            playback: var_playback,
-            autostart_enabled: var_autostartEnabled,
-            restore_last_wallpaper: var_restoreLastWallpaper,
-            power: var_power,
-            library_folders: var_libraryFolders,
-        };
-    }
-}
-
-impl SseDecode for crate::bridge::SettingsPatch {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_windowWidth = <Option<u32>>::sse_decode(deserializer);
-        let mut var_windowHeight = <Option<u32>>::sse_decode(deserializer);
-        let mut var_minimizeToTray = <Option<bool>>::sse_decode(deserializer);
-        let mut var_startMinimized = <Option<bool>>::sse_decode(deserializer);
-        let mut var_theme = <Option<String>>::sse_decode(deserializer);
-        let mut var_language = <Option<String>>::sse_decode(deserializer);
-        let mut var_renderer = <Option<String>>::sse_decode(deserializer);
-        let mut var_sidebarCollapsed = <Option<bool>>::sse_decode(deserializer);
-        let mut var_detailPanelVisible = <Option<bool>>::sse_decode(deserializer);
-        let mut var_volume = <Option<f32>>::sse_decode(deserializer);
-        let mut var_fpsLimit = <Option<crate::bridge::FpsLimitPatch>>::sse_decode(deserializer);
-        let mut var_pauseOnBattery = <Option<bool>>::sse_decode(deserializer);
-        let mut var_pauseOnFullscreen = <Option<bool>>::sse_decode(deserializer);
-        let mut var_autostartEnabled = <Option<bool>>::sse_decode(deserializer);
-        let mut var_restoreLastWallpaper = <Option<bool>>::sse_decode(deserializer);
-        let mut var_libraryFolders = <Option<Vec<String>>>::sse_decode(deserializer);
-        return crate::bridge::SettingsPatch {
-            window_width: var_windowWidth,
-            window_height: var_windowHeight,
-            minimize_to_tray: var_minimizeToTray,
-            start_minimized: var_startMinimized,
-            theme: var_theme,
-            language: var_language,
-            renderer: var_renderer,
-            sidebar_collapsed: var_sidebarCollapsed,
-            detail_panel_visible: var_detailPanelVisible,
-            volume: var_volume,
-            fps_limit: var_fpsLimit,
-            pause_on_battery: var_pauseOnBattery,
-            pause_on_fullscreen: var_pauseOnFullscreen,
-            autostart_enabled: var_autostartEnabled,
-            restore_last_wallpaper: var_restoreLastWallpaper,
-            library_folders: var_libraryFolders,
+        let mut var_workshopAvailable = <bool>::sse_decode(deserializer);
+        let mut var_engineRunning = <bool>::sse_decode(deserializer);
+        return crate::bridge::ServiceInfo {
+            workshop_available: var_workshopAvailable,
+            engine_running: var_engineRunning,
         };
     }
 }
@@ -1563,6 +1289,7 @@ impl SseDecode for crate::bridge::WallpaperDto {
         let mut var_sourcePath = <String>::sse_decode(deserializer);
         let mut var_thumbnailPath = <Option<String>>::sse_decode(deserializer);
         let mut var_sourceType = <String>::sse_decode(deserializer);
+        let mut var_wallpaperCategory = <String>::sse_decode(deserializer);
         let mut var_wallpaperType = <String>::sse_decode(deserializer);
         let mut var_metadata = <crate::bridge::WallpaperMetadataDto>::sse_decode(deserializer);
         let mut var_addedAt = <String>::sse_decode(deserializer);
@@ -1573,6 +1300,7 @@ impl SseDecode for crate::bridge::WallpaperDto {
             source_path: var_sourcePath,
             thumbnail_path: var_thumbnailPath,
             source_type: var_sourceType,
+            wallpaper_category: var_wallpaperCategory,
             wallpaper_type: var_wallpaperType,
             metadata: var_metadata,
             added_at: var_addedAt,
@@ -1629,51 +1357,39 @@ fn pde_ffi_dispatcher_primary_impl(
             data_len,
         ),
         3 => {
-            wire__crate__bridge__WayvidService_get_settings_impl(port, ptr, rust_vec_len, data_len)
+            wire__crate__bridge__WayvidService_create_engine_impl(port, ptr, rust_vec_len, data_len)
         }
         4 => wire__crate__bridge__WayvidService_initialize_impl(port, ptr, rust_vec_len, data_len),
         5 => {
-            wire__crate__bridge__WayvidService_load_library_impl(port, ptr, rust_vec_len, data_len)
+            wire__crate__bridge__WayvidService_load_preview_impl(port, ptr, rust_vec_len, data_len)
         }
-        6 => wire__crate__bridge__WayvidService_load_thumbnail_impl(
+        6 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__bridge__WayvidService_poll_events_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        7 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
-        10 => {
-            wire__crate__bridge__WayvidService_poll_events_impl(port, ptr, rust_vec_len, data_len)
-        }
-        11 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        12 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
-        13 => {
+        11 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
+        12 => {
             wire__crate__bridge__WayvidService_scan_folder_impl(port, ptr, rust_vec_len, data_len)
         }
-        14 => {
+        13 => {
             wire__crate__bridge__WayvidService_scan_workshop_impl(port, ptr, rust_vec_len, data_len)
         }
-        15 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
-        16 => {
-            wire__crate__bridge__WayvidService_start_engine_impl(port, ptr, rust_vec_len, data_len)
-        }
-        17 => {
+        14 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
+        15 => {
             wire__crate__bridge__WayvidService_stop_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        18 => wire__crate__bridge__WayvidService_update_settings_impl(
+        16 => wire__crate__bridge__WayvidService_update_engine_config_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        19 => wire__crate__bridge__settings_patch_default_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -1724,73 +1440,36 @@ impl flutter_rust_bridge::IntoIntoDart<crate::bridge::BridgeError> for crate::br
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::FpsLimitPatch {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        match self {
-            crate::bridge::FpsLimitPatch::Unlimited => [0.into_dart()].into_dart(),
-            crate::bridge::FpsLimitPatch::Value(field0) => {
-                [1.into_dart(), field0.into_into_dart().into_dart()].into_dart()
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::FpsLimitPatch {}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::FpsLimitPatch>
-    for crate::bridge::FpsLimitPatch
-{
-    fn into_into_dart(self) -> crate::bridge::FpsLimitPatch {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::GuiSettingsDto {
+impl flutter_rust_bridge::IntoDart for crate::bridge::EngineConfigDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.window_width.into_into_dart().into_dart(),
-            self.window_height.into_into_dart().into_dart(),
-            self.minimize_to_tray.into_into_dart().into_dart(),
-            self.start_minimized.into_into_dart().into_dart(),
-            self.theme.into_into_dart().into_dart(),
-            self.language.into_into_dart().into_dart(),
-            self.renderer.into_into_dart().into_dart(),
-            self.sidebar_collapsed.into_into_dart().into_dart(),
-            self.detail_panel_visible.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::GuiSettingsDto {}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::GuiSettingsDto>
-    for crate::bridge::GuiSettingsDto
-{
-    fn into_into_dart(self) -> crate::bridge::GuiSettingsDto {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::InitializationSnapshot {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.settings.into_into_dart().into_dart(),
-            self.workshop_available.into_into_dart().into_dart(),
-            self.engine_running.into_into_dart().into_dart(),
-            self.tray_available.into_into_dart().into_dart(),
-            self.another_instance.into_into_dart().into_dart(),
+            self.volume.into_into_dart().into_dart(),
+            self.fps_limit.into_into_dart().into_dart(),
+            self.loop_playback.into_into_dart().into_dart(),
+            self.layout.into_into_dart().into_dart(),
+            self.hwdec.into_into_dart().into_dart(),
+            self.mute.into_into_dart().into_dart(),
+            self.start_time.into_into_dart().into_dart(),
+            self.playback_rate.into_into_dart().into_dart(),
+            self.hdr_mode.into_into_dart().into_dart(),
+            self.tone_mapping_algorithm.into_into_dart().into_dart(),
+            self.tone_mapping_param.into_into_dart().into_dart(),
+            self.tone_mapping_mode.into_into_dart().into_dart(),
+            self.tone_mapping_compute_peak.into_into_dart().into_dart(),
+            self.auto_play.into_into_dart().into_dart(),
+            self.pause_on_battery.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
 impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::bridge::InitializationSnapshot
+    for crate::bridge::EngineConfigDto
 {
 }
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::InitializationSnapshot>
-    for crate::bridge::InitializationSnapshot
+impl flutter_rust_bridge::IntoIntoDart<crate::bridge::EngineConfigDto>
+    for crate::bridge::EngineConfigDto
 {
-    fn into_into_dart(self) -> crate::bridge::InitializationSnapshot {
+    fn into_into_dart(self) -> crate::bridge::EngineConfigDto {
         self
     }
 }
@@ -1817,48 +1496,18 @@ impl flutter_rust_bridge::IntoIntoDart<crate::bridge::MonitorDto> for crate::bri
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::PlaybackSettingsDto {
+impl flutter_rust_bridge::IntoDart for crate::bridge::PreviewDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.volume.into_into_dart().into_dart(),
-            self.fps_limit.into_into_dart().into_dart(),
-            self.preferred_monitor.into_into_dart().into_dart(),
-            self.loop_mode.into_into_dart().into_dart(),
-            self.shuffle.into_into_dart().into_dart(),
+            self.image_path.into_into_dart().into_dart(),
+            self.bytes.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::bridge::PlaybackSettingsDto
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::PlaybackSettingsDto>
-    for crate::bridge::PlaybackSettingsDto
-{
-    fn into_into_dart(self) -> crate::bridge::PlaybackSettingsDto {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::PowerSettingsDto {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.pause_on_battery.into_into_dart().into_dart(),
-            self.pause_on_fullscreen.into_into_dart().into_dart(),
-            self.battery_fps_limit.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
-    for crate::bridge::PowerSettingsDto
-{
-}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::PowerSettingsDto>
-    for crate::bridge::PowerSettingsDto
-{
-    fn into_into_dart(self) -> crate::bridge::PowerSettingsDto {
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::PreviewDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::bridge::PreviewDto> for crate::bridge::PreviewDto {
+    fn into_into_dart(self) -> crate::bridge::PreviewDto {
         self
     }
 }
@@ -1880,12 +1529,8 @@ impl flutter_rust_bridge::IntoDart for crate::bridge::ServiceEvent {
             crate::bridge::ServiceEvent::OutputsChanged { outputs } => {
                 [4.into_dart(), outputs.into_into_dart().into_dart()].into_dart()
             }
-            crate::bridge::ServiceEvent::ShowWindow => [5.into_dart()].into_dart(),
-            crate::bridge::ServiceEvent::TrayAction { action } => {
-                [6.into_dart(), action.into_into_dart().into_dart()].into_dart()
-            }
             crate::bridge::ServiceEvent::Error { code, message } => [
-                7.into_dart(),
+                5.into_dart(),
                 code.into_into_dart().into_dart(),
                 message.into_into_dart().into_dart(),
             ]
@@ -1905,54 +1550,18 @@ impl flutter_rust_bridge::IntoIntoDart<crate::bridge::ServiceEvent>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::SettingsDto {
+impl flutter_rust_bridge::IntoDart for crate::bridge::ServiceInfo {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.gui.into_into_dart().into_dart(),
-            self.playback.into_into_dart().into_dart(),
-            self.autostart_enabled.into_into_dart().into_dart(),
-            self.restore_last_wallpaper.into_into_dart().into_dart(),
-            self.power.into_into_dart().into_dart(),
-            self.library_folders.into_into_dart().into_dart(),
+            self.workshop_available.into_into_dart().into_dart(),
+            self.engine_running.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
 }
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::SettingsDto {}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::SettingsDto> for crate::bridge::SettingsDto {
-    fn into_into_dart(self) -> crate::bridge::SettingsDto {
-        self
-    }
-}
-// Codec=Dco (DartCObject based), see doc to use other codecs
-impl flutter_rust_bridge::IntoDart for crate::bridge::SettingsPatch {
-    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
-        [
-            self.window_width.into_into_dart().into_dart(),
-            self.window_height.into_into_dart().into_dart(),
-            self.minimize_to_tray.into_into_dart().into_dart(),
-            self.start_minimized.into_into_dart().into_dart(),
-            self.theme.into_into_dart().into_dart(),
-            self.language.into_into_dart().into_dart(),
-            self.renderer.into_into_dart().into_dart(),
-            self.sidebar_collapsed.into_into_dart().into_dart(),
-            self.detail_panel_visible.into_into_dart().into_dart(),
-            self.volume.into_into_dart().into_dart(),
-            self.fps_limit.into_into_dart().into_dart(),
-            self.pause_on_battery.into_into_dart().into_dart(),
-            self.pause_on_fullscreen.into_into_dart().into_dart(),
-            self.autostart_enabled.into_into_dart().into_dart(),
-            self.restore_last_wallpaper.into_into_dart().into_dart(),
-            self.library_folders.into_into_dart().into_dart(),
-        ]
-        .into_dart()
-    }
-}
-impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::SettingsPatch {}
-impl flutter_rust_bridge::IntoIntoDart<crate::bridge::SettingsPatch>
-    for crate::bridge::SettingsPatch
-{
-    fn into_into_dart(self) -> crate::bridge::SettingsPatch {
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::ServiceInfo {}
+impl flutter_rust_bridge::IntoIntoDart<crate::bridge::ServiceInfo> for crate::bridge::ServiceInfo {
+    fn into_into_dart(self) -> crate::bridge::ServiceInfo {
         self
     }
 }
@@ -1965,6 +1574,7 @@ impl flutter_rust_bridge::IntoDart for crate::bridge::WallpaperDto {
             self.source_path.into_into_dart().into_dart(),
             self.thumbnail_path.into_into_dart().into_dart(),
             self.source_type.into_into_dart().into_dart(),
+            self.wallpaper_category.into_into_dart().into_dart(),
             self.wallpaper_type.into_into_dart().into_dart(),
             self.metadata.into_into_dart().into_dart(),
             self.added_at.into_into_dart().into_dart(),
@@ -2050,10 +1660,24 @@ impl SseEncode for crate::bridge::BridgeError {
     }
 }
 
-impl SseEncode for f32 {
+impl SseEncode for crate::bridge::EngineConfigDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        serializer.cursor.write_f32::<NativeEndian>(self).unwrap();
+        <f64>::sse_encode(self.volume, serializer);
+        <Option<u32>>::sse_encode(self.fps_limit, serializer);
+        <bool>::sse_encode(self.loop_playback, serializer);
+        <String>::sse_encode(self.layout, serializer);
+        <String>::sse_encode(self.hwdec, serializer);
+        <bool>::sse_encode(self.mute, serializer);
+        <f64>::sse_encode(self.start_time, serializer);
+        <f64>::sse_encode(self.playback_rate, serializer);
+        <String>::sse_encode(self.hdr_mode, serializer);
+        <String>::sse_encode(self.tone_mapping_algorithm, serializer);
+        <f64>::sse_encode(self.tone_mapping_param, serializer);
+        <String>::sse_encode(self.tone_mapping_mode, serializer);
+        <bool>::sse_encode(self.tone_mapping_compute_peak, serializer);
+        <bool>::sse_encode(self.auto_play, serializer);
+        <bool>::sse_encode(self.pause_on_battery, serializer);
     }
 }
 
@@ -2064,54 +1688,10 @@ impl SseEncode for f64 {
     }
 }
 
-impl SseEncode for crate::bridge::FpsLimitPatch {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        match self {
-            crate::bridge::FpsLimitPatch::Unlimited => {
-                <i32>::sse_encode(0, serializer);
-            }
-            crate::bridge::FpsLimitPatch::Value(field0) => {
-                <i32>::sse_encode(1, serializer);
-                <u32>::sse_encode(field0, serializer);
-            }
-            _ => {
-                unimplemented!("");
-            }
-        }
-    }
-}
-
-impl SseEncode for crate::bridge::GuiSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <u32>::sse_encode(self.window_width, serializer);
-        <u32>::sse_encode(self.window_height, serializer);
-        <bool>::sse_encode(self.minimize_to_tray, serializer);
-        <bool>::sse_encode(self.start_minimized, serializer);
-        <String>::sse_encode(self.theme, serializer);
-        <String>::sse_encode(self.language, serializer);
-        <String>::sse_encode(self.renderer, serializer);
-        <bool>::sse_encode(self.sidebar_collapsed, serializer);
-        <bool>::sse_encode(self.detail_panel_visible, serializer);
-    }
-}
-
 impl SseEncode for i32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         serializer.cursor.write_i32::<NativeEndian>(self).unwrap();
-    }
-}
-
-impl SseEncode for crate::bridge::InitializationSnapshot {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::bridge::SettingsDto>::sse_encode(self.settings, serializer);
-        <bool>::sse_encode(self.workshop_available, serializer);
-        <bool>::sse_encode(self.engine_running, serializer);
-        <bool>::sse_encode(self.tray_available, serializer);
-        <bool>::sse_encode(self.another_instance, serializer);
     }
 }
 
@@ -2189,42 +1769,12 @@ impl SseEncode for Option<String> {
     }
 }
 
-impl SseEncode for Option<bool> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <bool>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<f32> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <f32>::sse_encode(value, serializer);
-        }
-    }
-}
-
 impl SseEncode for Option<f64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <f64>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<crate::bridge::FpsLimitPatch> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <crate::bridge::FpsLimitPatch>::sse_encode(value, serializer);
         }
     }
 }
@@ -2249,33 +1799,11 @@ impl SseEncode for Option<u64> {
     }
 }
 
-impl SseEncode for Option<Vec<String>> {
+impl SseEncode for crate::bridge::PreviewDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <Vec<String>>::sse_encode(value, serializer);
-        }
-    }
-}
-
-impl SseEncode for crate::bridge::PlaybackSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <f32>::sse_encode(self.volume, serializer);
-        <Option<u32>>::sse_encode(self.fps_limit, serializer);
-        <Option<String>>::sse_encode(self.preferred_monitor, serializer);
-        <bool>::sse_encode(self.loop_mode, serializer);
-        <bool>::sse_encode(self.shuffle, serializer);
-    }
-}
-
-impl SseEncode for crate::bridge::PowerSettingsDto {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.pause_on_battery, serializer);
-        <bool>::sse_encode(self.pause_on_fullscreen, serializer);
-        <Option<u32>>::sse_encode(self.battery_fps_limit, serializer);
+        <Option<String>>::sse_encode(self.image_path, serializer);
+        <Vec<u8>>::sse_encode(self.bytes, serializer);
     }
 }
 
@@ -2302,15 +1830,8 @@ impl SseEncode for crate::bridge::ServiceEvent {
                 <i32>::sse_encode(4, serializer);
                 <Vec<crate::bridge::MonitorDto>>::sse_encode(outputs, serializer);
             }
-            crate::bridge::ServiceEvent::ShowWindow => {
-                <i32>::sse_encode(5, serializer);
-            }
-            crate::bridge::ServiceEvent::TrayAction { action } => {
-                <i32>::sse_encode(6, serializer);
-                <String>::sse_encode(action, serializer);
-            }
             crate::bridge::ServiceEvent::Error { code, message } => {
-                <i32>::sse_encode(7, serializer);
+                <i32>::sse_encode(5, serializer);
                 <String>::sse_encode(code, serializer);
                 <String>::sse_encode(message, serializer);
             }
@@ -2321,37 +1842,11 @@ impl SseEncode for crate::bridge::ServiceEvent {
     }
 }
 
-impl SseEncode for crate::bridge::SettingsDto {
+impl SseEncode for crate::bridge::ServiceInfo {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <crate::bridge::GuiSettingsDto>::sse_encode(self.gui, serializer);
-        <crate::bridge::PlaybackSettingsDto>::sse_encode(self.playback, serializer);
-        <bool>::sse_encode(self.autostart_enabled, serializer);
-        <bool>::sse_encode(self.restore_last_wallpaper, serializer);
-        <crate::bridge::PowerSettingsDto>::sse_encode(self.power, serializer);
-        <Vec<String>>::sse_encode(self.library_folders, serializer);
-    }
-}
-
-impl SseEncode for crate::bridge::SettingsPatch {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <Option<u32>>::sse_encode(self.window_width, serializer);
-        <Option<u32>>::sse_encode(self.window_height, serializer);
-        <Option<bool>>::sse_encode(self.minimize_to_tray, serializer);
-        <Option<bool>>::sse_encode(self.start_minimized, serializer);
-        <Option<String>>::sse_encode(self.theme, serializer);
-        <Option<String>>::sse_encode(self.language, serializer);
-        <Option<String>>::sse_encode(self.renderer, serializer);
-        <Option<bool>>::sse_encode(self.sidebar_collapsed, serializer);
-        <Option<bool>>::sse_encode(self.detail_panel_visible, serializer);
-        <Option<f32>>::sse_encode(self.volume, serializer);
-        <Option<crate::bridge::FpsLimitPatch>>::sse_encode(self.fps_limit, serializer);
-        <Option<bool>>::sse_encode(self.pause_on_battery, serializer);
-        <Option<bool>>::sse_encode(self.pause_on_fullscreen, serializer);
-        <Option<bool>>::sse_encode(self.autostart_enabled, serializer);
-        <Option<bool>>::sse_encode(self.restore_last_wallpaper, serializer);
-        <Option<Vec<String>>>::sse_encode(self.library_folders, serializer);
+        <bool>::sse_encode(self.workshop_available, serializer);
+        <bool>::sse_encode(self.engine_running, serializer);
     }
 }
 
@@ -2399,6 +1894,7 @@ impl SseEncode for crate::bridge::WallpaperDto {
         <String>::sse_encode(self.source_path, serializer);
         <Option<String>>::sse_encode(self.thumbnail_path, serializer);
         <String>::sse_encode(self.source_type, serializer);
+        <String>::sse_encode(self.wallpaper_category, serializer);
         <String>::sse_encode(self.wallpaper_type, serializer);
         <crate::bridge::WallpaperMetadataDto>::sse_encode(self.metadata, serializer);
         <String>::sse_encode(self.added_at, serializer);

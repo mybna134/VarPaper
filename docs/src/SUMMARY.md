@@ -16,8 +16,7 @@
 
 # Reference
 
-- [CLI Commands](./reference/cli.md)
-- [IPC Protocol](./reference/ipc-protocol.md)
+- [Architecture](./reference/architecture.md)
 
 # Development
 

@@ -9,33 +9,31 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'bridge.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `apply_settings_patch`, `detect_monitors`, `lock`, `merge_wallpapers`, `message`, `save_wallpaper_state`, `settings_to_dto`, `source_type_name`, `thumbnail_cache_dir`, `thumbnail_cache_path`, `wallpaper_to_dto`, `wallpaper_type_name`
+// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `detect_monitors`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `wallpaper_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ServiceInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>>
 abstract class WayvidService implements RustOpaqueInterface {
-  Future<void> applyWallpaper({required String wallpaperId, String? output});
+  Future<void> applyWallpaper({required String path, String? output});
 
   Future<void> clearWallpaper({String? output});
 
-  Future<SettingsDto> getSettings();
+  Future<void> createEngine({required EngineConfigDto config});
 
-  Future<InitializationSnapshot> initialize();
+  Future<ServiceInfo> initialize();
 
-  Future<List<WallpaperDto>> loadLibrary();
-
-  Future<Uint8List> loadThumbnail({
+  Future<PreviewDto> loadPreview({
     required String wallpaperId,
     required String path,
+    required String wallpaperType,
     required int width,
     required int height,
   });
 
   // HINT: Make it `#[frb(sync)]` to let it become the default constructor of Dart class.
-  /// Construct the service without starting the playback engine.
-  static Future<WayvidService> newInstance({required List<String> args}) =>
-      RustLib.instance.api.crateBridgeWayvidServiceNew(args: args);
+  static Future<WayvidService> newInstance() =>
+      RustLib.instance.api.crateBridgeWayvidServiceNew();
 
   Future<void> openUrl({required String url});
 
@@ -53,14 +51,11 @@ abstract class WayvidService implements RustOpaqueInterface {
 
   Future<void> shutdown();
 
-  Future<void> startEngine();
-
   Future<void> stopEngine();
 
-  Future<SettingsDto> updateSettings({required SettingsPatch patch});
+  Future<void> updateEngineConfig({required EngineConfigDto config});
 }
 
-/// Error returned by all public bridge operations.
 class BridgeError implements FrbException {
   final String code;
   final String message;
@@ -79,98 +74,79 @@ class BridgeError implements FrbException {
           message == other.message;
 }
 
-@freezed
-sealed class FpsLimitPatch with _$FpsLimitPatch {
-  const FpsLimitPatch._();
+class EngineConfigDto {
+  final double volume;
+  final int? fpsLimit;
+  final bool loopPlayback;
+  final String layout;
+  final String hwdec;
+  final bool mute;
+  final double startTime;
+  final double playbackRate;
+  final String hdrMode;
+  final String toneMappingAlgorithm;
+  final double toneMappingParam;
+  final String toneMappingMode;
+  final bool toneMappingComputePeak;
+  final bool autoPlay;
+  final bool pauseOnBattery;
 
-  const factory FpsLimitPatch.unlimited() = FpsLimitPatch_Unlimited;
-  const factory FpsLimitPatch.value(int field0) = FpsLimitPatch_Value;
-}
-
-class GuiSettingsDto {
-  final int windowWidth;
-  final int windowHeight;
-  final bool minimizeToTray;
-  final bool startMinimized;
-  final String theme;
-  final String language;
-  final String renderer;
-  final bool sidebarCollapsed;
-  final bool detailPanelVisible;
-
-  const GuiSettingsDto({
-    required this.windowWidth,
-    required this.windowHeight,
-    required this.minimizeToTray,
-    required this.startMinimized,
-    required this.theme,
-    required this.language,
-    required this.renderer,
-    required this.sidebarCollapsed,
-    required this.detailPanelVisible,
+  const EngineConfigDto({
+    required this.volume,
+    this.fpsLimit,
+    required this.loopPlayback,
+    required this.layout,
+    required this.hwdec,
+    required this.mute,
+    required this.startTime,
+    required this.playbackRate,
+    required this.hdrMode,
+    required this.toneMappingAlgorithm,
+    required this.toneMappingParam,
+    required this.toneMappingMode,
+    required this.toneMappingComputePeak,
+    required this.autoPlay,
+    required this.pauseOnBattery,
   });
 
   @override
   int get hashCode =>
-      windowWidth.hashCode ^
-      windowHeight.hashCode ^
-      minimizeToTray.hashCode ^
-      startMinimized.hashCode ^
-      theme.hashCode ^
-      language.hashCode ^
-      renderer.hashCode ^
-      sidebarCollapsed.hashCode ^
-      detailPanelVisible.hashCode;
+      volume.hashCode ^
+      fpsLimit.hashCode ^
+      loopPlayback.hashCode ^
+      layout.hashCode ^
+      hwdec.hashCode ^
+      mute.hashCode ^
+      startTime.hashCode ^
+      playbackRate.hashCode ^
+      hdrMode.hashCode ^
+      toneMappingAlgorithm.hashCode ^
+      toneMappingParam.hashCode ^
+      toneMappingMode.hashCode ^
+      toneMappingComputePeak.hashCode ^
+      autoPlay.hashCode ^
+      pauseOnBattery.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is GuiSettingsDto &&
+      other is EngineConfigDto &&
           runtimeType == other.runtimeType &&
-          windowWidth == other.windowWidth &&
-          windowHeight == other.windowHeight &&
-          minimizeToTray == other.minimizeToTray &&
-          startMinimized == other.startMinimized &&
-          theme == other.theme &&
-          language == other.language &&
-          renderer == other.renderer &&
-          sidebarCollapsed == other.sidebarCollapsed &&
-          detailPanelVisible == other.detailPanelVisible;
-}
-
-class InitializationSnapshot {
-  final SettingsDto settings;
-  final bool workshopAvailable;
-  final bool engineRunning;
-  final bool trayAvailable;
-  final bool anotherInstance;
-
-  const InitializationSnapshot({
-    required this.settings,
-    required this.workshopAvailable,
-    required this.engineRunning,
-    required this.trayAvailable,
-    required this.anotherInstance,
-  });
-
-  @override
-  int get hashCode =>
-      settings.hashCode ^
-      workshopAvailable.hashCode ^
-      engineRunning.hashCode ^
-      trayAvailable.hashCode ^
-      anotherInstance.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is InitializationSnapshot &&
-          runtimeType == other.runtimeType &&
-          settings == other.settings &&
-          workshopAvailable == other.workshopAvailable &&
-          engineRunning == other.engineRunning &&
-          trayAvailable == other.trayAvailable &&
-          anotherInstance == other.anotherInstance;
+          volume == other.volume &&
+          fpsLimit == other.fpsLimit &&
+          loopPlayback == other.loopPlayback &&
+          layout == other.layout &&
+          hwdec == other.hwdec &&
+          mute == other.mute &&
+          startTime == other.startTime &&
+          playbackRate == other.playbackRate &&
+          hdrMode == other.hdrMode &&
+          toneMappingAlgorithm == other.toneMappingAlgorithm &&
+          toneMappingParam == other.toneMappingParam &&
+          toneMappingMode == other.toneMappingMode &&
+          toneMappingComputePeak == other.toneMappingComputePeak &&
+          autoPlay == other.autoPlay &&
+          pauseOnBattery == other.pauseOnBattery;
 }
 
 class MonitorDto {
@@ -220,66 +196,22 @@ class MonitorDto {
           currentWallpaper == other.currentWallpaper;
 }
 
-class PlaybackSettingsDto {
-  final double volume;
-  final int? fpsLimit;
-  final String? preferredMonitor;
-  final bool loopMode;
-  final bool shuffle;
+class PreviewDto {
+  final String? imagePath;
+  final Uint8List bytes;
 
-  const PlaybackSettingsDto({
-    required this.volume,
-    this.fpsLimit,
-    this.preferredMonitor,
-    required this.loopMode,
-    required this.shuffle,
-  });
+  const PreviewDto({this.imagePath, required this.bytes});
 
   @override
-  int get hashCode =>
-      volume.hashCode ^
-      fpsLimit.hashCode ^
-      preferredMonitor.hashCode ^
-      loopMode.hashCode ^
-      shuffle.hashCode;
+  int get hashCode => imagePath.hashCode ^ bytes.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is PlaybackSettingsDto &&
+      other is PreviewDto &&
           runtimeType == other.runtimeType &&
-          volume == other.volume &&
-          fpsLimit == other.fpsLimit &&
-          preferredMonitor == other.preferredMonitor &&
-          loopMode == other.loopMode &&
-          shuffle == other.shuffle;
-}
-
-class PowerSettingsDto {
-  final bool pauseOnBattery;
-  final bool pauseOnFullscreen;
-  final int? batteryFpsLimit;
-
-  const PowerSettingsDto({
-    required this.pauseOnBattery,
-    required this.pauseOnFullscreen,
-    this.batteryFpsLimit,
-  });
-
-  @override
-  int get hashCode =>
-      pauseOnBattery.hashCode ^
-      pauseOnFullscreen.hashCode ^
-      batteryFpsLimit.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is PowerSettingsDto &&
-          runtimeType == other.runtimeType &&
-          pauseOnBattery == other.pauseOnBattery &&
-          pauseOnFullscreen == other.pauseOnFullscreen &&
-          batteryFpsLimit == other.batteryFpsLimit;
+          imagePath == other.imagePath &&
+          bytes == other.bytes;
 }
 
 @freezed
@@ -297,134 +229,31 @@ sealed class ServiceEvent with _$ServiceEvent {
   const factory ServiceEvent.outputsChanged({
     required List<MonitorDto> outputs,
   }) = ServiceEvent_OutputsChanged;
-  const factory ServiceEvent.showWindow() = ServiceEvent_ShowWindow;
-  const factory ServiceEvent.trayAction({required String action}) =
-      ServiceEvent_TrayAction;
   const factory ServiceEvent.error({
     required String code,
     required String message,
   }) = ServiceEvent_Error;
 }
 
-class SettingsDto {
-  final GuiSettingsDto gui;
-  final PlaybackSettingsDto playback;
-  final bool autostartEnabled;
-  final bool restoreLastWallpaper;
-  final PowerSettingsDto power;
-  final List<String> libraryFolders;
+class ServiceInfo {
+  final bool workshopAvailable;
+  final bool engineRunning;
 
-  const SettingsDto({
-    required this.gui,
-    required this.playback,
-    required this.autostartEnabled,
-    required this.restoreLastWallpaper,
-    required this.power,
-    required this.libraryFolders,
+  const ServiceInfo({
+    required this.workshopAvailable,
+    required this.engineRunning,
   });
 
   @override
-  int get hashCode =>
-      gui.hashCode ^
-      playback.hashCode ^
-      autostartEnabled.hashCode ^
-      restoreLastWallpaper.hashCode ^
-      power.hashCode ^
-      libraryFolders.hashCode;
+  int get hashCode => workshopAvailable.hashCode ^ engineRunning.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SettingsDto &&
+      other is ServiceInfo &&
           runtimeType == other.runtimeType &&
-          gui == other.gui &&
-          playback == other.playback &&
-          autostartEnabled == other.autostartEnabled &&
-          restoreLastWallpaper == other.restoreLastWallpaper &&
-          power == other.power &&
-          libraryFolders == other.libraryFolders;
-}
-
-class SettingsPatch {
-  final int? windowWidth;
-  final int? windowHeight;
-  final bool? minimizeToTray;
-  final bool? startMinimized;
-  final String? theme;
-  final String? language;
-  final String? renderer;
-  final bool? sidebarCollapsed;
-  final bool? detailPanelVisible;
-  final double? volume;
-  final FpsLimitPatch? fpsLimit;
-  final bool? pauseOnBattery;
-  final bool? pauseOnFullscreen;
-  final bool? autostartEnabled;
-  final bool? restoreLastWallpaper;
-  final List<String>? libraryFolders;
-
-  const SettingsPatch({
-    this.windowWidth,
-    this.windowHeight,
-    this.minimizeToTray,
-    this.startMinimized,
-    this.theme,
-    this.language,
-    this.renderer,
-    this.sidebarCollapsed,
-    this.detailPanelVisible,
-    this.volume,
-    this.fpsLimit,
-    this.pauseOnBattery,
-    this.pauseOnFullscreen,
-    this.autostartEnabled,
-    this.restoreLastWallpaper,
-    this.libraryFolders,
-  });
-
-  static Future<SettingsPatch> default_() =>
-      RustLib.instance.api.crateBridgeSettingsPatchDefault();
-
-  @override
-  int get hashCode =>
-      windowWidth.hashCode ^
-      windowHeight.hashCode ^
-      minimizeToTray.hashCode ^
-      startMinimized.hashCode ^
-      theme.hashCode ^
-      language.hashCode ^
-      renderer.hashCode ^
-      sidebarCollapsed.hashCode ^
-      detailPanelVisible.hashCode ^
-      volume.hashCode ^
-      fpsLimit.hashCode ^
-      pauseOnBattery.hashCode ^
-      pauseOnFullscreen.hashCode ^
-      autostartEnabled.hashCode ^
-      restoreLastWallpaper.hashCode ^
-      libraryFolders.hashCode;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is SettingsPatch &&
-          runtimeType == other.runtimeType &&
-          windowWidth == other.windowWidth &&
-          windowHeight == other.windowHeight &&
-          minimizeToTray == other.minimizeToTray &&
-          startMinimized == other.startMinimized &&
-          theme == other.theme &&
-          language == other.language &&
-          renderer == other.renderer &&
-          sidebarCollapsed == other.sidebarCollapsed &&
-          detailPanelVisible == other.detailPanelVisible &&
-          volume == other.volume &&
-          fpsLimit == other.fpsLimit &&
-          pauseOnBattery == other.pauseOnBattery &&
-          pauseOnFullscreen == other.pauseOnFullscreen &&
-          autostartEnabled == other.autostartEnabled &&
-          restoreLastWallpaper == other.restoreLastWallpaper &&
-          libraryFolders == other.libraryFolders;
+          workshopAvailable == other.workshopAvailable &&
+          engineRunning == other.engineRunning;
 }
 
 class WallpaperDto {
@@ -433,6 +262,7 @@ class WallpaperDto {
   final String sourcePath;
   final String? thumbnailPath;
   final String sourceType;
+  final String wallpaperCategory;
   final String wallpaperType;
   final WallpaperMetadataDto metadata;
   final String addedAt;
@@ -444,6 +274,7 @@ class WallpaperDto {
     required this.sourcePath,
     this.thumbnailPath,
     required this.sourceType,
+    required this.wallpaperCategory,
     required this.wallpaperType,
     required this.metadata,
     required this.addedAt,
@@ -457,6 +288,7 @@ class WallpaperDto {
       sourcePath.hashCode ^
       thumbnailPath.hashCode ^
       sourceType.hashCode ^
+      wallpaperCategory.hashCode ^
       wallpaperType.hashCode ^
       metadata.hashCode ^
       addedAt.hashCode ^
@@ -472,6 +304,7 @@ class WallpaperDto {
           sourcePath == other.sourcePath &&
           thumbnailPath == other.thumbnailPath &&
           sourceType == other.sourceType &&
+          wallpaperCategory == other.wallpaperCategory &&
           wallpaperType == other.wallpaperType &&
           metadata == other.metadata &&
           addedAt == other.addedAt &&

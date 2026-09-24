@@ -6,9 +6,11 @@
 
 mod command;
 mod session;
+mod x11;
 
 pub use command::{EngineCommand, EngineConfig, EngineEvent, EngineStatus};
 pub use session::WallpaperSession;
+pub use x11::discover_outputs as discover_x11_outputs;
 
 use std::collections::HashMap;
 use std::ffi::CString;
@@ -54,7 +56,7 @@ impl EngineHandle {
             .map_err(|e| anyhow::anyhow!("Failed to send command: {}", e))
     }
 
-    /// Get a clone of the command sender for external use (e.g., IPC server)
+    /// Get a clone of the command sender for in-process service adapters.
     pub fn command_sender(&self) -> Sender<EngineCommand> {
         self.commands_tx.clone()
     }
@@ -117,10 +119,19 @@ pub fn spawn_engine(config: EngineConfig) -> Result<(EngineHandle, StdReceiver<E
     let shutdown_clone = shutdown.clone();
 
     let thread = thread::Builder::new()
-        .name("wayvid-engine".to_string())
+        .name("varpaper-engine".to_string())
         .spawn(move || {
-            if let Err(e) = run_engine_thread(config, events_tx, commands_rx, shutdown_clone) {
+            let failure_tx = events_tx.clone();
+            let result = match select_backend() {
+                Ok(Backend::Wayland) => {
+                    run_engine_thread(config, events_tx, commands_rx, shutdown_clone)
+                }
+                Ok(Backend::X11) => x11::run(config, events_tx, commands_rx, shutdown_clone),
+                Err(error) => Err(error),
+            };
+            if let Err(e) = result {
                 error!("Engine thread error: {}", e);
+                let _ = failure_tx.send(EngineEvent::Error(e.to_string()));
             }
         })
         .context("Failed to spawn engine thread")?;
@@ -132,6 +143,69 @@ pub fn spawn_engine(config: EngineConfig) -> Result<(EngineHandle, StdReceiver<E
     };
 
     Ok((handle, events_rx))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Backend {
+    Wayland,
+    X11,
+}
+
+fn select_backend() -> Result<Backend> {
+    let session = std::env::var("XDG_SESSION_TYPE").unwrap_or_default();
+    let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let x11 = std::env::var_os("DISPLAY").is_some();
+    select_backend_for(&session, wayland, x11)
+}
+
+fn select_backend_for(session: &str, wayland: bool, x11: bool) -> Result<Backend> {
+    match session {
+        "wayland" if wayland => Ok(Backend::Wayland),
+        "x11" if x11 => Ok(Backend::X11),
+        "wayland" => anyhow::bail!("Wayland session has no WAYLAND_DISPLAY"),
+        "x11" => anyhow::bail!("X11 session has no DISPLAY"),
+        _ if wayland => Ok(Backend::Wayland),
+        _ if x11 => Ok(Backend::X11),
+        _ => anyhow::bail!("No Wayland or X11 display is available"),
+    }
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::*;
+
+    #[test]
+    fn native_session_wins_over_xwayland_display() {
+        assert_eq!(
+            select_backend_for("wayland", true, true).unwrap(),
+            Backend::Wayland
+        );
+        assert_eq!(select_backend_for("x11", true, true).unwrap(), Backend::X11);
+        assert!(select_backend_for("x11", true, false).is_err());
+        assert!(select_backend_for("", false, false).is_err());
+    }
+
+    #[test]
+    fn wayland_backend_enumerates_outputs() {
+        if std::env::var_os("VARPAPER_TEST_WAYLAND").is_none() {
+            return;
+        }
+        let (handle, events) = spawn_engine(EngineConfig::default()).unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Wayland output did not appear"
+            );
+            match events.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(EngineEvent::OutputAdded(_)) => break,
+                Ok(EngineEvent::Error(error)) => panic!("Wayland engine failed: {error}"),
+                _ => {}
+            }
+        }
+        handle.request_shutdown();
+        handle.join().unwrap();
+    }
 }
 
 /// Internal: Run engine in the current thread
@@ -429,6 +503,12 @@ struct PendingOutput {
 /// Handle incoming command from GUI
 fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
     match cmd {
+        EngineCommand::UpdateConfig(config) => {
+            state.config = config.clone();
+            for session in state.sessions.values_mut() {
+                session.update_config(config.video.clone());
+            }
+        }
         EngineCommand::ApplyWallpaper { path, output } => {
             debug!("ApplyWallpaper: {:?} to {:?}", path, output);
 
@@ -810,14 +890,14 @@ impl Dispatch<WlOutput, u32> for EngineState {
                 state.outputs.mark_ready(&output_name);
 
                 // Send event to GUI
-                let info = wayvid_core::OutputInfo {
+                let info = crate::types::OutputInfo {
                     name: output_name.clone(),
                     width: pending.width,
                     height: pending.height,
                     scale: pending.scale as f64,
                     position: (pending.x, pending.y),
                     active: true,
-                    hdr_capabilities: wayvid_core::OutputHdrCapabilities::default(),
+                    hdr_capabilities: crate::types::OutputHdrCapabilities::default(),
                 };
                 let _ = state.events_tx.send(EngineEvent::OutputAdded(info));
             }

@@ -1,22 +1,22 @@
 <div align="center">
 
-<img src="logo.svg" alt="wayvid logo" width="100" height="100">
+<img src="logo.svg" alt="VarPaper logo" width="100" height="100">
 
-# wayvid
+# VarPaper
 
-Animated wallpaper manager for Wayland
+Animated wallpaper manager for Wayland and X11
 
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/YangYuS8/wayvid/releases)
+[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/mybna134/lwe-flutter/releases)
 
-[Documentation](https://yangyus8.top/wayvid/) • [Releases](https://github.com/YangYuS8/wayvid/releases)
+[Project](https://github.com/mybna134/lwe-flutter) • [Releases](https://github.com/mybna134/lwe-flutter/releases)
 
 </div>
 
 ## What it does
 
-wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5** introduces a GUI-first design — just open the app, pick a wallpaper, and apply.
+VarPaper plays video files as animated wallpapers on Wayland and X11 desktops. Open the app, pick a wallpaper, and apply it to one display or all displays.
 
 **Features:**
 
@@ -25,7 +25,6 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 - ⚡ **Hardware accelerated** decoding (VA-API/NVDEC via mpv)
 - 🎮 **Steam Workshop** import (video wallpapers)
 - 🌈 **HDR support** with tone-mapping
-- 🔧 **CLI tools** for scripting and automation
 - 💾 **Wallpaper persistence** - restore wallpapers after restart
 - 🔋 **Power management** - auto-pause on battery
 - 📥 **System tray** - start minimized and run in background
@@ -34,6 +33,8 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 
 **Should work on:** Sway, River, and other wlr-layer-shell compositors
 
+Native X11 sessions use RandR to discover monitors and create desktop-type wallpaper windows. Wayland sessions continue to use layer-shell, even when XWayland is available. X11 window stacking can depend on the window manager and desktop icon manager.
+
 ## Demo
 
 <!-- TODO: Add demo video/GIF here -->
@@ -41,48 +42,30 @@ wayvid plays video files as animated wallpapers on Wayland compositors. **v0.5**
 
 ## Install
 
-### Arch Linux (AUR)
+Release downloads contain `.deb` and `.flatpak` packages.
 
 ```bash
-yay -S wayvid
+sudo apt install ./varpaper_*.deb
+# or
+flatpak install ./varpaper_*.flatpak
 ```
 
-### Nix
+### Build packages from source
 
 ```bash
-# Direct run
-nix run github:YangYuS8/wayvid
-
-# Install to profile
-nix profile install github:YangYuS8/wayvid
+git clone https://github.com/mybna134/lwe-flutter.git
+cd lwe-flutter
+./scripts/build-packages.sh
 ```
 
-### From source
-
-```bash
-git clone https://github.com/YangYuS8/wayvid.git
-cd wayvid
-flutter build linux --release
-cargo build --release -p wayvid-ctl
-
-# Install using script (recommended)
-./scripts/install.sh --user
-
-# Or manual install
-sudo install -d /usr/local/lib/wayvid
-sudo cp -a build/linux/x64/release/bundle/. /usr/local/lib/wayvid/
-sudo install -Dm755 packaging/wayvid-gui-wrapper /usr/local/bin/wayvid-gui
-sudo install -Dm755 target/release/wayvid-ctl /usr/local/bin/
-```
-
-**Dependencies:** libmpv, libEGL, libwayland-client
+The build requires Flutter, Rust, Linux development libraries (including X11, RandR, and XFixes headers), `dpkg-deb`, `flatpak-builder`, and the GNOME 50 Flatpak runtime and SDK. Packages are written to `dist/`.
 
 ## Usage
 
-### GUI (Recommended)
+### GUI
 
 ```bash
-wayvid-gui
+varpaper
 ```
 
 The GUI provides:
@@ -90,26 +73,6 @@ The GUI provides:
 - Monitor selection and preview
 - Settings configuration (autostart, power management)
 - Minimizes to system tray
-
-### CLI Control
-
-```bash
-# Apply wallpaper
-wayvid-ctl apply ~/Videos/wallpaper.mp4
-wayvid-ctl apply ~/Videos/wallpaper.mp4 --output DP-1
-
-# Control playback
-wayvid-ctl pause
-wayvid-ctl resume
-wayvid-ctl stop
-
-# Check status
-wayvid-ctl status
-wayvid-ctl status --json
-
-# List monitors
-wayvid-ctl outputs
-```
 
 ### Autostart
 
@@ -119,7 +82,7 @@ The GUI includes autostart options in Settings:
 2. **Minimize to tray** - Keep running in background
 3. **Start minimized** - Start directly to tray
 
-With all three enabled, wayvid will:
+With all three enabled, VarPaper will:
 - Start automatically on login
 - Run in the background (tray icon)
 - Restore your wallpapers from last session
@@ -128,64 +91,28 @@ With all three enabled, wayvid will:
 
 ```kdl
 # niri: ~/.config/niri/config.kdl
-spawn-at-startup "wayvid-gui"
+spawn-at-startup "varpaper"
 ```
 
 ```conf
 # hyprland: ~/.config/hypr/hyprland.conf
-exec-once = wayvid-gui
-```
-
-**systemd (optional):**
-```bash
-systemctl --user enable --now wayvid
+exec-once = varpaper
 ```
 
 ## Configuration
 
-Settings are managed through the GUI and saved automatically to:
-```
-~/.config/wayvid/settings.yaml
-```
-
-For advanced users, legacy config.yaml is still supported:
-```yaml
-# ~/.config/wayvid/config.yaml
-source:
-  type: file
-  path: ~/Videos/wallpaper.mp4
-layout: fill
-volume: 0
-```
+Settings are managed by the Flutter UI and saved in the Isar Community
+database under the platform application support directory. Existing YAML
+settings are intentionally not migrated.
 
 ## Multi-monitor
 
-Use the GUI's Monitor tab, or configure per-output:
-
-```yaml
-# ~/.config/wayvid/config.yaml
-source:
-  type: file
-  path: ~/Videos/default.mp4
-
-per_output:
-  DP-1:
-    source:
-      type: file
-      path: ~/Videos/left.mp4
-  HDMI-A-1:
-    source:
-      type: file
-      path: ~/Videos/right.mp4
-```
+Use the GUI's Monitor tab to apply a wallpaper to all outputs or to a
+specific output.
 
 ## Steam Workshop
 
-Import video wallpapers from Wallpaper Engine through the GUI, or:
-
-```bash
-wayvid-ctl apply ~/.steam/steam/steamapps/workshop/content/431960/<id>/video.mp4
-```
+Import video wallpapers from Wallpaper Engine through the GUI.
 
 **Note:** Only video wallpapers are supported. Web/scene types require Wallpaper Engine.
 
@@ -215,10 +142,8 @@ linux/              # Flutter Linux runner
 rust/               # Rust service exposed to Flutter through FRB
 linux/cargokit/     # Flutter Linux build integration for the Rust service
 crates/
-├── wayvid-core     # Core types and configuration
-├── wayvid-engine   # Integrated playback engine (Wayland layer-shell + MPV)
-├── wayvid-library  # Wallpaper library (SQLite + thumbnails)
-└── wayvid-ctl      # CLI control tool
+├── wayvid-engine   # Integrated playback engine (Wayland/X11 + MPV)
+└── wayvid-library  # In-memory wallpaper scanning and previews
 ```
 
 ### Architecture (v0.5)
@@ -226,9 +151,9 @@ crates/
 wayvid v0.5 uses a **single-process architecture**:
 
 - The Flutter GUI (`wayvid-gui`) owns presentation and Riverpod state
-- The top-level Rust service owns playback, Wayland, tray, settings, and IPC
+- Flutter owns settings, tray, and application lifecycle
+- The top-level Rust service owns scanning and playback behind FRB
 - No separate daemon process required
-- CLI tools communicate via IPC socket
 - Better resource management and simpler deployment
 
 ```
@@ -239,24 +164,22 @@ wayvid v0.5 uses a **single-process architecture**:
 │  │  Riverpod   │  │  FRB bridge  │  │
 │  └─────────────┘  └──────┬───────┘  │
 │                          │          │
-│                 Engine / IPC / Tray│
+│                    Engine service │
 └─────────│─────────────────│─────────┘
-          │                 │
-    wayvid-ctl         Compositor
+                            │
+                       Compositor
 ```
 
 ## Contributing
 
 ```bash
 flutter build linux --release
-cargo build --release -p wayvid-ctl
 cargo test --workspace
-cargo clippy --workspace
 ```
 
 ## License
 
-MIT OR Apache-2.0
+VarPaper is licensed under [GNU GPL v3 only](LICENSE). See [NOTICE](NOTICE) for upstream attribution. The retained [Apache-2.0](LICENSE-APACHE) and [MIT](LICENSE-MIT) texts apply to upstream material and do not replace VarPaper's GPL license.
 
 ## Acknowledgments
 

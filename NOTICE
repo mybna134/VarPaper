@@ -1,0 +1,18 @@
+VarPaper
+
+This project incorporates or adapts material from LWE:
+https://github.com/YangYuS8/lwe
+LWE is licensed under the Apache License, Version 2.0. Its license text is
+preserved in LICENSE-APACHE. The source used here has been modified for
+VarPaper, including the Flutter interface, Rust integration, branding, and
+packaging. Original copyright, attribution, and license notices in upstream
+source files remain applicable.
+
+This repository also retains material from wayvid:
+https://github.com/YangYuS8/wayvid
+Its original MIT and Apache-2.0 license texts are preserved as LICENSE-MIT
+and LICENSE-APACHE. Copyright notices in source files remain applicable.
+
+The VarPaper distribution is licensed under GNU GPL version 3 only; see
+LICENSE. The retained upstream licenses and notices continue to apply to
+their respective material.

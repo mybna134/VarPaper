@@ -81,6 +81,13 @@ set_target_properties(${BINARY_NAME}
 include(flutter/generated_plugins.cmake)
 list(APPEND PLUGIN_BUNDLED_LIBRARIES "${wayvid_gui_native_cargokit_lib}")
 
+# tray_manager calls the legacy AppIndicator constructor on Linux. The
+# system header marks it deprecated even though it is still the supported
+# compatibility entry point for current AppIndicator hosts.
+if(TARGET tray_manager_plugin)
+  target_compile_options(tray_manager_plugin PRIVATE -Wno-deprecated-declarations)
+endif()
+
 
 # === Installation ===
 # By default, "installing" just makes a relocatable bundle in the build

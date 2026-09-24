@@ -1,21 +1,15 @@
 # Wayvid Workspace
 # =================
 # 
-# v0.5+ 采用 GUI-first 架构，多 crate 工作区结构：
-# - wayvid-core:    核心类型和配置
-# - wayvid-engine:  视频渲染引擎 (Wayland + MPV)
-# - wayvid-library: 壁纸库管理 (SQLite + 缩略图)
-# - rust:           Flutter GUI 的 Rust service/FRB bridge
-# - wayvid-ctl:     精简 CLI 工具
+# v0.5+ 采用 Flutter-first 架构：Flutter 持久化配置并通过 FRB 调度
+# library 扫描与 engine 播放；Rust 子 crate 之间不共享应用层 core。
 
 [workspace]
 resolver = "2"
 members = [
-    "crates/wayvid-core",
     "crates/wayvid-engine",
     "crates/wayvid-library",
     "rust",
-    "crates/wayvid-ctl",
 ]
 
 [workspace.package]
@@ -23,14 +17,13 @@ version = "0.5.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["wayvid contributors"]
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-only"
 repository = "https://github.com/YangYuS8/wayvid"
 
 # 共享依赖版本 (workspace.dependencies)
 [workspace.dependencies]
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
 serde_json = "1.0"
 
 # Error handling
@@ -40,9 +33,6 @@ anyhow = "1.0"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-
-# CLI
-clap = { version = "4.5", features = ["derive"] }
 
 # Utilities
 dirs = "5.0"

@@ -1,0 +1,35 @@
+{
+  "app-id": "io.github.mybna134.varpaper",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "50",
+  "sdk": "org.gnome.Sdk",
+  "command": "varpaper",
+  "finish-args": [
+    "--share=ipc",
+    "--share=network",
+    "--socket=wayland",
+    "--socket=x11",
+    "--socket=pulseaudio",
+    "--device=dri",
+    "--filesystem=home",
+    "--talk-name=org.kde.StatusNotifierWatcher"
+  ],
+  "modules": [
+    {
+      "name": "varpaper",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -d /app/bin /app/lib/varpaper /app/share/applications /app/share/icons/hicolor/256x256/apps /app/share/doc/varpaper",
+        "cp -a bundle/. /app/lib/varpaper/",
+        "cp -a libraries/. /app/lib/",
+        "install -Dm755 varpaper /app/bin/varpaper",
+        "install -Dm644 io.github.mybna134.varpaper.desktop /app/share/applications/io.github.mybna134.varpaper.desktop",
+        "install -Dm644 io.github.mybna134.varpaper.png /app/share/icons/hicolor/256x256/apps/io.github.mybna134.varpaper.png",
+        "install -Dm644 LICENSE NOTICE LICENSE-APACHE LICENSE-MIT /app/share/doc/varpaper/"
+      ],
+      "sources": [
+        { "type": "dir", "path": "app" }
+      ]
+    }
+  ]
+}

@@ -12,264 +12,6 @@ part of 'bridge.dart';
 // dart format off
 T _$identity<T>(T value) => value;
 /// @nodoc
-mixin _$FpsLimitPatch {
-
-
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FpsLimitPatch);
-}
-
-
-@override
-int get hashCode => runtimeType.hashCode;
-
-@override
-String toString() {
-  return 'FpsLimitPatch()';
-}
-
-
-}
-
-/// @nodoc
-class $FpsLimitPatchCopyWith<$Res>  {
-$FpsLimitPatchCopyWith(FpsLimitPatch _, $Res Function(FpsLimitPatch) __);
-}
-
-
-/// Adds pattern-matching-related methods to [FpsLimitPatch].
-extension FpsLimitPatchPatterns on FpsLimitPatch {
-/// A variant of `map` that fallback to returning `orElse`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( FpsLimitPatch_Unlimited value)?  unlimited,TResult Function( FpsLimitPatch_Value value)?  value,required TResult orElse(),}){
-final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited() when unlimited != null:
-return unlimited(_that);case FpsLimitPatch_Value() when value != null:
-return value(_that);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// Callbacks receives the raw object, upcasted.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case final Subclass2 value:
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( FpsLimitPatch_Unlimited value)  unlimited,required TResult Function( FpsLimitPatch_Value value)  value,}){
-final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited():
-return unlimited(_that);case FpsLimitPatch_Value():
-return value(_that);}
-}
-/// A variant of `map` that fallback to returning `null`.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case final Subclass value:
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( FpsLimitPatch_Unlimited value)?  unlimited,TResult? Function( FpsLimitPatch_Value value)?  value,}){
-final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited() when unlimited != null:
-return unlimited(_that);case FpsLimitPatch_Value() when value != null:
-return value(_that);case _:
-  return null;
-
-}
-}
-/// A variant of `when` that fallback to an `orElse` callback.
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return orElse();
-/// }
-/// ```
-
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  unlimited,TResult Function( int field0)?  value,required TResult orElse(),}) {final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited() when unlimited != null:
-return unlimited();case FpsLimitPatch_Value() when value != null:
-return value(_that.field0);case _:
-  return orElse();
-
-}
-}
-/// A `switch`-like method, using callbacks.
-///
-/// As opposed to `map`, this offers destructuring.
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case Subclass2(:final field2):
-///     return ...;
-/// }
-/// ```
-
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  unlimited,required TResult Function( int field0)  value,}) {final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited():
-return unlimited();case FpsLimitPatch_Value():
-return value(_that.field0);}
-}
-/// A variant of `when` that fallback to returning `null`
-///
-/// It is equivalent to doing:
-/// ```dart
-/// switch (sealedClass) {
-///   case Subclass(:final field):
-///     return ...;
-///   case _:
-///     return null;
-/// }
-/// ```
-
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  unlimited,TResult? Function( int field0)?  value,}) {final _that = this;
-switch (_that) {
-case FpsLimitPatch_Unlimited() when unlimited != null:
-return unlimited();case FpsLimitPatch_Value() when value != null:
-return value(_that.field0);case _:
-  return null;
-
-}
-}
-
-}
-
-/// @nodoc
-
-
-class FpsLimitPatch_Unlimited extends FpsLimitPatch {
-  const FpsLimitPatch_Unlimited(): super._();
-  
-
-
-
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FpsLimitPatch_Unlimited);
-}
-
-
-@override
-int get hashCode => runtimeType.hashCode;
-
-@override
-String toString() {
-  return 'FpsLimitPatch.unlimited()';
-}
-
-
-}
-
-
-
-
-/// @nodoc
-
-
-class FpsLimitPatch_Value extends FpsLimitPatch {
-  const FpsLimitPatch_Value(this.field0): super._();
-  
-
- final  int field0;
-
-/// Create a copy of FpsLimitPatch
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$FpsLimitPatch_ValueCopyWith<FpsLimitPatch_Value> get copyWith => _$FpsLimitPatch_ValueCopyWithImpl<FpsLimitPatch_Value>(this, _$identity);
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FpsLimitPatch_Value&&(identical(other.field0, field0) || other.field0 == field0));
-}
-
-
-@override
-int get hashCode => Object.hash(runtimeType,field0);
-
-@override
-String toString() {
-  return 'FpsLimitPatch.value(field0: $field0)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $FpsLimitPatch_ValueCopyWith<$Res> implements $FpsLimitPatchCopyWith<$Res> {
-  factory $FpsLimitPatch_ValueCopyWith(FpsLimitPatch_Value value, $Res Function(FpsLimitPatch_Value) _then) = _$FpsLimitPatch_ValueCopyWithImpl;
-@useResult
-$Res call({
- int field0
-});
-
-
-
-
-}
-/// @nodoc
-class _$FpsLimitPatch_ValueCopyWithImpl<$Res>
-    implements $FpsLimitPatch_ValueCopyWith<$Res> {
-  _$FpsLimitPatch_ValueCopyWithImpl(this._self, this._then);
-
-  final FpsLimitPatch_Value _self;
-  final $Res Function(FpsLimitPatch_Value) _then;
-
-/// Create a copy of FpsLimitPatch
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? field0 = null,}) {
-  return _then(FpsLimitPatch_Value(
-null == field0 ? _self.field0 : field0 // ignore: cast_nullable_to_non_nullable
-as int,
-  ));
-}
-
-
-}
-
-/// @nodoc
 mixin _$ServiceEvent {
 
 
@@ -313,7 +55,7 @@ extension ServiceEventPatterns on ServiceEvent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult Function( ServiceEvent_ShowWindow value)?  showWindow,TResult Function( ServiceEvent_TrayAction value)?  trayAction,TResult Function( ServiceEvent_Error value)?  error,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult Function( ServiceEvent_Error value)?  error,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
@@ -321,9 +63,7 @@ return engineStarted(_that);case ServiceEvent_EngineStopped() when engineStopped
 return engineStopped(_that);case ServiceEvent_WallpaperApplied() when wallpaperApplied != null:
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged() when outputsChanged != null:
-return outputsChanged(_that);case ServiceEvent_ShowWindow() when showWindow != null:
-return showWindow(_that);case ServiceEvent_TrayAction() when trayAction != null:
-return trayAction(_that);case ServiceEvent_Error() when error != null:
+return outputsChanged(_that);case ServiceEvent_Error() when error != null:
 return error(_that);case _:
   return orElse();
 
@@ -342,7 +82,7 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ServiceEvent_EngineStarted value)  engineStarted,required TResult Function( ServiceEvent_EngineStopped value)  engineStopped,required TResult Function( ServiceEvent_WallpaperApplied value)  wallpaperApplied,required TResult Function( ServiceEvent_WallpaperCleared value)  wallpaperCleared,required TResult Function( ServiceEvent_OutputsChanged value)  outputsChanged,required TResult Function( ServiceEvent_ShowWindow value)  showWindow,required TResult Function( ServiceEvent_TrayAction value)  trayAction,required TResult Function( ServiceEvent_Error value)  error,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ServiceEvent_EngineStarted value)  engineStarted,required TResult Function( ServiceEvent_EngineStopped value)  engineStopped,required TResult Function( ServiceEvent_WallpaperApplied value)  wallpaperApplied,required TResult Function( ServiceEvent_WallpaperCleared value)  wallpaperCleared,required TResult Function( ServiceEvent_OutputsChanged value)  outputsChanged,required TResult Function( ServiceEvent_Error value)  error,}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted():
@@ -350,9 +90,7 @@ return engineStarted(_that);case ServiceEvent_EngineStopped():
 return engineStopped(_that);case ServiceEvent_WallpaperApplied():
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared():
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged():
-return outputsChanged(_that);case ServiceEvent_ShowWindow():
-return showWindow(_that);case ServiceEvent_TrayAction():
-return trayAction(_that);case ServiceEvent_Error():
+return outputsChanged(_that);case ServiceEvent_Error():
 return error(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -367,7 +105,7 @@ return error(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult? Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult? Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult? Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult? Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult? Function( ServiceEvent_ShowWindow value)?  showWindow,TResult? Function( ServiceEvent_TrayAction value)?  trayAction,TResult? Function( ServiceEvent_Error value)?  error,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult? Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult? Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult? Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult? Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult? Function( ServiceEvent_Error value)?  error,}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
@@ -375,9 +113,7 @@ return engineStarted(_that);case ServiceEvent_EngineStopped() when engineStopped
 return engineStopped(_that);case ServiceEvent_WallpaperApplied() when wallpaperApplied != null:
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged() when outputsChanged != null:
-return outputsChanged(_that);case ServiceEvent_ShowWindow() when showWindow != null:
-return showWindow(_that);case ServiceEvent_TrayAction() when trayAction != null:
-return trayAction(_that);case ServiceEvent_Error() when error != null:
+return outputsChanged(_that);case ServiceEvent_Error() when error != null:
 return error(_that);case _:
   return null;
 
@@ -395,16 +131,14 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  engineStarted,TResult Function()?  engineStopped,TResult Function( String output,  String path)?  wallpaperApplied,TResult Function( String output)?  wallpaperCleared,TResult Function( List<MonitorDto> outputs)?  outputsChanged,TResult Function()?  showWindow,TResult Function( String action)?  trayAction,TResult Function( String code,  String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  engineStarted,TResult Function()?  engineStopped,TResult Function( String output,  String path)?  wallpaperApplied,TResult Function( String output)?  wallpaperCleared,TResult Function( List<MonitorDto> outputs)?  outputsChanged,TResult Function( String code,  String message)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
 return engineStarted();case ServiceEvent_EngineStopped() when engineStopped != null:
 return engineStopped();case ServiceEvent_WallpaperApplied() when wallpaperApplied != null:
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged() when outputsChanged != null:
-return outputsChanged(_that.outputs);case ServiceEvent_ShowWindow() when showWindow != null:
-return showWindow();case ServiceEvent_TrayAction() when trayAction != null:
-return trayAction(_that.action);case ServiceEvent_Error() when error != null:
+return outputsChanged(_that.outputs);case ServiceEvent_Error() when error != null:
 return error(_that.code,_that.message);case _:
   return orElse();
 
@@ -423,16 +157,14 @@ return error(_that.code,_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  engineStarted,required TResult Function()  engineStopped,required TResult Function( String output,  String path)  wallpaperApplied,required TResult Function( String output)  wallpaperCleared,required TResult Function( List<MonitorDto> outputs)  outputsChanged,required TResult Function()  showWindow,required TResult Function( String action)  trayAction,required TResult Function( String code,  String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  engineStarted,required TResult Function()  engineStopped,required TResult Function( String output,  String path)  wallpaperApplied,required TResult Function( String output)  wallpaperCleared,required TResult Function( List<MonitorDto> outputs)  outputsChanged,required TResult Function( String code,  String message)  error,}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted():
 return engineStarted();case ServiceEvent_EngineStopped():
 return engineStopped();case ServiceEvent_WallpaperApplied():
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared():
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged():
-return outputsChanged(_that.outputs);case ServiceEvent_ShowWindow():
-return showWindow();case ServiceEvent_TrayAction():
-return trayAction(_that.action);case ServiceEvent_Error():
+return outputsChanged(_that.outputs);case ServiceEvent_Error():
 return error(_that.code,_that.message);}
 }
 /// A variant of `when` that fallback to returning `null`
@@ -447,16 +179,14 @@ return error(_that.code,_that.message);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  engineStarted,TResult? Function()?  engineStopped,TResult? Function( String output,  String path)?  wallpaperApplied,TResult? Function( String output)?  wallpaperCleared,TResult? Function( List<MonitorDto> outputs)?  outputsChanged,TResult? Function()?  showWindow,TResult? Function( String action)?  trayAction,TResult? Function( String code,  String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  engineStarted,TResult? Function()?  engineStopped,TResult? Function( String output,  String path)?  wallpaperApplied,TResult? Function( String output)?  wallpaperCleared,TResult? Function( List<MonitorDto> outputs)?  outputsChanged,TResult? Function( String code,  String message)?  error,}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
 return engineStarted();case ServiceEvent_EngineStopped() when engineStopped != null:
 return engineStopped();case ServiceEvent_WallpaperApplied() when wallpaperApplied != null:
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged() when outputsChanged != null:
-return outputsChanged(_that.outputs);case ServiceEvent_ShowWindow() when showWindow != null:
-return showWindow();case ServiceEvent_TrayAction() when trayAction != null:
-return trayAction(_that.action);case ServiceEvent_Error() when error != null:
+return outputsChanged(_that.outputs);case ServiceEvent_Error() when error != null:
 return error(_that.code,_that.message);case _:
   return null;
 
@@ -729,104 +459,6 @@ class _$ServiceEvent_OutputsChangedCopyWithImpl<$Res>
   return _then(ServiceEvent_OutputsChanged(
 outputs: null == outputs ? _self._outputs : outputs // ignore: cast_nullable_to_non_nullable
 as List<MonitorDto>,
-  ));
-}
-
-
-}
-
-/// @nodoc
-
-
-class ServiceEvent_ShowWindow extends ServiceEvent {
-  const ServiceEvent_ShowWindow(): super._();
-  
-
-
-
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceEvent_ShowWindow);
-}
-
-
-@override
-int get hashCode => runtimeType.hashCode;
-
-@override
-String toString() {
-  return 'ServiceEvent.showWindow()';
-}
-
-
-}
-
-
-
-
-/// @nodoc
-
-
-class ServiceEvent_TrayAction extends ServiceEvent {
-  const ServiceEvent_TrayAction({required this.action}): super._();
-  
-
- final  String action;
-
-/// Create a copy of ServiceEvent
-/// with the given fields replaced by the non-null parameter values.
-@JsonKey(includeFromJson: false, includeToJson: false)
-@pragma('vm:prefer-inline')
-$ServiceEvent_TrayActionCopyWith<ServiceEvent_TrayAction> get copyWith => _$ServiceEvent_TrayActionCopyWithImpl<ServiceEvent_TrayAction>(this, _$identity);
-
-
-
-@override
-bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceEvent_TrayAction&&(identical(other.action, action) || other.action == action));
-}
-
-
-@override
-int get hashCode => Object.hash(runtimeType,action);
-
-@override
-String toString() {
-  return 'ServiceEvent.trayAction(action: $action)';
-}
-
-
-}
-
-/// @nodoc
-abstract mixin class $ServiceEvent_TrayActionCopyWith<$Res> implements $ServiceEventCopyWith<$Res> {
-  factory $ServiceEvent_TrayActionCopyWith(ServiceEvent_TrayAction value, $Res Function(ServiceEvent_TrayAction) _then) = _$ServiceEvent_TrayActionCopyWithImpl;
-@useResult
-$Res call({
- String action
-});
-
-
-
-
-}
-/// @nodoc
-class _$ServiceEvent_TrayActionCopyWithImpl<$Res>
-    implements $ServiceEvent_TrayActionCopyWith<$Res> {
-  _$ServiceEvent_TrayActionCopyWithImpl(this._self, this._then);
-
-  final ServiceEvent_TrayAction _self;
-  final $Res Function(ServiceEvent_TrayAction) _then;
-
-/// Create a copy of ServiceEvent
-/// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? action = null,}) {
-  return _then(ServiceEvent_TrayAction(
-action: null == action ? _self.action : action // ignore: cast_nullable_to_non_nullable
-as String,
   ));
 }
 

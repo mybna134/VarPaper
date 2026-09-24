@@ -81,11 +81,9 @@ fi
 # Workspace info
 echo
 echo "[Workspace Crates]"
-echo "  - wayvid-core     (core types and config)"
 echo "  - wayvid-engine   (Wayland + MPV rendering)"
-echo "  - wayvid-library  (SQLite wallpaper library)"
+echo "  - wayvid-library  (in-memory wallpaper scanning)"
 echo "  - wayvid-gui      (Flutter GUI + Rust service - main entry)"
-echo "  - wayvid-ctl      (CLI control tool)"
 
 echo
 echo "=== Check Complete ==="
@@ -93,4 +91,3 @@ echo
 echo "To build and run:"
 echo "  cargo build --release"
 echo "  flutter run -d linux"
-echo "  ./target/release/wayvid-ctl status"

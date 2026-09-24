@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use wayvid_core::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+use crate::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
 
 /// Wallpaper Engine app ID on Steam
 pub const WALLPAPER_ENGINE_APP_ID: u32 = 431960;

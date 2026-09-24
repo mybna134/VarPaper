@@ -67,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -1181887649;
+  int get rustContentHash => -1913217904;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -81,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 abstract class RustLibApi extends BaseApi {
   Future<void> crateBridgeWayvidServiceApplyWallpaper({
     required WayvidService that,
-    required String wallpaperId,
+    required String path,
     String? output,
   });
 
@@ -90,29 +90,25 @@ abstract class RustLibApi extends BaseApi {
     String? output,
   });
 
-  Future<SettingsDto> crateBridgeWayvidServiceGetSettings({
+  Future<void> crateBridgeWayvidServiceCreateEngine({
+    required WayvidService that,
+    required EngineConfigDto config,
+  });
+
+  Future<ServiceInfo> crateBridgeWayvidServiceInitialize({
     required WayvidService that,
   });
 
-  Future<InitializationSnapshot> crateBridgeWayvidServiceInitialize({
-    required WayvidService that,
-  });
-
-  Future<List<WallpaperDto>> crateBridgeWayvidServiceLoadLibrary({
-    required WayvidService that,
-  });
-
-  Future<Uint8List> crateBridgeWayvidServiceLoadThumbnail({
+  Future<PreviewDto> crateBridgeWayvidServiceLoadPreview({
     required WayvidService that,
     required String wallpaperId,
     required String path,
+    required String wallpaperType,
     required int width,
     required int height,
   });
 
-  Future<WayvidService> crateBridgeWayvidServiceNew({
-    required List<String> args,
-  });
+  Future<WayvidService> crateBridgeWayvidServiceNew();
 
   Future<void> crateBridgeWayvidServiceOpenUrl({
     required WayvidService that,
@@ -148,20 +144,14 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateBridgeWayvidServiceShutdown({required WayvidService that});
 
-  Future<void> crateBridgeWayvidServiceStartEngine({
-    required WayvidService that,
-  });
-
   Future<void> crateBridgeWayvidServiceStopEngine({
     required WayvidService that,
   });
 
-  Future<SettingsDto> crateBridgeWayvidServiceUpdateSettings({
+  Future<void> crateBridgeWayvidServiceUpdateEngineConfig({
     required WayvidService that,
-    required SettingsPatch patch,
+    required EngineConfigDto config,
   });
-
-  Future<SettingsPatch> crateBridgeSettingsPatchDefault();
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_WayvidService;
@@ -184,7 +174,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<void> crateBridgeWayvidServiceApplyWallpaper({
     required WayvidService that,
-    required String wallpaperId,
+    required String path,
     String? output,
   }) {
     return handler.executeNormal(
@@ -195,7 +185,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_String(wallpaperId, serializer);
+          sse_encode_String(path, serializer);
           sse_encode_opt_String(output, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -209,7 +199,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateBridgeWayvidServiceApplyWallpaperConstMeta,
-        argValues: [that, wallpaperId, output],
+        argValues: [that, path, output],
         apiImpl: this,
       ),
     );
@@ -218,7 +208,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateBridgeWayvidServiceApplyWallpaperConstMeta =>
       const TaskConstMeta(
         debugName: "WayvidService_apply_wallpaper",
-        argNames: ["that", "wallpaperId", "output"],
+        argNames: ["that", "path", "output"],
       );
 
   @override
@@ -260,8 +250,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<SettingsDto> crateBridgeWayvidServiceGetSettings({
+  Future<void> crateBridgeWayvidServiceCreateEngine({
     required WayvidService that,
+    required EngineConfigDto config,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -271,6 +262,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
+          sse_encode_box_autoadd_engine_config_dto(config, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -279,24 +271,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_settings_dto,
+          decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_bridge_error,
         ),
-        constMeta: kCrateBridgeWayvidServiceGetSettingsConstMeta,
-        argValues: [that],
+        constMeta: kCrateBridgeWayvidServiceCreateEngineConstMeta,
+        argValues: [that, config],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateBridgeWayvidServiceGetSettingsConstMeta =>
+  TaskConstMeta get kCrateBridgeWayvidServiceCreateEngineConstMeta =>
       const TaskConstMeta(
-        debugName: "WayvidService_get_settings",
-        argNames: ["that"],
+        debugName: "WayvidService_create_engine",
+        argNames: ["that", "config"],
       );
 
   @override
-  Future<InitializationSnapshot> crateBridgeWayvidServiceInitialize({
+  Future<ServiceInfo> crateBridgeWayvidServiceInitialize({
     required WayvidService that,
   }) {
     return handler.executeNormal(
@@ -315,7 +307,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_initialization_snapshot,
+          decodeSuccessData: sse_decode_service_info,
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateBridgeWayvidServiceInitializeConstMeta,
@@ -332,46 +324,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<List<WallpaperDto>> crateBridgeWayvidServiceLoadLibrary({
-    required WayvidService that,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
-            that,
-            serializer,
-          );
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 5,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_wallpaper_dto,
-          decodeErrorData: sse_decode_bridge_error,
-        ),
-        constMeta: kCrateBridgeWayvidServiceLoadLibraryConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateBridgeWayvidServiceLoadLibraryConstMeta =>
-      const TaskConstMeta(
-        debugName: "WayvidService_load_library",
-        argNames: ["that"],
-      );
-
-  @override
-  Future<Uint8List> crateBridgeWayvidServiceLoadThumbnail({
+  Future<PreviewDto> crateBridgeWayvidServiceLoadPreview({
     required WayvidService that,
     required String wallpaperId,
     required String path,
+    required String wallpaperType,
     required int width,
     required int height,
   }) {
@@ -385,45 +342,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
           sse_encode_String(wallpaperId, serializer);
           sse_encode_String(path, serializer);
+          sse_encode_String(wallpaperType, serializer);
           sse_encode_u_32(width, serializer);
           sse_encode_u_32(height, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 5,
             port: port_,
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_list_prim_u_8_strict,
+          decodeSuccessData: sse_decode_preview_dto,
           decodeErrorData: sse_decode_bridge_error,
         ),
-        constMeta: kCrateBridgeWayvidServiceLoadThumbnailConstMeta,
-        argValues: [that, wallpaperId, path, width, height],
+        constMeta: kCrateBridgeWayvidServiceLoadPreviewConstMeta,
+        argValues: [that, wallpaperId, path, wallpaperType, width, height],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateBridgeWayvidServiceLoadThumbnailConstMeta =>
+  TaskConstMeta get kCrateBridgeWayvidServiceLoadPreviewConstMeta =>
       const TaskConstMeta(
-        debugName: "WayvidService_load_thumbnail",
-        argNames: ["that", "wallpaperId", "path", "width", "height"],
+        debugName: "WayvidService_load_preview",
+        argNames: [
+          "that",
+          "wallpaperId",
+          "path",
+          "wallpaperType",
+          "width",
+          "height",
+        ],
       );
 
   @override
-  Future<WayvidService> crateBridgeWayvidServiceNew({
-    required List<String> args,
-  }) {
+  Future<WayvidService> crateBridgeWayvidServiceNew() {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_list_String(args, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 6,
             port: port_,
           );
         },
@@ -433,14 +395,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_bridge_error,
         ),
         constMeta: kCrateBridgeWayvidServiceNewConstMeta,
-        argValues: [args],
+        argValues: [],
         apiImpl: this,
       ),
     );
   }
 
   TaskConstMeta get kCrateBridgeWayvidServiceNewConstMeta =>
-      const TaskConstMeta(debugName: "WayvidService_new", argNames: ["args"]);
+      const TaskConstMeta(debugName: "WayvidService_new", argNames: []);
 
   @override
   Future<void> crateBridgeWayvidServiceOpenUrl({
@@ -459,7 +421,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 7,
             port: port_,
           );
         },
@@ -497,7 +459,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 8,
             port: port_,
           );
         },
@@ -533,7 +495,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 9,
             port: port_,
           );
         },
@@ -569,7 +531,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 10,
             port: port_,
           );
         },
@@ -607,7 +569,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 11,
             port: port_,
           );
         },
@@ -645,7 +607,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 12,
             port: port_,
           );
         },
@@ -681,7 +643,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 13,
             port: port_,
           );
         },
@@ -715,7 +677,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 14,
             port: port_,
           );
         },
@@ -737,42 +699,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateBridgeWayvidServiceStartEngine({
-    required WayvidService that,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
-            that,
-            serializer,
-          );
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 16,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_unit,
-          decodeErrorData: sse_decode_bridge_error,
-        ),
-        constMeta: kCrateBridgeWayvidServiceStartEngineConstMeta,
-        argValues: [that],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateBridgeWayvidServiceStartEngineConstMeta =>
-      const TaskConstMeta(
-        debugName: "WayvidService_start_engine",
-        argNames: ["that"],
-      );
-
-  @override
   Future<void> crateBridgeWayvidServiceStopEngine({
     required WayvidService that,
   }) {
@@ -787,7 +713,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 15,
             port: port_,
           );
         },
@@ -809,9 +735,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<SettingsDto> crateBridgeWayvidServiceUpdateSettings({
+  Future<void> crateBridgeWayvidServiceUpdateEngineConfig({
     required WayvidService that,
-    required SettingsPatch patch,
+    required EngineConfigDto config,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -821,57 +747,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
             that,
             serializer,
           );
-          sse_encode_box_autoadd_settings_patch(patch, serializer);
+          sse_encode_box_autoadd_engine_config_dto(config, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 16,
             port: port_,
           );
         },
         codec: SseCodec(
-          decodeSuccessData: sse_decode_settings_dto,
+          decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_bridge_error,
         ),
-        constMeta: kCrateBridgeWayvidServiceUpdateSettingsConstMeta,
-        argValues: [that, patch],
+        constMeta: kCrateBridgeWayvidServiceUpdateEngineConfigConstMeta,
+        argValues: [that, config],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kCrateBridgeWayvidServiceUpdateSettingsConstMeta =>
+  TaskConstMeta get kCrateBridgeWayvidServiceUpdateEngineConfigConstMeta =>
       const TaskConstMeta(
-        debugName: "WayvidService_update_settings",
-        argNames: ["that", "patch"],
+        debugName: "WayvidService_update_engine_config",
+        argNames: ["that", "config"],
       );
-
-  @override
-  Future<SettingsPatch> crateBridgeSettingsPatchDefault() {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 19,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_settings_patch,
-          decodeErrorData: null,
-        ),
-        constMeta: kCrateBridgeSettingsPatchDefaultConstMeta,
-        argValues: [],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kCrateBridgeSettingsPatchDefaultConstMeta =>
-      const TaskConstMeta(debugName: "settings_patch_default", argNames: []);
 
   RustArcIncrementStrongCountFnType
   get rust_arc_increment_strong_count_WayvidService => wire
@@ -921,33 +820,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool dco_decode_box_autoadd_bool(dynamic raw) {
+  EngineConfigDto dco_decode_box_autoadd_engine_config_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as bool;
-  }
-
-  @protected
-  double dco_decode_box_autoadd_f_32(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as double;
+    return dco_decode_engine_config_dto(raw);
   }
 
   @protected
   double dco_decode_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as double;
-  }
-
-  @protected
-  FpsLimitPatch dco_decode_box_autoadd_fps_limit_patch(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_fps_limit_patch(raw);
-  }
-
-  @protected
-  SettingsPatch dco_decode_box_autoadd_settings_patch(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return dco_decode_settings_patch(raw);
   }
 
   @protected
@@ -975,9 +856,28 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  double dco_decode_f_32(dynamic raw) {
+  EngineConfigDto dco_decode_engine_config_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw as double;
+    final arr = raw as List<dynamic>;
+    if (arr.length != 15)
+      throw Exception('unexpected arr length: expect 15 but see ${arr.length}');
+    return EngineConfigDto(
+      volume: dco_decode_f_64(arr[0]),
+      fpsLimit: dco_decode_opt_box_autoadd_u_32(arr[1]),
+      loopPlayback: dco_decode_bool(arr[2]),
+      layout: dco_decode_String(arr[3]),
+      hwdec: dco_decode_String(arr[4]),
+      mute: dco_decode_bool(arr[5]),
+      startTime: dco_decode_f_64(arr[6]),
+      playbackRate: dco_decode_f_64(arr[7]),
+      hdrMode: dco_decode_String(arr[8]),
+      toneMappingAlgorithm: dco_decode_String(arr[9]),
+      toneMappingParam: dco_decode_f_64(arr[10]),
+      toneMappingMode: dco_decode_String(arr[11]),
+      toneMappingComputePeak: dco_decode_bool(arr[12]),
+      autoPlay: dco_decode_bool(arr[13]),
+      pauseOnBattery: dco_decode_bool(arr[14]),
+    );
   }
 
   @protected
@@ -987,56 +887,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  FpsLimitPatch dco_decode_fps_limit_patch(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    switch (raw[0]) {
-      case 0:
-        return FpsLimitPatch_Unlimited();
-      case 1:
-        return FpsLimitPatch_Value(dco_decode_u_32(raw[1]));
-      default:
-        throw Exception("unreachable");
-    }
-  }
-
-  @protected
-  GuiSettingsDto dco_decode_gui_settings_dto(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
-    return GuiSettingsDto(
-      windowWidth: dco_decode_u_32(arr[0]),
-      windowHeight: dco_decode_u_32(arr[1]),
-      minimizeToTray: dco_decode_bool(arr[2]),
-      startMinimized: dco_decode_bool(arr[3]),
-      theme: dco_decode_String(arr[4]),
-      language: dco_decode_String(arr[5]),
-      renderer: dco_decode_String(arr[6]),
-      sidebarCollapsed: dco_decode_bool(arr[7]),
-      detailPanelVisible: dco_decode_bool(arr[8]),
-    );
-  }
-
-  @protected
   int dco_decode_i_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
-  }
-
-  @protected
-  InitializationSnapshot dco_decode_initialization_snapshot(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
-    return InitializationSnapshot(
-      settings: dco_decode_settings_dto(arr[0]),
-      workshopAvailable: dco_decode_bool(arr[1]),
-      engineRunning: dco_decode_bool(arr[2]),
-      trayAvailable: dco_decode_bool(arr[3]),
-      anotherInstance: dco_decode_bool(arr[4]),
-    );
   }
 
   @protected
@@ -1094,27 +947,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool? dco_decode_opt_box_autoadd_bool(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_bool(raw);
-  }
-
-  @protected
-  double? dco_decode_opt_box_autoadd_f_32(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_f_32(raw);
-  }
-
-  @protected
   double? dco_decode_opt_box_autoadd_f_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_f_64(raw);
-  }
-
-  @protected
-  FpsLimitPatch? dco_decode_opt_box_autoadd_fps_limit_patch(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_box_autoadd_fps_limit_patch(raw);
   }
 
   @protected
@@ -1130,36 +965,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<String>? dco_decode_opt_list_String(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_list_String(raw);
-  }
-
-  @protected
-  PlaybackSettingsDto dco_decode_playback_settings_dto(dynamic raw) {
+  PreviewDto dco_decode_preview_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
-    return PlaybackSettingsDto(
-      volume: dco_decode_f_32(arr[0]),
-      fpsLimit: dco_decode_opt_box_autoadd_u_32(arr[1]),
-      preferredMonitor: dco_decode_opt_String(arr[2]),
-      loopMode: dco_decode_bool(arr[3]),
-      shuffle: dco_decode_bool(arr[4]),
-    );
-  }
-
-  @protected
-  PowerSettingsDto dco_decode_power_settings_dto(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
-    return PowerSettingsDto(
-      pauseOnBattery: dco_decode_bool(arr[0]),
-      pauseOnFullscreen: dco_decode_bool(arr[1]),
-      batteryFpsLimit: dco_decode_opt_box_autoadd_u_32(arr[2]),
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return PreviewDto(
+      imagePath: dco_decode_opt_String(arr[0]),
+      bytes: dco_decode_list_prim_u_8_strict(arr[1]),
     );
   }
 
@@ -1183,10 +996,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           outputs: dco_decode_list_monitor_dto(raw[1]),
         );
       case 5:
-        return ServiceEvent_ShowWindow();
-      case 6:
-        return ServiceEvent_TrayAction(action: dco_decode_String(raw[1]));
-      case 7:
         return ServiceEvent_Error(
           code: dco_decode_String(raw[1]),
           message: dco_decode_String(raw[2]),
@@ -1197,44 +1006,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  SettingsDto dco_decode_settings_dto(dynamic raw) {
+  ServiceInfo dco_decode_service_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
-    return SettingsDto(
-      gui: dco_decode_gui_settings_dto(arr[0]),
-      playback: dco_decode_playback_settings_dto(arr[1]),
-      autostartEnabled: dco_decode_bool(arr[2]),
-      restoreLastWallpaper: dco_decode_bool(arr[3]),
-      power: dco_decode_power_settings_dto(arr[4]),
-      libraryFolders: dco_decode_list_String(arr[5]),
-    );
-  }
-
-  @protected
-  SettingsPatch dco_decode_settings_patch(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    final arr = raw as List<dynamic>;
-    if (arr.length != 16)
-      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
-    return SettingsPatch(
-      windowWidth: dco_decode_opt_box_autoadd_u_32(arr[0]),
-      windowHeight: dco_decode_opt_box_autoadd_u_32(arr[1]),
-      minimizeToTray: dco_decode_opt_box_autoadd_bool(arr[2]),
-      startMinimized: dco_decode_opt_box_autoadd_bool(arr[3]),
-      theme: dco_decode_opt_String(arr[4]),
-      language: dco_decode_opt_String(arr[5]),
-      renderer: dco_decode_opt_String(arr[6]),
-      sidebarCollapsed: dco_decode_opt_box_autoadd_bool(arr[7]),
-      detailPanelVisible: dco_decode_opt_box_autoadd_bool(arr[8]),
-      volume: dco_decode_opt_box_autoadd_f_32(arr[9]),
-      fpsLimit: dco_decode_opt_box_autoadd_fps_limit_patch(arr[10]),
-      pauseOnBattery: dco_decode_opt_box_autoadd_bool(arr[11]),
-      pauseOnFullscreen: dco_decode_opt_box_autoadd_bool(arr[12]),
-      autostartEnabled: dco_decode_opt_box_autoadd_bool(arr[13]),
-      restoreLastWallpaper: dco_decode_opt_box_autoadd_bool(arr[14]),
-      libraryFolders: dco_decode_opt_list_String(arr[15]),
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return ServiceInfo(
+      workshopAvailable: dco_decode_bool(arr[0]),
+      engineRunning: dco_decode_bool(arr[1]),
     );
   }
 
@@ -1272,18 +1051,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   WallpaperDto dco_decode_wallpaper_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 9)
-      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
     return WallpaperDto(
       id: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
       sourcePath: dco_decode_String(arr[2]),
       thumbnailPath: dco_decode_opt_String(arr[3]),
       sourceType: dco_decode_String(arr[4]),
-      wallpaperType: dco_decode_String(arr[5]),
-      metadata: dco_decode_wallpaper_metadata_dto(arr[6]),
-      addedAt: dco_decode_String(arr[7]),
-      lastUsed: dco_decode_opt_String(arr[8]),
+      wallpaperCategory: dco_decode_String(arr[5]),
+      wallpaperType: dco_decode_String(arr[6]),
+      metadata: dco_decode_wallpaper_metadata_dto(arr[7]),
+      addedAt: dco_decode_String(arr[8]),
+      lastUsed: dco_decode_opt_String(arr[9]),
     );
   }
 
@@ -1356,37 +1136,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer) {
+  EngineConfigDto sse_decode_box_autoadd_engine_config_dto(
+    SseDeserializer deserializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_bool(deserializer));
-  }
-
-  @protected
-  double sse_decode_box_autoadd_f_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_f_32(deserializer));
+    return (sse_decode_engine_config_dto(deserializer));
   }
 
   @protected
   double sse_decode_box_autoadd_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_f_64(deserializer));
-  }
-
-  @protected
-  FpsLimitPatch sse_decode_box_autoadd_fps_limit_patch(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_fps_limit_patch(deserializer));
-  }
-
-  @protected
-  SettingsPatch sse_decode_box_autoadd_settings_patch(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    return (sse_decode_settings_patch(deserializer));
   }
 
   @protected
@@ -1410,9 +1170,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  double sse_decode_f_32(SseDeserializer deserializer) {
+  EngineConfigDto sse_decode_engine_config_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    return deserializer.buffer.getFloat32();
+    var var_volume = sse_decode_f_64(deserializer);
+    var var_fpsLimit = sse_decode_opt_box_autoadd_u_32(deserializer);
+    var var_loopPlayback = sse_decode_bool(deserializer);
+    var var_layout = sse_decode_String(deserializer);
+    var var_hwdec = sse_decode_String(deserializer);
+    var var_mute = sse_decode_bool(deserializer);
+    var var_startTime = sse_decode_f_64(deserializer);
+    var var_playbackRate = sse_decode_f_64(deserializer);
+    var var_hdrMode = sse_decode_String(deserializer);
+    var var_toneMappingAlgorithm = sse_decode_String(deserializer);
+    var var_toneMappingParam = sse_decode_f_64(deserializer);
+    var var_toneMappingMode = sse_decode_String(deserializer);
+    var var_toneMappingComputePeak = sse_decode_bool(deserializer);
+    var var_autoPlay = sse_decode_bool(deserializer);
+    var var_pauseOnBattery = sse_decode_bool(deserializer);
+    return EngineConfigDto(
+      volume: var_volume,
+      fpsLimit: var_fpsLimit,
+      loopPlayback: var_loopPlayback,
+      layout: var_layout,
+      hwdec: var_hwdec,
+      mute: var_mute,
+      startTime: var_startTime,
+      playbackRate: var_playbackRate,
+      hdrMode: var_hdrMode,
+      toneMappingAlgorithm: var_toneMappingAlgorithm,
+      toneMappingParam: var_toneMappingParam,
+      toneMappingMode: var_toneMappingMode,
+      toneMappingComputePeak: var_toneMappingComputePeak,
+      autoPlay: var_autoPlay,
+      pauseOnBattery: var_pauseOnBattery,
+    );
   }
 
   @protected
@@ -1422,69 +1213,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  FpsLimitPatch sse_decode_fps_limit_patch(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    var tag_ = sse_decode_i_32(deserializer);
-    switch (tag_) {
-      case 0:
-        return FpsLimitPatch_Unlimited();
-      case 1:
-        var var_field0 = sse_decode_u_32(deserializer);
-        return FpsLimitPatch_Value(var_field0);
-      default:
-        throw UnimplementedError('');
-    }
-  }
-
-  @protected
-  GuiSettingsDto sse_decode_gui_settings_dto(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_windowWidth = sse_decode_u_32(deserializer);
-    var var_windowHeight = sse_decode_u_32(deserializer);
-    var var_minimizeToTray = sse_decode_bool(deserializer);
-    var var_startMinimized = sse_decode_bool(deserializer);
-    var var_theme = sse_decode_String(deserializer);
-    var var_language = sse_decode_String(deserializer);
-    var var_renderer = sse_decode_String(deserializer);
-    var var_sidebarCollapsed = sse_decode_bool(deserializer);
-    var var_detailPanelVisible = sse_decode_bool(deserializer);
-    return GuiSettingsDto(
-      windowWidth: var_windowWidth,
-      windowHeight: var_windowHeight,
-      minimizeToTray: var_minimizeToTray,
-      startMinimized: var_startMinimized,
-      theme: var_theme,
-      language: var_language,
-      renderer: var_renderer,
-      sidebarCollapsed: var_sidebarCollapsed,
-      detailPanelVisible: var_detailPanelVisible,
-    );
-  }
-
-  @protected
   int sse_decode_i_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getInt32();
-  }
-
-  @protected
-  InitializationSnapshot sse_decode_initialization_snapshot(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_settings = sse_decode_settings_dto(deserializer);
-    var var_workshopAvailable = sse_decode_bool(deserializer);
-    var var_engineRunning = sse_decode_bool(deserializer);
-    var var_trayAvailable = sse_decode_bool(deserializer);
-    var var_anotherInstance = sse_decode_bool(deserializer);
-    return InitializationSnapshot(
-      settings: var_settings,
-      workshopAvailable: var_workshopAvailable,
-      engineRunning: var_engineRunning,
-      trayAvailable: var_trayAvailable,
-      anotherInstance: var_anotherInstance,
-    );
   }
 
   @protected
@@ -1581,46 +1312,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_bool(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  double? sse_decode_opt_box_autoadd_f_32(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_f_32(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
   double? sse_decode_opt_box_autoadd_f_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     if (sse_decode_bool(deserializer)) {
       return (sse_decode_box_autoadd_f_64(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  FpsLimitPatch? sse_decode_opt_box_autoadd_fps_limit_patch(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_box_autoadd_fps_limit_patch(deserializer));
     } else {
       return null;
     }
@@ -1649,46 +1345,11 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  List<String>? sse_decode_opt_list_String(SseDeserializer deserializer) {
+  PreviewDto sse_decode_preview_dto(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_list_String(deserializer));
-    } else {
-      return null;
-    }
-  }
-
-  @protected
-  PlaybackSettingsDto sse_decode_playback_settings_dto(
-    SseDeserializer deserializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_volume = sse_decode_f_32(deserializer);
-    var var_fpsLimit = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_preferredMonitor = sse_decode_opt_String(deserializer);
-    var var_loopMode = sse_decode_bool(deserializer);
-    var var_shuffle = sse_decode_bool(deserializer);
-    return PlaybackSettingsDto(
-      volume: var_volume,
-      fpsLimit: var_fpsLimit,
-      preferredMonitor: var_preferredMonitor,
-      loopMode: var_loopMode,
-      shuffle: var_shuffle,
-    );
-  }
-
-  @protected
-  PowerSettingsDto sse_decode_power_settings_dto(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_pauseOnBattery = sse_decode_bool(deserializer);
-    var var_pauseOnFullscreen = sse_decode_bool(deserializer);
-    var var_batteryFpsLimit = sse_decode_opt_box_autoadd_u_32(deserializer);
-    return PowerSettingsDto(
-      pauseOnBattery: var_pauseOnBattery,
-      pauseOnFullscreen: var_pauseOnFullscreen,
-      batteryFpsLimit: var_batteryFpsLimit,
-    );
+    var var_imagePath = sse_decode_opt_String(deserializer);
+    var var_bytes = sse_decode_list_prim_u_8_strict(deserializer);
+    return PreviewDto(imagePath: var_imagePath, bytes: var_bytes);
   }
 
   @protected
@@ -1715,11 +1376,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         var var_outputs = sse_decode_list_monitor_dto(deserializer);
         return ServiceEvent_OutputsChanged(outputs: var_outputs);
       case 5:
-        return ServiceEvent_ShowWindow();
-      case 6:
-        var var_action = sse_decode_String(deserializer);
-        return ServiceEvent_TrayAction(action: var_action);
-      case 7:
         var var_code = sse_decode_String(deserializer);
         var var_message = sse_decode_String(deserializer);
         return ServiceEvent_Error(code: var_code, message: var_message);
@@ -1729,62 +1385,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  SettingsDto sse_decode_settings_dto(SseDeserializer deserializer) {
+  ServiceInfo sse_decode_service_info(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_gui = sse_decode_gui_settings_dto(deserializer);
-    var var_playback = sse_decode_playback_settings_dto(deserializer);
-    var var_autostartEnabled = sse_decode_bool(deserializer);
-    var var_restoreLastWallpaper = sse_decode_bool(deserializer);
-    var var_power = sse_decode_power_settings_dto(deserializer);
-    var var_libraryFolders = sse_decode_list_String(deserializer);
-    return SettingsDto(
-      gui: var_gui,
-      playback: var_playback,
-      autostartEnabled: var_autostartEnabled,
-      restoreLastWallpaper: var_restoreLastWallpaper,
-      power: var_power,
-      libraryFolders: var_libraryFolders,
-    );
-  }
-
-  @protected
-  SettingsPatch sse_decode_settings_patch(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_windowWidth = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_windowHeight = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_minimizeToTray = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_startMinimized = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_theme = sse_decode_opt_String(deserializer);
-    var var_language = sse_decode_opt_String(deserializer);
-    var var_renderer = sse_decode_opt_String(deserializer);
-    var var_sidebarCollapsed = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_detailPanelVisible = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_volume = sse_decode_opt_box_autoadd_f_32(deserializer);
-    var var_fpsLimit = sse_decode_opt_box_autoadd_fps_limit_patch(deserializer);
-    var var_pauseOnBattery = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_pauseOnFullscreen = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_autostartEnabled = sse_decode_opt_box_autoadd_bool(deserializer);
-    var var_restoreLastWallpaper = sse_decode_opt_box_autoadd_bool(
-      deserializer,
-    );
-    var var_libraryFolders = sse_decode_opt_list_String(deserializer);
-    return SettingsPatch(
-      windowWidth: var_windowWidth,
-      windowHeight: var_windowHeight,
-      minimizeToTray: var_minimizeToTray,
-      startMinimized: var_startMinimized,
-      theme: var_theme,
-      language: var_language,
-      renderer: var_renderer,
-      sidebarCollapsed: var_sidebarCollapsed,
-      detailPanelVisible: var_detailPanelVisible,
-      volume: var_volume,
-      fpsLimit: var_fpsLimit,
-      pauseOnBattery: var_pauseOnBattery,
-      pauseOnFullscreen: var_pauseOnFullscreen,
-      autostartEnabled: var_autostartEnabled,
-      restoreLastWallpaper: var_restoreLastWallpaper,
-      libraryFolders: var_libraryFolders,
+    var var_workshopAvailable = sse_decode_bool(deserializer);
+    var var_engineRunning = sse_decode_bool(deserializer);
+    return ServiceInfo(
+      workshopAvailable: var_workshopAvailable,
+      engineRunning: var_engineRunning,
     );
   }
 
@@ -1825,6 +1432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sourcePath = sse_decode_String(deserializer);
     var var_thumbnailPath = sse_decode_opt_String(deserializer);
     var var_sourceType = sse_decode_String(deserializer);
+    var var_wallpaperCategory = sse_decode_String(deserializer);
     var var_wallpaperType = sse_decode_String(deserializer);
     var var_metadata = sse_decode_wallpaper_metadata_dto(deserializer);
     var var_addedAt = sse_decode_String(deserializer);
@@ -1835,6 +1443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sourcePath: var_sourcePath,
       thumbnailPath: var_thumbnailPath,
       sourceType: var_sourceType,
+      wallpaperCategory: var_wallpaperCategory,
       wallpaperType: var_wallpaperType,
       metadata: var_metadata,
       addedAt: var_addedAt,
@@ -1921,39 +1530,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer) {
+  void sse_encode_box_autoadd_engine_config_dto(
+    EngineConfigDto self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_bool(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_f_32(double self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_f_32(self, serializer);
+    sse_encode_engine_config_dto(self, serializer);
   }
 
   @protected
   void sse_encode_box_autoadd_f_64(double self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_64(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_fps_limit_patch(
-    FpsLimitPatch self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_fps_limit_patch(self, serializer);
-  }
-
-  @protected
-  void sse_encode_box_autoadd_settings_patch(
-    SettingsPatch self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_settings_patch(self, serializer);
   }
 
   @protected
@@ -1976,9 +1564,26 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_f_32(double self, SseSerializer serializer) {
+  void sse_encode_engine_config_dto(
+    EngineConfigDto self,
+    SseSerializer serializer,
+  ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    serializer.buffer.putFloat32(self);
+    sse_encode_f_64(self.volume, serializer);
+    sse_encode_opt_box_autoadd_u_32(self.fpsLimit, serializer);
+    sse_encode_bool(self.loopPlayback, serializer);
+    sse_encode_String(self.layout, serializer);
+    sse_encode_String(self.hwdec, serializer);
+    sse_encode_bool(self.mute, serializer);
+    sse_encode_f_64(self.startTime, serializer);
+    sse_encode_f_64(self.playbackRate, serializer);
+    sse_encode_String(self.hdrMode, serializer);
+    sse_encode_String(self.toneMappingAlgorithm, serializer);
+    sse_encode_f_64(self.toneMappingParam, serializer);
+    sse_encode_String(self.toneMappingMode, serializer);
+    sse_encode_bool(self.toneMappingComputePeak, serializer);
+    sse_encode_bool(self.autoPlay, serializer);
+    sse_encode_bool(self.pauseOnBattery, serializer);
   }
 
   @protected
@@ -1988,54 +1593,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_fps_limit_patch(
-    FpsLimitPatch self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    switch (self) {
-      case FpsLimitPatch_Unlimited():
-        sse_encode_i_32(0, serializer);
-      case FpsLimitPatch_Value(field0: final field0):
-        sse_encode_i_32(1, serializer);
-        sse_encode_u_32(field0, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_gui_settings_dto(
-    GuiSettingsDto self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_32(self.windowWidth, serializer);
-    sse_encode_u_32(self.windowHeight, serializer);
-    sse_encode_bool(self.minimizeToTray, serializer);
-    sse_encode_bool(self.startMinimized, serializer);
-    sse_encode_String(self.theme, serializer);
-    sse_encode_String(self.language, serializer);
-    sse_encode_String(self.renderer, serializer);
-    sse_encode_bool(self.sidebarCollapsed, serializer);
-    sse_encode_bool(self.detailPanelVisible, serializer);
-  }
-
-  @protected
   void sse_encode_i_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putInt32(self);
-  }
-
-  @protected
-  void sse_encode_initialization_snapshot(
-    InitializationSnapshot self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_settings_dto(self.settings, serializer);
-    sse_encode_bool(self.workshopAvailable, serializer);
-    sse_encode_bool(self.engineRunning, serializer);
-    sse_encode_bool(self.trayAvailable, serializer);
-    sse_encode_bool(self.anotherInstance, serializer);
   }
 
   @protected
@@ -2117,45 +1677,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_bool(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_f_32(double? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_f_32(self, serializer);
-    }
-  }
-
-  @protected
   void sse_encode_opt_box_autoadd_f_64(double? self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
     sse_encode_bool(self != null, serializer);
     if (self != null) {
       sse_encode_box_autoadd_f_64(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_opt_box_autoadd_fps_limit_patch(
-    FpsLimitPatch? self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_box_autoadd_fps_limit_patch(self, serializer);
     }
   }
 
@@ -2180,40 +1707,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
-  void sse_encode_opt_list_String(
-    List<String>? self,
-    SseSerializer serializer,
-  ) {
+  void sse_encode_preview_dto(PreviewDto self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_list_String(self, serializer);
-    }
-  }
-
-  @protected
-  void sse_encode_playback_settings_dto(
-    PlaybackSettingsDto self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_f_32(self.volume, serializer);
-    sse_encode_opt_box_autoadd_u_32(self.fpsLimit, serializer);
-    sse_encode_opt_String(self.preferredMonitor, serializer);
-    sse_encode_bool(self.loopMode, serializer);
-    sse_encode_bool(self.shuffle, serializer);
-  }
-
-  @protected
-  void sse_encode_power_settings_dto(
-    PowerSettingsDto self,
-    SseSerializer serializer,
-  ) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_bool(self.pauseOnBattery, serializer);
-    sse_encode_bool(self.pauseOnFullscreen, serializer);
-    sse_encode_opt_box_autoadd_u_32(self.batteryFpsLimit, serializer);
+    sse_encode_opt_String(self.imagePath, serializer);
+    sse_encode_list_prim_u_8_strict(self.bytes, serializer);
   }
 
   @protected
@@ -2237,48 +1734,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       case ServiceEvent_OutputsChanged(outputs: final outputs):
         sse_encode_i_32(4, serializer);
         sse_encode_list_monitor_dto(outputs, serializer);
-      case ServiceEvent_ShowWindow():
-        sse_encode_i_32(5, serializer);
-      case ServiceEvent_TrayAction(action: final action):
-        sse_encode_i_32(6, serializer);
-        sse_encode_String(action, serializer);
       case ServiceEvent_Error(code: final code, message: final message):
-        sse_encode_i_32(7, serializer);
+        sse_encode_i_32(5, serializer);
         sse_encode_String(code, serializer);
         sse_encode_String(message, serializer);
     }
   }
 
   @protected
-  void sse_encode_settings_dto(SettingsDto self, SseSerializer serializer) {
+  void sse_encode_service_info(ServiceInfo self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_gui_settings_dto(self.gui, serializer);
-    sse_encode_playback_settings_dto(self.playback, serializer);
-    sse_encode_bool(self.autostartEnabled, serializer);
-    sse_encode_bool(self.restoreLastWallpaper, serializer);
-    sse_encode_power_settings_dto(self.power, serializer);
-    sse_encode_list_String(self.libraryFolders, serializer);
-  }
-
-  @protected
-  void sse_encode_settings_patch(SettingsPatch self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_opt_box_autoadd_u_32(self.windowWidth, serializer);
-    sse_encode_opt_box_autoadd_u_32(self.windowHeight, serializer);
-    sse_encode_opt_box_autoadd_bool(self.minimizeToTray, serializer);
-    sse_encode_opt_box_autoadd_bool(self.startMinimized, serializer);
-    sse_encode_opt_String(self.theme, serializer);
-    sse_encode_opt_String(self.language, serializer);
-    sse_encode_opt_String(self.renderer, serializer);
-    sse_encode_opt_box_autoadd_bool(self.sidebarCollapsed, serializer);
-    sse_encode_opt_box_autoadd_bool(self.detailPanelVisible, serializer);
-    sse_encode_opt_box_autoadd_f_32(self.volume, serializer);
-    sse_encode_opt_box_autoadd_fps_limit_patch(self.fpsLimit, serializer);
-    sse_encode_opt_box_autoadd_bool(self.pauseOnBattery, serializer);
-    sse_encode_opt_box_autoadd_bool(self.pauseOnFullscreen, serializer);
-    sse_encode_opt_box_autoadd_bool(self.autostartEnabled, serializer);
-    sse_encode_opt_box_autoadd_bool(self.restoreLastWallpaper, serializer);
-    sse_encode_opt_list_String(self.libraryFolders, serializer);
+    sse_encode_bool(self.workshopAvailable, serializer);
+    sse_encode_bool(self.engineRunning, serializer);
   }
 
   @protected
@@ -2318,6 +1785,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.sourcePath, serializer);
     sse_encode_opt_String(self.thumbnailPath, serializer);
     sse_encode_String(self.sourceType, serializer);
+    sse_encode_String(self.wallpaperCategory, serializer);
     sse_encode_String(self.wallpaperType, serializer);
     sse_encode_wallpaper_metadata_dto(self.metadata, serializer);
     sse_encode_String(self.addedAt, serializer);
@@ -2361,34 +1829,35 @@ class WayvidServiceImpl extends RustOpaque implements WayvidService {
         RustLib.instance.api.rust_arc_decrement_strong_count_WayvidServicePtr,
   );
 
-  Future<void> applyWallpaper({required String wallpaperId, String? output}) =>
+  Future<void> applyWallpaper({required String path, String? output}) =>
       RustLib.instance.api.crateBridgeWayvidServiceApplyWallpaper(
         that: this,
-        wallpaperId: wallpaperId,
+        path: path,
         output: output,
       );
 
   Future<void> clearWallpaper({String? output}) => RustLib.instance.api
       .crateBridgeWayvidServiceClearWallpaper(that: this, output: output);
 
-  Future<SettingsDto> getSettings() =>
-      RustLib.instance.api.crateBridgeWayvidServiceGetSettings(that: this);
+  Future<void> createEngine({required EngineConfigDto config}) => RustLib
+      .instance
+      .api
+      .crateBridgeWayvidServiceCreateEngine(that: this, config: config);
 
-  Future<InitializationSnapshot> initialize() =>
+  Future<ServiceInfo> initialize() =>
       RustLib.instance.api.crateBridgeWayvidServiceInitialize(that: this);
 
-  Future<List<WallpaperDto>> loadLibrary() =>
-      RustLib.instance.api.crateBridgeWayvidServiceLoadLibrary(that: this);
-
-  Future<Uint8List> loadThumbnail({
+  Future<PreviewDto> loadPreview({
     required String wallpaperId,
     required String path,
+    required String wallpaperType,
     required int width,
     required int height,
-  }) => RustLib.instance.api.crateBridgeWayvidServiceLoadThumbnail(
+  }) => RustLib.instance.api.crateBridgeWayvidServiceLoadPreview(
     that: this,
     wallpaperId: wallpaperId,
     path: path,
+    wallpaperType: wallpaperType,
     width: width,
     height: height,
   );
@@ -2419,14 +1888,11 @@ class WayvidServiceImpl extends RustOpaque implements WayvidService {
   Future<void> shutdown() =>
       RustLib.instance.api.crateBridgeWayvidServiceShutdown(that: this);
 
-  Future<void> startEngine() =>
-      RustLib.instance.api.crateBridgeWayvidServiceStartEngine(that: this);
-
   Future<void> stopEngine() =>
       RustLib.instance.api.crateBridgeWayvidServiceStopEngine(that: this);
 
-  Future<SettingsDto> updateSettings({required SettingsPatch patch}) => RustLib
+  Future<void> updateEngineConfig({required EngineConfigDto config}) => RustLib
       .instance
       .api
-      .crateBridgeWayvidServiceUpdateSettings(that: this, patch: patch);
+      .crateBridgeWayvidServiceUpdateEngineConfig(that: this, config: config);
 }

@@ -1,7 +1,7 @@
-# wayvid
+# VarPaper
 
 <div align="center">
-<img src="logo.svg" alt="wayvid logo" width="100" height="100">
+<img src="logo.svg" alt="VarPaper logo" width="100" height="100">
 </div>
 
 Animated wallpaper manager for Wayland compositors.
@@ -15,7 +15,6 @@ Animated wallpaper manager for Wayland compositors.
 - ⚡ **Hardware accelerated** - VA-API/NVDEC via mpv
 - 🎮 **Steam Workshop** - Import video wallpapers from Wallpaper Engine
 - 🌈 **HDR support** - 10-bit HDR with tone-mapping
-- 🔧 **CLI tools** - `wayvid-ctl` for scripting and automation
 
 ## Tested Compositors
 
@@ -49,4 +48,4 @@ wayvid-gui
 
 ## License
 
-MIT OR Apache-2.0
+GNU GPL v3 only. See the repository NOTICE for upstream attribution.
