@@ -7,6 +7,17 @@ import '../bridge_generated.dart/bridge.dart';
 
 part 'settings_store.g.dart';
 
+const defaultThemeColor = 0xff009688;
+const defaultColorSchemeVariant = 'tonalSpot';
+const supportedColorSchemeVariants = {
+  'tonalSpot',
+  'fidelity',
+  'content',
+  'neutral',
+  'vibrant',
+  'expressive',
+};
+
 @collection
 class AppSettingsRecord {
   Id id = 0;
@@ -16,6 +27,9 @@ class AppSettingsRecord {
   bool minimizeToTray = true;
   bool startMinimized = false;
   String theme = 'system';
+  int themeColor = defaultThemeColor;
+  List<int> customThemeColors = [];
+  String colorSchemeVariant = defaultColorSchemeVariant;
   String language = 'en';
   String renderer = 'auto';
   bool sidebarCollapsed = false;
@@ -62,6 +76,9 @@ class GuiSettingsDto {
     required this.minimizeToTray,
     required this.startMinimized,
     required this.theme,
+    required this.themeColor,
+    required this.customThemeColors,
+    required this.colorSchemeVariant,
     required this.language,
     required this.renderer,
     required this.sidebarCollapsed,
@@ -73,6 +90,9 @@ class GuiSettingsDto {
   final bool minimizeToTray;
   final bool startMinimized;
   final String theme;
+  final int themeColor;
+  final List<int> customThemeColors;
+  final String colorSchemeVariant;
   final String language;
   final String renderer;
   final bool sidebarCollapsed;
@@ -84,6 +104,9 @@ class GuiSettingsDto {
     bool? minimizeToTray,
     bool? startMinimized,
     String? theme,
+    int? themeColor,
+    List<int>? customThemeColors,
+    String? colorSchemeVariant,
     String? language,
     String? renderer,
     bool? sidebarCollapsed,
@@ -94,6 +117,9 @@ class GuiSettingsDto {
     minimizeToTray: minimizeToTray ?? this.minimizeToTray,
     startMinimized: startMinimized ?? this.startMinimized,
     theme: theme ?? this.theme,
+    themeColor: themeColor ?? this.themeColor,
+    customThemeColors: customThemeColors ?? this.customThemeColors,
+    colorSchemeVariant: colorSchemeVariant ?? this.colorSchemeVariant,
     language: language ?? this.language,
     renderer: renderer ?? this.renderer,
     sidebarCollapsed: sidebarCollapsed ?? this.sidebarCollapsed,
@@ -219,6 +245,9 @@ class SettingsDto {
       minimizeToTray: true,
       startMinimized: false,
       theme: 'system',
+      themeColor: defaultThemeColor,
+      customThemeColors: [],
+      colorSchemeVariant: defaultColorSchemeVariant,
       language: 'en',
       renderer: 'auto',
       sidebarCollapsed: false,
@@ -276,6 +305,9 @@ class SettingsDto {
       minimizeToTray: patch.minimizeToTray,
       startMinimized: patch.startMinimized,
       theme: patch.theme,
+      themeColor: patch.themeColor,
+      customThemeColors: patch.customThemeColors,
+      colorSchemeVariant: patch.colorSchemeVariant,
       language: patch.language,
       renderer: patch.renderer,
       sidebarCollapsed: patch.sidebarCollapsed,
@@ -305,6 +337,9 @@ class SettingsPatch {
     this.minimizeToTray,
     this.startMinimized,
     this.theme,
+    this.themeColor,
+    this.customThemeColors,
+    this.colorSchemeVariant,
     this.language,
     this.renderer,
     this.sidebarCollapsed,
@@ -325,6 +360,9 @@ class SettingsPatch {
   final bool? minimizeToTray;
   final bool? startMinimized;
   final String? theme;
+  final int? themeColor;
+  final List<int>? customThemeColors;
+  final String? colorSchemeVariant;
   final String? language;
   final String? renderer;
   final bool? sidebarCollapsed;
@@ -446,6 +484,9 @@ class SettingsStore {
     ..minimizeToTray = value.gui.minimizeToTray
     ..startMinimized = value.gui.startMinimized
     ..theme = value.gui.theme
+    ..themeColor = value.gui.themeColor
+    ..customThemeColors = value.gui.customThemeColors.toList()
+    ..colorSchemeVariant = value.gui.colorSchemeVariant
     ..language = value.gui.language
     ..renderer = value.gui.renderer
     ..sidebarCollapsed = value.gui.sidebarCollapsed
@@ -479,6 +520,12 @@ class SettingsStore {
       minimizeToTray: value.minimizeToTray,
       startMinimized: value.startMinimized,
       theme: value.theme,
+      themeColor: value.themeColor == 0 ? defaultThemeColor : value.themeColor,
+      customThemeColors: value.customThemeColors,
+      colorSchemeVariant:
+          supportedColorSchemeVariants.contains(value.colorSchemeVariant)
+          ? value.colorSchemeVariant
+          : defaultColorSchemeVariant,
       language: value.language,
       renderer: value.renderer,
       sidebarCollapsed: value.sidebarCollapsed,

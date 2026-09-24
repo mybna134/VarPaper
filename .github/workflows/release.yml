@@ -2,19 +2,25 @@ name: Build Linux packages
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   packages:
     name: Build .deb and .flatpak
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,43 +58,78 @@ jobs:
         run: |
           flutter clean
           flutter pub get
-          flutter analyze lib/main.dart lib/src/l10n.dart test/widget_test.dart
+          flutter analyze lib/main.dart lib/src/l10n.dart lib/src/storage/settings_store.dart test
           flutter test
 
-      - name: Build both packages from one Flutter bundle
+      - name: Determine release version
         id: version
         shell: bash
         run: |
           set -euo pipefail
           version="$(scripts/build-version.sh)"
-          VARPAPER_VERSION="$version" scripts/build-packages.sh
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Verify package contents
+      - name: Build Flutter Linux bundle
+        env:
+          VARPAPER_VERSION: ${{ steps.version.outputs.version }}
+        run: scripts/build-linux.sh
+
+      - name: Build Debian package
+        run: packaging/deb/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify Debian package
         run: |
           dpkg-deb --contents dist/*.deb > /tmp/varpaper-deb-contents.txt
           grep -q 'usr/lib/varpaper/wayvid-gui' /tmp/varpaper-deb-contents.txt
           grep -q 'usr/share/doc/varpaper/LICENSE-APACHE' /tmp/varpaper-deb-contents.txt
-          test -s dist/*.flatpak
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Debian artifact
+        id: deb_artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: varpaper-linux-packages
-          path: |
-            dist/*.deb
-            dist/*.flatpak
+          name: varpaper-deb-${{ steps.version.outputs.version }}
+          path: dist/*.deb
           if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
-      - name: Publish tagged release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Build Flatpak package
+        run: packaging/flatpak/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify Flatpak package
+        run: test -s dist/*.flatpak
+
+      - name: Upload Flatpak artifact
+        id: flatpak_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: varpaper-flatpak-${{ steps.version.outputs.version }}
+          path: dist/*.flatpak
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          release_args=(--title "varPaper $VERSION" --generate-notes)
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.deb dist/*.flatpak --clobber
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist/*.deb dist/*.flatpak --clobber
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.deb dist/*.flatpak "${release_args[@]}"
+            gh release create "$tag" dist/*.deb dist/*.flatpak \
+              --target "$GITHUB_SHA" --title "VarPaper $VERSION" --generate-notes
           fi
+
+      - name: Delete temporary Actions artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEB_ARTIFACT_ID: ${{ steps.deb_artifact.outputs.artifact-id }}
+          FLATPAK_ARTIFACT_ID: ${{ steps.flatpak_artifact.outputs.artifact-id }}
+        run: |
+          set -euo pipefail
+          for artifact_id in "$DEB_ARTIFACT_ID" "$FLATPAK_ARTIFACT_ID"; do
+            gh api --method DELETE "/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id"
+          done

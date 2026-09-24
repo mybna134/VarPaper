@@ -27,107 +27,122 @@ const AppSettingsRecordSchema = CollectionSchema(
       name: r'batteryFpsLimit',
       type: IsarType.long,
     ),
-    r'detailPanelVisible': PropertySchema(
+    r'colorSchemeVariant': PropertySchema(
       id: 2,
+      name: r'colorSchemeVariant',
+      type: IsarType.string,
+    ),
+    r'customThemeColors': PropertySchema(
+      id: 3,
+      name: r'customThemeColors',
+      type: IsarType.longList,
+    ),
+    r'detailPanelVisible': PropertySchema(
+      id: 4,
       name: r'detailPanelVisible',
       type: IsarType.bool,
     ),
-    r'fpsLimit': PropertySchema(id: 3, name: r'fpsLimit', type: IsarType.long),
-    r'hdrMode': PropertySchema(id: 4, name: r'hdrMode', type: IsarType.string),
-    r'hwdec': PropertySchema(id: 5, name: r'hwdec', type: IsarType.string),
+    r'fpsLimit': PropertySchema(id: 5, name: r'fpsLimit', type: IsarType.long),
+    r'hdrMode': PropertySchema(id: 6, name: r'hdrMode', type: IsarType.string),
+    r'hwdec': PropertySchema(id: 7, name: r'hwdec', type: IsarType.string),
     r'language': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'language',
       type: IsarType.string,
     ),
-    r'layout': PropertySchema(id: 7, name: r'layout', type: IsarType.string),
+    r'layout': PropertySchema(id: 9, name: r'layout', type: IsarType.string),
     r'libraryFolders': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'libraryFolders',
       type: IsarType.stringList,
     ),
-    r'loopMode': PropertySchema(id: 9, name: r'loopMode', type: IsarType.bool),
+    r'loopMode': PropertySchema(id: 11, name: r'loopMode', type: IsarType.bool),
     r'minimizeToTray': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'minimizeToTray',
       type: IsarType.bool,
     ),
-    r'mute': PropertySchema(id: 11, name: r'mute', type: IsarType.bool),
+    r'mute': PropertySchema(id: 13, name: r'mute', type: IsarType.bool),
     r'pauseOnBattery': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'pauseOnBattery',
       type: IsarType.bool,
     ),
     r'pauseOnFullscreen': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'pauseOnFullscreen',
       type: IsarType.bool,
     ),
     r'playbackRate': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'playbackRate',
       type: IsarType.double,
     ),
     r'preferredMonitor': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'preferredMonitor',
       type: IsarType.string,
     ),
     r'renderer': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'renderer',
       type: IsarType.string,
     ),
     r'restoreLastWallpaper': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'restoreLastWallpaper',
       type: IsarType.bool,
     ),
-    r'shuffle': PropertySchema(id: 18, name: r'shuffle', type: IsarType.bool),
+    r'shuffle': PropertySchema(id: 20, name: r'shuffle', type: IsarType.bool),
     r'sidebarCollapsed': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'sidebarCollapsed',
       type: IsarType.bool,
     ),
     r'startMinimized': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'startMinimized',
       type: IsarType.bool,
     ),
     r'startTime': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'startTime',
       type: IsarType.double,
     ),
-    r'theme': PropertySchema(id: 22, name: r'theme', type: IsarType.string),
+    r'theme': PropertySchema(id: 24, name: r'theme', type: IsarType.string),
+    r'themeColor': PropertySchema(
+      id: 25,
+      name: r'themeColor',
+      type: IsarType.long,
+    ),
     r'toneMappingAlgorithm': PropertySchema(
-      id: 23,
+      id: 26,
       name: r'toneMappingAlgorithm',
       type: IsarType.string,
     ),
     r'toneMappingComputePeak': PropertySchema(
-      id: 24,
+      id: 27,
       name: r'toneMappingComputePeak',
       type: IsarType.bool,
     ),
     r'toneMappingMode': PropertySchema(
-      id: 25,
+      id: 28,
       name: r'toneMappingMode',
       type: IsarType.string,
     ),
     r'toneMappingParam': PropertySchema(
-      id: 26,
+      id: 29,
       name: r'toneMappingParam',
       type: IsarType.double,
     ),
-    r'volume': PropertySchema(id: 27, name: r'volume', type: IsarType.double),
+    r'volume': PropertySchema(id: 30, name: r'volume', type: IsarType.double),
     r'windowHeight': PropertySchema(
-      id: 28,
+      id: 31,
       name: r'windowHeight',
       type: IsarType.long,
     ),
     r'windowWidth': PropertySchema(
-      id: 29,
+      id: 32,
       name: r'windowWidth',
       type: IsarType.long,
     ),
@@ -154,6 +169,8 @@ int _appSettingsRecordEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.colorSchemeVariant.length * 3;
+  bytesCount += 3 + object.customThemeColors.length * 8;
   bytesCount += 3 + object.hdrMode.length * 3;
   bytesCount += 3 + object.hwdec.length * 3;
   bytesCount += 3 + object.language.length * 3;
@@ -186,34 +203,37 @@ void _appSettingsRecordSerialize(
 ) {
   writer.writeBool(offsets[0], object.autostartEnabled);
   writer.writeLong(offsets[1], object.batteryFpsLimit);
-  writer.writeBool(offsets[2], object.detailPanelVisible);
-  writer.writeLong(offsets[3], object.fpsLimit);
-  writer.writeString(offsets[4], object.hdrMode);
-  writer.writeString(offsets[5], object.hwdec);
-  writer.writeString(offsets[6], object.language);
-  writer.writeString(offsets[7], object.layout);
-  writer.writeStringList(offsets[8], object.libraryFolders);
-  writer.writeBool(offsets[9], object.loopMode);
-  writer.writeBool(offsets[10], object.minimizeToTray);
-  writer.writeBool(offsets[11], object.mute);
-  writer.writeBool(offsets[12], object.pauseOnBattery);
-  writer.writeBool(offsets[13], object.pauseOnFullscreen);
-  writer.writeDouble(offsets[14], object.playbackRate);
-  writer.writeString(offsets[15], object.preferredMonitor);
-  writer.writeString(offsets[16], object.renderer);
-  writer.writeBool(offsets[17], object.restoreLastWallpaper);
-  writer.writeBool(offsets[18], object.shuffle);
-  writer.writeBool(offsets[19], object.sidebarCollapsed);
-  writer.writeBool(offsets[20], object.startMinimized);
-  writer.writeDouble(offsets[21], object.startTime);
-  writer.writeString(offsets[22], object.theme);
-  writer.writeString(offsets[23], object.toneMappingAlgorithm);
-  writer.writeBool(offsets[24], object.toneMappingComputePeak);
-  writer.writeString(offsets[25], object.toneMappingMode);
-  writer.writeDouble(offsets[26], object.toneMappingParam);
-  writer.writeDouble(offsets[27], object.volume);
-  writer.writeLong(offsets[28], object.windowHeight);
-  writer.writeLong(offsets[29], object.windowWidth);
+  writer.writeString(offsets[2], object.colorSchemeVariant);
+  writer.writeLongList(offsets[3], object.customThemeColors);
+  writer.writeBool(offsets[4], object.detailPanelVisible);
+  writer.writeLong(offsets[5], object.fpsLimit);
+  writer.writeString(offsets[6], object.hdrMode);
+  writer.writeString(offsets[7], object.hwdec);
+  writer.writeString(offsets[8], object.language);
+  writer.writeString(offsets[9], object.layout);
+  writer.writeStringList(offsets[10], object.libraryFolders);
+  writer.writeBool(offsets[11], object.loopMode);
+  writer.writeBool(offsets[12], object.minimizeToTray);
+  writer.writeBool(offsets[13], object.mute);
+  writer.writeBool(offsets[14], object.pauseOnBattery);
+  writer.writeBool(offsets[15], object.pauseOnFullscreen);
+  writer.writeDouble(offsets[16], object.playbackRate);
+  writer.writeString(offsets[17], object.preferredMonitor);
+  writer.writeString(offsets[18], object.renderer);
+  writer.writeBool(offsets[19], object.restoreLastWallpaper);
+  writer.writeBool(offsets[20], object.shuffle);
+  writer.writeBool(offsets[21], object.sidebarCollapsed);
+  writer.writeBool(offsets[22], object.startMinimized);
+  writer.writeDouble(offsets[23], object.startTime);
+  writer.writeString(offsets[24], object.theme);
+  writer.writeLong(offsets[25], object.themeColor);
+  writer.writeString(offsets[26], object.toneMappingAlgorithm);
+  writer.writeBool(offsets[27], object.toneMappingComputePeak);
+  writer.writeString(offsets[28], object.toneMappingMode);
+  writer.writeDouble(offsets[29], object.toneMappingParam);
+  writer.writeDouble(offsets[30], object.volume);
+  writer.writeLong(offsets[31], object.windowHeight);
+  writer.writeLong(offsets[32], object.windowWidth);
 }
 
 AppSettingsRecord _appSettingsRecordDeserialize(
@@ -225,35 +245,38 @@ AppSettingsRecord _appSettingsRecordDeserialize(
   final object = AppSettingsRecord();
   object.autostartEnabled = reader.readBool(offsets[0]);
   object.batteryFpsLimit = reader.readLongOrNull(offsets[1]);
-  object.detailPanelVisible = reader.readBool(offsets[2]);
-  object.fpsLimit = reader.readLongOrNull(offsets[3]);
-  object.hdrMode = reader.readString(offsets[4]);
-  object.hwdec = reader.readString(offsets[5]);
+  object.colorSchemeVariant = reader.readString(offsets[2]);
+  object.customThemeColors = reader.readLongList(offsets[3]) ?? [];
+  object.detailPanelVisible = reader.readBool(offsets[4]);
+  object.fpsLimit = reader.readLongOrNull(offsets[5]);
+  object.hdrMode = reader.readString(offsets[6]);
+  object.hwdec = reader.readString(offsets[7]);
   object.id = id;
-  object.language = reader.readString(offsets[6]);
-  object.layout = reader.readString(offsets[7]);
-  object.libraryFolders = reader.readStringList(offsets[8]) ?? [];
-  object.loopMode = reader.readBool(offsets[9]);
-  object.minimizeToTray = reader.readBool(offsets[10]);
-  object.mute = reader.readBool(offsets[11]);
-  object.pauseOnBattery = reader.readBool(offsets[12]);
-  object.pauseOnFullscreen = reader.readBool(offsets[13]);
-  object.playbackRate = reader.readDouble(offsets[14]);
-  object.preferredMonitor = reader.readStringOrNull(offsets[15]);
-  object.renderer = reader.readString(offsets[16]);
-  object.restoreLastWallpaper = reader.readBool(offsets[17]);
-  object.shuffle = reader.readBool(offsets[18]);
-  object.sidebarCollapsed = reader.readBool(offsets[19]);
-  object.startMinimized = reader.readBool(offsets[20]);
-  object.startTime = reader.readDouble(offsets[21]);
-  object.theme = reader.readString(offsets[22]);
-  object.toneMappingAlgorithm = reader.readString(offsets[23]);
-  object.toneMappingComputePeak = reader.readBool(offsets[24]);
-  object.toneMappingMode = reader.readString(offsets[25]);
-  object.toneMappingParam = reader.readDouble(offsets[26]);
-  object.volume = reader.readDouble(offsets[27]);
-  object.windowHeight = reader.readLong(offsets[28]);
-  object.windowWidth = reader.readLong(offsets[29]);
+  object.language = reader.readString(offsets[8]);
+  object.layout = reader.readString(offsets[9]);
+  object.libraryFolders = reader.readStringList(offsets[10]) ?? [];
+  object.loopMode = reader.readBool(offsets[11]);
+  object.minimizeToTray = reader.readBool(offsets[12]);
+  object.mute = reader.readBool(offsets[13]);
+  object.pauseOnBattery = reader.readBool(offsets[14]);
+  object.pauseOnFullscreen = reader.readBool(offsets[15]);
+  object.playbackRate = reader.readDouble(offsets[16]);
+  object.preferredMonitor = reader.readStringOrNull(offsets[17]);
+  object.renderer = reader.readString(offsets[18]);
+  object.restoreLastWallpaper = reader.readBool(offsets[19]);
+  object.shuffle = reader.readBool(offsets[20]);
+  object.sidebarCollapsed = reader.readBool(offsets[21]);
+  object.startMinimized = reader.readBool(offsets[22]);
+  object.startTime = reader.readDouble(offsets[23]);
+  object.theme = reader.readString(offsets[24]);
+  object.themeColor = reader.readLong(offsets[25]);
+  object.toneMappingAlgorithm = reader.readString(offsets[26]);
+  object.toneMappingComputePeak = reader.readBool(offsets[27]);
+  object.toneMappingMode = reader.readString(offsets[28]);
+  object.toneMappingParam = reader.readDouble(offsets[29]);
+  object.volume = reader.readDouble(offsets[30]);
+  object.windowHeight = reader.readLong(offsets[31]);
+  object.windowWidth = reader.readLong(offsets[32]);
   return object;
 }
 
@@ -269,23 +292,23 @@ P _appSettingsRecordDeserializeProp<P>(
     case 1:
       return (reader.readLongOrNull(offset)) as P;
     case 2:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 3:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readLongList(offset) ?? []) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 5:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 6:
       return (reader.readString(offset)) as P;
     case 7:
       return (reader.readString(offset)) as P;
     case 8:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringList(offset) ?? []) as P;
     case 11:
       return (reader.readBool(offset)) as P;
     case 12:
@@ -293,36 +316,42 @@ P _appSettingsRecordDeserializeProp<P>(
     case 13:
       return (reader.readBool(offset)) as P;
     case 14:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 15:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 16:
-      return (reader.readString(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 17:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readBool(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 19:
       return (reader.readBool(offset)) as P;
     case 20:
       return (reader.readBool(offset)) as P;
     case 21:
-      return (reader.readDouble(offset)) as P;
-    case 22:
-      return (reader.readString(offset)) as P;
-    case 23:
-      return (reader.readString(offset)) as P;
-    case 24:
       return (reader.readBool(offset)) as P;
-    case 25:
+    case 22:
+      return (reader.readBool(offset)) as P;
+    case 23:
+      return (reader.readDouble(offset)) as P;
+    case 24:
       return (reader.readString(offset)) as P;
-    case 26:
-      return (reader.readDouble(offset)) as P;
-    case 27:
-      return (reader.readDouble(offset)) as P;
-    case 28:
+    case 25:
       return (reader.readLong(offset)) as P;
+    case 26:
+      return (reader.readString(offset)) as P;
+    case 27:
+      return (reader.readBool(offset)) as P;
+    case 28:
+      return (reader.readString(offset)) as P;
     case 29:
+      return (reader.readDouble(offset)) as P;
+    case 30:
+      return (reader.readDouble(offset)) as P;
+    case 31:
+      return (reader.readLong(offset)) as P;
+    case 32:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -506,6 +535,261 @@ extension AppSettingsRecordQueryFilter
           upper: upper,
           includeUpper: includeUpper,
         ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantEqualTo(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'colorSchemeVariant',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'colorSchemeVariant',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'colorSchemeVariant',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'colorSchemeVariant', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  colorSchemeVariantIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'colorSchemeVariant', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsElementEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'customThemeColors', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsElementGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'customThemeColors',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsElementLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'customThemeColors',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsElementBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'customThemeColors',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'customThemeColors', length, true, length, true);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'customThemeColors', 0, true, 0, true);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'customThemeColors', 0, false, 999999, true);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsLengthLessThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(r'customThemeColors', 0, true, length, include);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsLengthGreaterThan(int length, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'customThemeColors',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  customThemeColorsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'customThemeColors',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
       );
     });
   }
@@ -2081,6 +2365,61 @@ extension AppSettingsRecordQueryFilter
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  themeColorEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'themeColor', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  themeColorGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'themeColor',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  themeColorLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'themeColor',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+  themeColorBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'themeColor',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
   toneMappingAlgorithmEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -2675,6 +3014,20 @@ extension AppSettingsRecordQuerySortBy
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  sortByColorSchemeVariant() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'colorSchemeVariant', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  sortByColorSchemeVariantDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'colorSchemeVariant', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
   sortByDetailPanelVisible() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'detailPanelVisible', Sort.asc);
@@ -2955,6 +3308,20 @@ extension AppSettingsRecordQuerySortBy
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  sortByThemeColor() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'themeColor', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  sortByThemeColorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'themeColor', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
   sortByToneMappingAlgorithm() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'toneMappingAlgorithm', Sort.asc);
@@ -3080,6 +3447,20 @@ extension AppSettingsRecordQuerySortThenBy
   thenByBatteryFpsLimitDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'batteryFpsLimit', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  thenByColorSchemeVariant() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'colorSchemeVariant', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  thenByColorSchemeVariantDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'colorSchemeVariant', Sort.desc);
     });
   }
 
@@ -3377,6 +3758,20 @@ extension AppSettingsRecordQuerySortThenBy
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  thenByThemeColor() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'themeColor', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+  thenByThemeColorDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'themeColor', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
   thenByToneMappingAlgorithm() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'toneMappingAlgorithm', Sort.asc);
@@ -3488,6 +3883,23 @@ extension AppSettingsRecordQueryWhereDistinct
   distinctByBatteryFpsLimit() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'batteryFpsLimit');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+  distinctByColorSchemeVariant({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'colorSchemeVariant',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+  distinctByCustomThemeColors() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'customThemeColors');
     });
   }
 
@@ -3642,6 +4054,13 @@ extension AppSettingsRecordQueryWhereDistinct
   }
 
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+  distinctByThemeColor() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'themeColor');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
   distinctByToneMappingAlgorithm({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(
@@ -3716,6 +4135,20 @@ extension AppSettingsRecordQueryProperty
   batteryFpsLimitProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'batteryFpsLimit');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, String, QQueryOperations>
+  colorSchemeVariantProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'colorSchemeVariant');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, List<int>, QQueryOperations>
+  customThemeColorsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'customThemeColors');
     });
   }
 
@@ -3853,6 +4286,12 @@ extension AppSettingsRecordQueryProperty
   QueryBuilder<AppSettingsRecord, String, QQueryOperations> themeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'theme');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, int, QQueryOperations> themeColorProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'themeColor');
     });
   }
 

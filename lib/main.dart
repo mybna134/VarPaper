@@ -54,6 +54,40 @@ final wayvidControllerProvider = ChangeNotifierProvider<WayvidController>(
   (ref) => throw StateError('WayvidController must be overridden'),
 );
 
+const _presetThemeColors = <int>[
+  defaultThemeColor,
+  0xff795548,
+  0xff03a9f4,
+  0xffffc107,
+  0xff8bc34a,
+  0xffe91e63,
+  0xff673ab7,
+];
+
+const _colorSchemeVariants = <String, DynamicSchemeVariant>{
+  'tonalSpot': DynamicSchemeVariant.tonalSpot,
+  'fidelity': DynamicSchemeVariant.fidelity,
+  'content': DynamicSchemeVariant.content,
+  'neutral': DynamicSchemeVariant.neutral,
+  'vibrant': DynamicSchemeVariant.vibrant,
+  'expressive': DynamicSchemeVariant.expressive,
+};
+
+/// Builds the app's Material theme from the saved palette and brightness.
+ThemeData themeFromSettings(GuiSettingsDto gui, Brightness brightness) {
+  final variant =
+      _colorSchemeVariants[gui.colorSchemeVariant] ??
+      DynamicSchemeVariant.tonalSpot;
+  return ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: Color(gui.themeColor),
+      brightness: brightness,
+      dynamicSchemeVariant: variant,
+    ),
+    useMaterial3: true,
+  );
+}
+
 class WayvidController extends ChangeNotifier {
   WayvidController._(
     this.service,
@@ -348,7 +382,12 @@ class WayvidController extends ChangeNotifier {
       if (patch.autostartEnabled != null) {
         await settingsStore.syncAutostart(patch.autostartEnabled!);
       }
-      if (engineRunning) {
+      if (engineRunning &&
+          (patch.volume != null ||
+              patch.loopMode != null ||
+              patch.mute != null ||
+              patch.fpsLimit != null ||
+              patch.pauseOnBattery != null)) {
         await service.updateEngineConfig(config: settings.toEngineConfig());
       }
     });
@@ -594,7 +633,12 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
   @override
   Widget build(BuildContext context) {
     final controller = ref.watch(wayvidControllerProvider);
-    final dark = controller.settings.gui.theme == 'dark';
+    final gui = controller.settings.gui;
+    final themeMode = switch (gui.theme) {
+      'dark' => ThemeMode.dark,
+      'light' => ThemeMode.light,
+      _ => ThemeMode.system,
+    };
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'VarPaper',
@@ -606,17 +650,9 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-      theme: ThemeData(
-        colorSchemeSeed: Colors.teal,
-        brightness: Brightness.light,
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.teal,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      themeMode: themeMode,
+      theme: themeFromSettings(gui, Brightness.light),
+      darkTheme: themeFromSettings(gui, Brightness.dark),
       home: WayvidShell(controller: controller),
     );
   }
@@ -686,20 +722,19 @@ class _Sidebar extends StatelessWidget {
       width: width,
       child: Column(
         children: [
-          const SizedBox(
-            height: 72,
-            child: Center(child: Icon(Icons.waves, size: 28)),
-          ),
           Expanded(
-            child: NavigationRail(
-              minWidth: width,
-              labelType: labelsHidden
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              selectedIndex: selectedIndex,
-              onDestinationSelected: (index) =>
-                  controller.navigate(pages[index]),
-              destinations: destinations,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: NavigationRail(
+                minWidth: width,
+                labelType: labelsHidden
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
+                selectedIndex: selectedIndex,
+                onDestinationSelected: (index) =>
+                    controller.navigate(pages[index]),
+                destinations: destinations,
+              ),
             ),
           ),
           IconButton(
@@ -1624,6 +1659,30 @@ class _SettingsPage extends StatelessWidget {
           ),
         ),
         _SettingsRow(
+          title: l10n.text('Theme color'),
+          below: _PaletteSettings(controller: controller),
+        ),
+        _SettingsRow(
+          title: l10n.text('Color style'),
+          control: _DecoratedDropdown<String>(
+            value: _colorSchemeVariants.containsKey(gui.colorSchemeVariant)
+                ? gui.colorSchemeVariant
+                : defaultColorSchemeVariant,
+            items: [
+              for (final variant in _colorSchemeVariants.keys)
+                DropdownMenuItem(
+                  value: variant,
+                  child: Text(l10n.text(_variantLabel(variant))),
+                ),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                controller.update(SettingsPatch(colorSchemeVariant: value));
+              }
+            },
+          ),
+        ),
+        _SettingsRow(
           title: l10n.text('Language'),
           control: _DecoratedDropdown<String>(
             value: gui.language == 'zh' ? 'zh' : 'en',
@@ -1654,7 +1713,6 @@ class _SettingsPage extends StatelessWidget {
                 controller.update(SettingsPatch(startMinimized: value)),
           ),
         ),
-        const Divider(height: 36),
         Text(
           l10n.text('Playback'),
           style: Theme.of(context).textTheme.titleLarge,
@@ -1716,6 +1774,299 @@ class _SettingsPage extends StatelessWidget {
             onChanged: (value) =>
                 controller.update(SettingsPatch(restoreLastWallpaper: value)),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+String _variantLabel(String variant) => switch (variant) {
+  'fidelity' => 'Fidelity',
+  'content' => 'Content',
+  'neutral' => 'Neutral',
+  'vibrant' => 'Vibrant',
+  'expressive' => 'Expressive',
+  _ => 'Tonal spot',
+};
+
+class _PaletteSettings extends StatelessWidget {
+  const _PaletteSettings({required this.controller});
+
+  final WayvidController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WayvidLocalizations.of(context);
+    final gui = controller.settings.gui;
+    final customColors = gui.customThemeColors
+        .where((color) => !_presetThemeColors.contains(color))
+        .toSet()
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final color in _presetThemeColors)
+              _PaletteSwatch(
+                color: color,
+                selected: gui.themeColor == color,
+                onPressed: () =>
+                    controller.update(SettingsPatch(themeColor: color)),
+              ),
+            for (final color in customColors)
+              _PaletteSwatch(
+                color: color,
+                selected: gui.themeColor == color,
+                onPressed: () =>
+                    controller.update(SettingsPatch(themeColor: color)),
+                onDelete: () => controller.update(
+                  SettingsPatch(
+                    customThemeColors: customColors
+                        .where((value) => value != color)
+                        .toList(),
+                    themeColor: gui.themeColor == color
+                        ? defaultThemeColor
+                        : null,
+                  ),
+                ),
+              ),
+            Tooltip(
+              message: l10n.text('Add custom color'),
+              child: IconButton.filledTonal(
+                icon: const Icon(Icons.add),
+                onPressed: () async {
+                  final color = await showDialog<int>(
+                    context: context,
+                    builder: (context) =>
+                        _ColorPickerDialog(initialColor: gui.themeColor),
+                  );
+                  if (color == null) return;
+                  controller.update(
+                    SettingsPatch(
+                      themeColor: color,
+                      customThemeColors:
+                          !_presetThemeColors.contains(color) &&
+                              !customColors.contains(color)
+                          ? [...customColors, color]
+                          : null,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        if (gui.themeColor != defaultThemeColor ||
+            customColors.isNotEmpty ||
+            gui.colorSchemeVariant != defaultColorSchemeVariant)
+          TextButton.icon(
+            onPressed: () => controller.update(
+              const SettingsPatch(
+                themeColor: defaultThemeColor,
+                customThemeColors: [],
+                colorSchemeVariant: defaultColorSchemeVariant,
+              ),
+            ),
+            icon: const Icon(Icons.restart_alt),
+            label: Text(l10n.text('Reset palette')),
+          ),
+      ],
+    );
+  }
+}
+
+class _PaletteSwatch extends StatelessWidget {
+  const _PaletteSwatch({
+    required this.color,
+    required this.selected,
+    required this.onPressed,
+    this.onDelete,
+  });
+
+  final int color;
+  final bool selected;
+  final VoidCallback onPressed;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WayvidLocalizations.of(context);
+    final swatchColor = Color(color);
+    final onSwatch =
+        ThemeData.estimateBrightnessForColor(swatchColor) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Stack(
+        children: [
+          Center(
+            child: IconButton(
+              tooltip:
+                  '${l10n.text('Theme color')} '
+                  '#${color.toRadixString(16).substring(2).toUpperCase()}',
+              style: IconButton.styleFrom(
+                backgroundColor: swatchColor,
+                foregroundColor: onSwatch,
+                side: BorderSide(
+                  color: selected
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(context).colorScheme.outlineVariant,
+                  width: selected ? 3 : 1,
+                ),
+              ),
+              onPressed: onPressed,
+              icon: Icon(selected ? Icons.check : null),
+            ),
+          ),
+          if (onDelete != null)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: IconButton.filledTonal(
+                  tooltip: l10n.text('Remove custom color'),
+                  padding: EdgeInsets.zero,
+                  iconSize: 14,
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColorPickerDialog extends StatefulWidget {
+  const _ColorPickerDialog({required this.initialColor});
+
+  final int initialColor;
+
+  @override
+  State<_ColorPickerDialog> createState() => _ColorPickerDialogState();
+}
+
+class _ColorPickerDialogState extends State<_ColorPickerDialog> {
+  late int _red;
+  late int _green;
+  late int _blue;
+  late final TextEditingController _hexController;
+  bool _invalidHex = false;
+
+  int get _color => 0xff000000 | (_red << 16) | (_green << 8) | _blue;
+  String get _hex => '#${_color.toRadixString(16).substring(2).toUpperCase()}';
+
+  @override
+  void initState() {
+    super.initState();
+    _red = (widget.initialColor >> 16) & 0xff;
+    _green = (widget.initialColor >> 8) & 0xff;
+    _blue = widget.initialColor & 0xff;
+    _hexController = TextEditingController(text: _hex);
+  }
+
+  @override
+  void dispose() {
+    _hexController.dispose();
+    super.dispose();
+  }
+
+  void _setChannel(int channel, int value) {
+    setState(() {
+      if (channel == 0) _red = value;
+      if (channel == 1) _green = value;
+      if (channel == 2) _blue = value;
+      _invalidHex = false;
+      _hexController.text = _hex;
+    });
+  }
+
+  Widget _slider(String label, int channel, int value) => Row(
+    children: [
+      SizedBox(width: 20, child: Text(label)),
+      Expanded(
+        child: Slider(
+          value: value.toDouble(),
+          min: 0,
+          max: 255,
+          divisions: 255,
+          onChanged: (value) => _setChannel(channel, value.round()),
+        ),
+      ),
+      SizedBox(width: 32, child: Text('$value')),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WayvidLocalizations.of(context);
+    final previewColor = Color(_color);
+    final previewText =
+        ThemeData.estimateBrightnessForColor(previewColor) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    return AlertDialog(
+      title: Text(l10n.text('Custom color')),
+      content: SizedBox(
+        width: 340,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: previewColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(_hex, style: TextStyle(color: previewText)),
+            ),
+            const SizedBox(height: 12),
+            _slider('R', 0, _red),
+            _slider('G', 1, _green),
+            _slider('B', 2, _blue),
+            TextField(
+              controller: _hexController,
+              decoration: InputDecoration(
+                labelText: l10n.text('Hex color'),
+                errorText: _invalidHex
+                    ? l10n.text('Enter a 6-digit hex color')
+                    : null,
+              ),
+              maxLength: 7,
+              onChanged: (value) {
+                final hex = value.startsWith('#') ? value.substring(1) : value;
+                final valid = RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(hex);
+                setState(() {
+                  _invalidHex = value.isNotEmpty && !valid;
+                  if (valid) {
+                    final rgb = int.parse(hex, radix: 16);
+                    _red = (rgb >> 16) & 0xff;
+                    _green = (rgb >> 8) & 0xff;
+                    _blue = rgb & 0xff;
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.text('Cancel')),
+        ),
+        FilledButton(
+          onPressed: _invalidHex ? null : () => Navigator.pop(context, _color),
+          child: Text(l10n.text('Add color')),
         ),
       ],
     );
@@ -1810,7 +2161,12 @@ class _AboutPage extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.waves, size: 64),
+                Image.asset(
+                  'packaging/varpaper.png',
+                  width: 64,
+                  height: 64,
+                  semanticLabel: 'VarPaper',
+                ),
                 const SizedBox(height: 14),
                 Text(
                   'VarPaper',

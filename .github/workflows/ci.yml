@@ -3,7 +3,7 @@ name: Code Quality
 on:
   push:
     branches: [ main, dev ]
-    # 排除 tag 推送：release workflow 已包含完整的质量检查
+    # Release workflow runs on main; tag pushes do not need a second CI run.
     tags-ignore:
       - '**'
     paths-ignore:
@@ -17,8 +17,6 @@ on:
       - '.gitignore'
       - '.editorconfig'
       - 'cliff.toml'
-      - '.github/workflows/docs.yml'
-      - '.github/workflows/release.yml'
   pull_request:
     branches: [ main ]
     paths-ignore:
@@ -32,8 +30,6 @@ on:
       - '.gitignore'
       - '.editorconfig'
       - 'cliff.toml'
-      - '.github/workflows/docs.yml'
-      - '.github/workflows/release.yml'
 
 env:
   CARGO_TERM_COLOR: always

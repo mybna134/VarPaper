@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="logo.svg" alt="VarPaper logo" width="100" height="100">
+<img src="packaging/varpaper.svg" alt="VarPaper logo" width="100" height="100">
 
 # VarPaper
 
