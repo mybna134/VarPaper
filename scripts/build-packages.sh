@@ -3,13 +3,15 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
-version="${1:-$(sed -n 's/^version: \([0-9][^+]*\).*/\1/p' pubspec.yaml)}"
-[[ -n "$version" ]] || { echo 'Cannot determine version' >&2; exit 1; }
+[[ $# -eq 0 ]] || { echo 'Usage: scripts/build-packages.sh' >&2; exit 1; }
+version="${VARPAPER_VERSION:-$("$root/scripts/build-version.sh")}"
+[[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid build version: $version" >&2; exit 1; }
+echo "Building VarPaper $version"
 
 if [[ "${VARPAPER_SKIP_BUILD:-0}" != 1 ]]; then
   flutter clean
   flutter pub get
-  flutter build linux --release
+  VARPAPER_VERSION="$version" "$root/scripts/build-linux.sh"
 fi
 
 bundle="${VARPAPER_BUNDLE_DIR:-$root/build/linux/x64/release/bundle}"

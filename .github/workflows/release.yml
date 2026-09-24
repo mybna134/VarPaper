@@ -17,28 +17,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          set -euo pipefail
-          project_version="$(sed -n 's/^version: \([0-9][^+]*\).*/\1/p' pubspec.yaml)"
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            version="${GITHUB_REF_NAME#v}"
-            [[ "$version" == "$project_version" ]] || {
-              echo "Tag version $version does not match pubspec.yaml $project_version" >&2
-              exit 1
-            }
-          else
-            version="$project_version"
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if [[ "$version" == *-* ]]; then
-            echo 'prerelease=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'prerelease=false' >> "$GITHUB_OUTPUT"
-          fi
+        with:
+          fetch-depth: 0
 
       - name: Install Linux build dependencies
         run: |
@@ -76,7 +56,13 @@ jobs:
           flutter test
 
       - name: Build both packages from one Flutter bundle
-        run: scripts/build-packages.sh '${{ steps.version.outputs.version }}'
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(scripts/build-version.sh)"
+          VARPAPER_VERSION="$version" scripts/build-packages.sh
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Verify package contents
         run: |
@@ -98,13 +84,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           set -euo pipefail
           release_args=(--title "varPaper $VERSION" --generate-notes)
-          if [[ "$PRERELEASE" == true ]]; then
-            release_args+=(--prerelease)
-          fi
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.deb dist/*.flatpak --clobber
           else

@@ -8,7 +8,6 @@ Animated wallpaper manager for Wayland and X11
 
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.0-green.svg)](https://github.com/mybna134/lwe-flutter/releases)
 
 [Project](https://github.com/mybna134/lwe-flutter) • [Releases](https://github.com/mybna134/lwe-flutter/releases)
 
@@ -173,7 +172,7 @@ wayvid v0.5 uses a **single-process architecture**:
 ## Contributing
 
 ```bash
-flutter build linux --release
+./scripts/build-linux.sh
 cargo test --workspace
 ```
 

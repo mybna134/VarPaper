@@ -77,5 +77,5 @@ jobs:
 
       - name: Validate package scripts and Flatpak manifest
         run: |
-          bash -n scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh
+          bash -n scripts/build-version.sh scripts/build-linux.sh scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh
           python3 -m json.tool packaging/flatpak/manifest.json > /dev/null

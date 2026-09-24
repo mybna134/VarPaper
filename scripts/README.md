@@ -8,7 +8,10 @@ Development and packaging scripts for VarPaper.
 - `dev-check.sh` - Check development environment setup
 - `quick-check.sh` - Fast workspace checks (format, clippy)
 - `pre-push-check.sh` - Full pre-commit validation (tests, build)
+- `build-linux.sh` - Build the Linux Flutter bundle with the generated version
 - `build-packages.sh` - Build the `.deb` and `.flatpak` release packages
+
+Package versions use the UTC build date and the first eight characters of the `main` commit ID.
 
 ## Usage
 

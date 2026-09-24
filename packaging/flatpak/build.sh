@@ -11,7 +11,7 @@ trap 'rm -rf "$work"' EXIT
 app_id=io.github.mybna134.varpaper
 [[ "$(uname -m)" == x86_64 ]] || { echo 'Only x86_64 packaging is supported' >&2; exit 1; }
 
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
+[[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
 for command_name in flatpak-builder flatpak ldd; do
   command -v "$command_name" >/dev/null || { echo "$command_name is required" >&2; exit 1; }

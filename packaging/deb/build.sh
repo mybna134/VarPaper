@@ -7,11 +7,11 @@ bundle="${VARPAPER_BUNDLE_DIR:-$root/build/linux/x64/release/bundle}"
 output="${VARPAPER_OUTPUT_DIR:-$root/dist}"
 arch="$(dpkg --print-architecture)"
 [[ "$arch" == amd64 ]] || { echo "Only amd64 packaging is supported: $arch" >&2; exit 1; }
-deb_version="${version//-/\~}"
+deb_version="$version"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
+[[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
 command -v dpkg-deb >/dev/null || { echo 'dpkg-deb is required' >&2; exit 1; }
 
