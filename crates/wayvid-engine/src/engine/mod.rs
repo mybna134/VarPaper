@@ -174,7 +174,7 @@ fn layer_shell_unavailable_error() -> anyhow::Error {
     let is_flatpak = std::env::var_os("FLATPAK_ID").is_some();
     let is_niri = std::env::var("XDG_CURRENT_DESKTOP")
         .unwrap_or_default()
-        .split(|character| character == ':' || character == ';')
+        .split([':', ';'])
         .any(|desktop| desktop.eq_ignore_ascii_case("niri"));
 
     if is_flatpak && is_niri {
