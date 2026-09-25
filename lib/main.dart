@@ -21,6 +21,9 @@ import 'src/storage/settings_store.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
+  // Keep the native window alive until onWindowClose decides whether to hide
+  // it or quit. Otherwise GTK destroys the last window before Dart can react.
+  await windowManager.setPreventClose(true);
   final settingsStore = await SettingsStore.open();
   await RustLib.init();
 
