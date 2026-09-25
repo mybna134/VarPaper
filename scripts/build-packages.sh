@@ -20,3 +20,4 @@ export VARPAPER_BUNDLE_DIR="$bundle"
 
 "$root/packaging/deb/build.sh" "$version"
 "$root/packaging/flatpak/build.sh" "$version"
+"$root/packaging/arch/build.sh" "$version"

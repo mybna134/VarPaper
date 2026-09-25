@@ -33,13 +33,19 @@ Playback uses mpv with automatic hardware decoding when available. On Wayland, t
 
 ## Install
 
-Linux x86_64 builds are packaged as `.deb` and `.flatpak` files on the [Releases page](https://github.com/mybna134/VarPaper/releases).
+Linux x86_64 builds are packaged as `.deb`, `.flatpak`, and Arch `.pkg.tar.zst` files on the [Releases page](https://github.com/mybna134/VarPaper/releases).
 
 The `.deb` is built on Ubuntu 24.04 and requires glibc 2.39 or newer, `libmpv.so.2`, and the other declared system libraries. On a compatible Debian-based distribution, download it and run:
 
 ```bash
 sudo apt install ./varpaper_*_amd64.deb
 varpaper
+```
+
+On Arch Linux, download the `.pkg.tar.zst` package and install it with pacman:
+
+```bash
+sudo pacman -U ./varpaper-*-x86_64.pkg.tar.zst
 ```
 
 For Flatpak, download the `.flatpak` file and run:
@@ -50,6 +56,8 @@ flatpak run io.github.mybna134.varpaper
 ```
 
 The Flatpak uses the GNOME 50 runtime and has access to your home directory for local videos and Steam Workshop files.
+
+Niri filters the `wlr-layer-shell` protocol from sandboxed Flatpak apps for security, so the Flatpak cannot set wallpapers in a Niri session. Use a native VarPaper build on Niri; changing Flatpak socket permissions cannot expose a protocol filtered by the compositor.
 
 ## Use
 

@@ -170,6 +170,28 @@ fn select_backend_for(session: &str, wayland: bool, x11: bool) -> Result<Backend
     }
 }
 
+fn layer_shell_unavailable_error() -> anyhow::Error {
+    let is_flatpak = std::env::var_os("FLATPAK_ID").is_some();
+    let is_niri = std::env::var("XDG_CURRENT_DESKTOP")
+        .unwrap_or_default()
+        .split(|character| character == ':' || character == ';')
+        .any(|desktop| desktop.eq_ignore_ascii_case("niri"));
+
+    if is_flatpak && is_niri {
+        anyhow::anyhow!(
+            "Niri hides zwlr_layer_shell_v1 from sandboxed Flatpak apps for security. Flatpak permissions cannot override this. Use a native VarPaper build on Niri, or run it in a session that exposes wlr-layer-shell to Flatpak apps."
+        )
+    } else if is_flatpak {
+        anyhow::anyhow!(
+            "The Wayland compositor did not expose zwlr_layer_shell_v1 to this Flatpak. Flatpak permissions cannot add a protocol the compositor filtered out. Use a native VarPaper build, or a compositor that exposes wlr-layer-shell to Flatpak apps."
+        )
+    } else {
+        anyhow::anyhow!(
+            "The Wayland compositor does not expose zwlr_layer_shell_v1. Use a compositor that supports wlr-layer-shell, such as Niri, Sway, or Hyprland."
+        )
+    }
+}
+
 /// Internal: Run engine in the current thread
 fn run_engine_thread(
     config: EngineConfig,
@@ -238,9 +260,6 @@ fn run_engine_thread(
     // Do initial roundtrip to get outputs and globals
     debug!("Performing initial Wayland roundtrip to enumerate outputs");
 
-    // Send started event
-    let _ = events_tx.send(EngineEvent::Started);
-
     // Initialize EGL context after globals are bound
     // We need a few roundtrips first to get compositor and layer_shell
     for _ in 0..3 {
@@ -249,28 +268,27 @@ fn run_engine_thread(
             .context("Event loop dispatch failed")?;
     }
 
-    // Now initialize EGL if we have compositor and layer_shell
-    if state.compositor.is_some() && state.layer_shell.is_some() {
-        info!("Initializing EGL context...");
-        match EglContext::new(display_ptr) {
-            Ok(egl_ctx) => {
-                info!("  ✓ EGL context initialized");
-                state.egl_context = Some(egl_ctx);
-            }
-            Err(e) => {
-                warn!("  ✗ Failed to initialize EGL: {}", e);
-                warn!("    Wallpaper rendering will not work");
-            }
+    if state.compositor.is_none() {
+        anyhow::bail!("The Wayland compositor did not expose wl_compositor");
+    }
+    if state.layer_shell.is_none() {
+        return Err(layer_shell_unavailable_error());
+    }
+
+    info!("Initializing EGL context...");
+    match EglContext::new(display_ptr) {
+        Ok(egl_ctx) => {
+            info!("  ✓ EGL context initialized");
+            state.egl_context = Some(egl_ctx);
         }
-    } else {
-        warn!("Missing compositor or layer_shell - cannot create wallpaper surfaces");
-        if state.compositor.is_none() {
-            warn!("  - wl_compositor not bound");
-        }
-        if state.layer_shell.is_none() {
-            warn!("  - zwlr_layer_shell_v1 not bound");
+        Err(e) => {
+            warn!("  ✗ Failed to initialize EGL: {}", e);
+            warn!("    Wallpaper rendering will not work");
         }
     }
+
+    // Report a successful start only after the required Wayland protocols exist.
+    let _ = events_tx.send(EngineEvent::Started);
 
     // Main event loop with power management
     let battery_check_interval = std::time::Duration::from_secs(10);

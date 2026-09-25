@@ -33,13 +33,19 @@ mpv 会在可用时自动使用硬件解码。Wayland 环境需要合成器支�
 
 ## 安装
 
-Linux x86_64 版本以 `.deb` 和 `.flatpak` 格式发布，可在[发布页面](https://github.com/mybna134/VarPaper/releases)下载。
+Linux x86_64 版本以 `.deb`、`.flatpak` 和 Arch `.pkg.tar.zst` 格式发布，可在[发布页面](https://github.com/mybna134/VarPaper/releases)下载。
 
 `.deb` 在 Ubuntu 24.04 上构建，需要 glibc 2.39 及以上版本、`libmpv.so.2` 和其他声明的系统库。在兼容的 Debian 系发行版上，下载后运行：
 
 ```bash
 sudo apt install ./varpaper_*_amd64.deb
 varpaper
+```
+
+在 Arch Linux 上，下载 `.pkg.tar.zst` 包并使用 pacman 安装：
+
+```bash
+sudo pacman -U ./varpaper-*-x86_64.pkg.tar.zst
 ```
 
 安装 Flatpak 包：
@@ -50,6 +56,8 @@ flatpak run io.github.mybna134.varpaper
 ```
 
 Flatpak 使用 GNOME 50 运行时，并可访问你的主目录，以读取本地视频和 Steam 创意工坊文件。
+
+Niri 出于安全原因会隐藏沙盒 Flatpak 应用的 `wlr-layer-shell` 协议，因此 Flatpak 版无法在 Niri 会话中设置壁纸。请在 Niri 中使用原生 VarPaper 构建；修改 Flatpak socket 权限无法恢复被合成器过滤的协议。
 
 ## 使用
 

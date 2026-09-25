@@ -1,0 +1,78 @@
+pkgname=varpaper
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Animated video wallpaper manager for Linux'
+arch=('x86_64')
+url='https://github.com/mybna134/VarPaper'
+license=('GPL-3.0-only')
+options=('!debug')
+depends=(
+  'fontconfig'
+  'gtk3'
+  'libayatana-appindicator'
+  'libglvnd'
+  'libx11'
+  'libxfixes'
+  'libxkbcommon'
+  'libxrandr'
+  'mpv'
+  'wayland'
+)
+source=(
+  'varpaper-bundle.tar.zst'
+  'varpaper.desktop'
+  'varpaper.png'
+  'LICENSE'
+  'NOTICE'
+  'LICENSE-APACHE'
+  'LICENSE-MIT'
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -d "$pkgdir/usr/lib/varpaper"
+  tar --zstd -xf "$srcdir/varpaper-bundle.tar.zst" -C "$pkgdir/usr/lib/varpaper"
+  # The transitive jni Flutter plugin is unused on Linux and links to libjvm.
+  rm -f "$pkgdir/usr/lib/varpaper/lib/libdartjni.so"
+
+  install -Dm644 "$srcdir/varpaper.desktop" \
+    "$pkgdir/usr/share/applications/io.github.mybna134.varpaper.desktop"
+  install -Dm644 "$srcdir/varpaper.png" \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/io.github.mybna134.varpaper.png"
+  install -Dm644 "$srcdir/LICENSE" \
+    "$pkgdir/usr/share/licenses/varpaper/LICENSE"
+  install -Dm644 "$srcdir/NOTICE" \
+    "$pkgdir/usr/share/licenses/varpaper/NOTICE"
+  install -Dm644 "$srcdir/LICENSE-APACHE" \
+    "$pkgdir/usr/share/licenses/varpaper/LICENSE-APACHE"
+  install -Dm644 "$srcdir/LICENSE-MIT" \
+    "$pkgdir/usr/share/licenses/varpaper/LICENSE-MIT"
+
+  install -d "$pkgdir/usr/bin"
+  cat > "$pkgdir/usr/bin/varpaper" <<'EOF'
+#!/bin/sh
+cd /usr/lib/varpaper
+exec ./wayvid-gui "$@"
+EOF
+  chmod 755 "$pkgdir/usr/bin/varpaper"
+
+  local elf missing dependencies library_dir
+  library_dir="$pkgdir/usr/lib/varpaper/lib"
+  for elf in "$pkgdir/usr/lib/varpaper/wayvid-gui" "$pkgdir/usr/lib/varpaper"/lib/*.so; do
+    [[ -f "$elf" ]] || continue
+    local mode dependencies
+    mode="$(stat -c '%a' "$elf")"
+    chmod u+x "$elf"
+    if ! dependencies="$(LD_LIBRARY_PATH="$library_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ldd "$elf" 2>&1)"; then
+      chmod "$mode" "$elf"
+      printf 'Could not inspect shared libraries in %s:\n%s\n' "$elf" "$dependencies" >&2
+      return 1
+    fi
+    chmod "$mode" "$elf"
+    missing="$(printf '%s\n' "$dependencies" | grep 'not found' || true)"
+    if [[ -n "$missing" ]]; then
+      printf 'Unresolved shared libraries in %s:\n%s\n' "$elf" "$missing" >&2
+      return 1
+    fi
+  done
+}

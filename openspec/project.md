@@ -41,7 +41,7 @@ wayvid is a lightweight, high-performance dynamic video wallpaper application fo
 - `flutter_riverpod` 2 - Flutter application state management
 
 ### Supported Platforms
-- **Primary**: Linux x86_64 (.deb and .flatpak releases)
+- **Primary**: Linux x86_64 (.deb, .flatpak, and .pkg.tar.zst releases)
 - **Compositors**: Hyprland (full), Niri (full), Sway (partial), River (partial)
 - **Architectures**: x86_64
 
@@ -227,6 +227,7 @@ chore(deps): Update wayland-protocols to 0.32
 ### Packaging Constraints
 - **Debian**: `dpkg-deb` packages the Flutter Linux release bundle
 - **Flatpak**: `flatpak-builder` packages the same bundle with GNOME 50 runtime
+- **Arch Linux**: `makepkg` packages the Flutter Linux release bundle with Arch runtime dependencies
 
 ### Security Constraints
 - **No Root**: Must run as unprivileged user

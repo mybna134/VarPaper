@@ -9,7 +9,7 @@ Development and packaging scripts for VarPaper.
 - `quick-check.sh` - Fast workspace checks (format, clippy)
 - `pre-push-check.sh` - Full pre-commit validation (tests, build)
 - `build-linux.sh` - Build the Linux Flutter bundle with the generated version
-- `build-packages.sh` - Build the `.deb` and `.flatpak` release packages
+- `build-packages.sh` - Build the `.deb`, `.flatpak`, and Arch `.pkg.tar.zst` release packages
 
 Package versions use the UTC build date and the first eight characters of the `main` commit ID.
 
@@ -59,7 +59,7 @@ cargo build --workspace
 # Release build
 cargo build --release --workspace
 
-# Linux release packages (.deb and .flatpak)
+# Linux release packages (.deb, .flatpak, and .pkg.tar.zst)
 ./scripts/build-packages.sh
 
 # Run GUI
