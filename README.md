@@ -6,12 +6,15 @@
 
 Video wallpaper manager for Linux Wayland and X11 desktops
 
-[![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev/)
 
-[Project](https://github.com/mybna134/VarPaper) • [Releases](https://github.com/mybna134/VarPaper/releases)
+[![Latest Release](https://img.shields.io/github/v/release/mybna134/VarPaper?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/mybna134/VarPaper/releases/latest)
+[![Build](https://img.shields.io/github/actions/workflow/status/mybna134/VarPaper/ci.yml?branch=main&style=for-the-badge&label=Build&logo=githubactions)](https://github.com/mybna134/VarPaper/actions/workflows/ci.yml)
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[![English](https://img.shields.io/badge/Language-English-0A66C2?style=for-the-badge)](README.md)
+[![简体中文](https://img.shields.io/badge/Language-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0A66C2?style=for-the-badge)](README.zh-CN.md)
 
 </div>
 
@@ -32,7 +35,7 @@ Playback uses mpv with automatic hardware decoding when available. On Wayland, t
 
 Linux x86_64 builds are packaged as `.deb` and `.flatpak` files on the [Releases page](https://github.com/mybna134/VarPaper/releases).
 
-For Debian or Ubuntu, download the `.deb` file and run:
+The `.deb` is built on Ubuntu 24.04 and requires glibc 2.39 or newer, `libmpv.so.2`, and the other declared system libraries. On a compatible Debian-based distribution, download it and run:
 
 ```bash
 sudo apt install ./varpaper_*_amd64.deb

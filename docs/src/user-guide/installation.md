@@ -4,7 +4,7 @@ VarPaper publishes Linux packages for x86_64 in two formats: `.deb` and `.flatpa
 
 ## Debian and Ubuntu
 
-Download the `.deb` from the [latest release](https://github.com/mybna134/lwe-flutter/releases/latest), then install it:
+The `.deb` is built on Ubuntu 24.04 and requires glibc 2.39 or newer, `libmpv.so.2`, and the other declared system libraries. On a compatible Debian-based distribution, download the `.deb` from the [latest release](https://github.com/mybna134/VarPaper/releases/latest), then install it:
 
 ```bash
 sudo apt install ./varpaper_*_amd64.deb

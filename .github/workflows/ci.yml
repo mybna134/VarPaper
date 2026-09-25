@@ -158,7 +158,7 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-      - name: Build Flatpak package
+      - name: Build Flatpak with GNOME SDK media libraries
         run: packaging/flatpak/build.sh "${{ steps.version.outputs.version }}"
 
       - name: Verify Flatpak package

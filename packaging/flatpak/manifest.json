@@ -16,6 +16,52 @@
   ],
   "modules": [
     {
+      "name": "libass",
+      "config-opts": ["--disable-static", "--enable-fontconfig", "--enable-harfbuzz"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/libass/libass.git",
+          "commit": "4a05d8127f525943ebf45fdc6497c9e665947f0d"
+        }
+      ]
+    },
+    {
+      "name": "libplacebo",
+      "buildsystem": "meson",
+      "config-opts": ["-Dvulkan=enabled", "-Dshaderc=enabled", "-Ddemos=false", "-Dtests=false"],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/haasn/libplacebo.git",
+          "commit": "cee9b076f2c63104ccfd497fa79c39a867293ec4"
+        }
+      ]
+    },
+    {
+      "name": "mpv",
+      "buildsystem": "meson",
+      "config-opts": [
+        "-Dcplayer=false",
+        "-Dlibmpv=true",
+        "-Dbuild-date=false",
+        "-Dgl=enabled",
+        "-Degl=enabled",
+        "-Dplain-gl=enabled",
+        "-Dwayland=enabled",
+        "-Dx11=disabled",
+        "-Dvaapi=enabled",
+        "-Dtests=false"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/mpv-player/mpv.git",
+          "commit": "41f6a645068483470267271e1d09966ca3b9f413"
+        }
+      ]
+    },
+    {
       "name": "varpaper",
       "buildsystem": "simple",
       "build-commands": [

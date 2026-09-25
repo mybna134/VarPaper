@@ -13,7 +13,19 @@ trap 'rm -rf "$stage"' EXIT
 
 [[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
-command -v dpkg-deb >/dev/null || { echo 'dpkg-deb is required' >&2; exit 1; }
+for command_name in dpkg-deb readelf; do
+  command -v "$command_name" >/dev/null || { echo "$command_name is required" >&2; exit 1; }
+done
+
+# This binary is linked to libmpv.so.2. libmpv1 provides libmpv.so.1 and
+# cannot satisfy that dependency, even when apt accepts the package name.
+readelf -d "$bundle/lib/libwayvid_gui.so" | grep -Fq '[libmpv.so.2]' || {
+  echo 'The Debian dependency list expects libmpv.so.2' >&2
+  exit 1
+}
+glibc_min="$(readelf --version-info "$bundle/wayvid-gui" "$bundle"/lib/*.so \
+  | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | cut -d_ -f2 | sort -Vu | tail -n 1)"
+[[ -n "$glibc_min" ]] || { echo 'Could not determine the minimum glibc version' >&2; exit 1; }
 
 install -d "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/lib/varpaper" \
   "$stage/usr/share/applications" "$stage/usr/share/icons/hicolor/256x256/apps" \
@@ -40,7 +52,7 @@ Section: video
 Priority: optional
 Architecture: $arch
 Maintainer: VarPaper contributors
-Depends: libgtk-3-0 | libgtk-3-0t64, libayatana-appindicator3-1 | libappindicator3-1, libmpv2 | libmpv1, libwayland-client0, libx11-6, libxrandr2, libxfixes3, libegl1, libgl1
+Depends: libc6 (>= $glibc_min), libgtk-3-0 | libgtk-3-0t64, libayatana-appindicator3-1, libmpv2, libwayland-client0, libwayland-egl1, libx11-6, libxrandr2, libxfixes3, libegl1, libgl1
 Description: Linux animated wallpaper manager
  VarPaper is a Flutter application with a Rust playback engine.
 EOF

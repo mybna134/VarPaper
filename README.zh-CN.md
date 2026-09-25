@@ -6,12 +6,15 @@
 
 适用于 Linux Wayland 和 X11 桌面的动态视频壁纸管理器
 
-[![许可证](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org/)
+[![许可证](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev/)
 
-[项目主页](https://github.com/mybna134/VarPaper) • [发布版本](https://github.com/mybna134/VarPaper/releases)
+[![最新版本](https://img.shields.io/github/v/release/mybna134/VarPaper?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/mybna134/VarPaper/releases/latest)
+[![构建状态](https://img.shields.io/github/actions/workflow/status/mybna134/VarPaper/ci.yml?branch=main&style=for-the-badge&label=Build&logo=githubactions)](https://github.com/mybna134/VarPaper/actions/workflows/ci.yml)
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[![English](https://img.shields.io/badge/Language-English-0A66C2?style=for-the-badge)](README.md)
+[![简体中文](https://img.shields.io/badge/Language-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0A66C2?style=for-the-badge)](README.zh-CN.md)
 
 </div>
 
@@ -32,7 +35,7 @@ mpv 会在可用时自动使用硬件解码。Wayland 环境需要合成器支�
 
 Linux x86_64 版本以 `.deb` 和 `.flatpak` 格式发布，可在[发布页面](https://github.com/mybna134/VarPaper/releases)下载。
 
-Debian 或 Ubuntu 用户可下载 `.deb` 文件并运行：
+`.deb` 在 Ubuntu 24.04 上构建，需要 glibc 2.39 及以上版本、`libmpv.so.2` 和其他声明的系统库。在兼容的 Debian 系发行版上，下载后运行：
 
 ```bash
 sudo apt install ./varpaper_*_amd64.deb
