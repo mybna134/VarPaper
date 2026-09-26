@@ -13,7 +13,7 @@ trap restore_host_ownership EXIT
 pacman -Syu --noconfirm
 pacman -S --noconfirm --needed \
   base-devel \
-  fontconfig gtk3 libayatana-appindicator libglvnd \
+  ayatana-ido fontconfig gtk3 libayatana-appindicator libayatana-indicator libglvnd \
   libx11 libxfixes libxkbcommon libxrandr mpv wayland
 
 useradd --create-home varpaper-builder
@@ -35,7 +35,7 @@ bsdtar -xOf "$package" .PKGINFO > "$stage/pkginfo"
 grep -Fxq 'pkgname = varpaper' "$stage/pkginfo"
 grep -Fxq 'arch = x86_64' "$stage/pkginfo"
 for dependency in \
-  fontconfig gtk3 libayatana-appindicator libglvnd \
+  ayatana-ido fontconfig gtk3 libayatana-appindicator libayatana-indicator libglvnd \
   libx11 libxfixes libxkbcommon libxrandr mpv wayland; do
   grep -Fxq "depend = $dependency" "$stage/pkginfo" || {
     echo "Arch package metadata is missing dependency $dependency" >&2

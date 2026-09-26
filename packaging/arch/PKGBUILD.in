@@ -7,9 +7,11 @@ url='https://github.com/mybna134/VarPaper'
 license=('GPL-3.0-only')
 options=('!debug')
 depends=(
+  'ayatana-ido'
   'fontconfig'
   'gtk3'
   'libayatana-appindicator'
+  'libayatana-indicator'
   'libglvnd'
   'libx11'
   'libxfixes'
