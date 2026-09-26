@@ -54,6 +54,9 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
           cache: true
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -62,7 +65,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       
       - name: Run tests (workspace)
-        run: cargo test --workspace
+        run: cargo llvm-cov --workspace --lcov --output-path lcov-rust.info
 
       - name: Validate package scripts and Flatpak manifest
         run: |
@@ -80,7 +83,25 @@ jobs:
           flutter clean
           flutter pub get
           flutter analyze lib/main.dart lib/src/l10n.dart lib/src/storage/settings_store.dart test
-          flutter test
+          flutter test --coverage
+
+      - name: Upload Rust coverage to Codecov
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@v5
+        with:
+          files: lcov-rust.info
+          flags: rust
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload Flutter coverage to Codecov
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info
+          flags: flutter
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   packages:
     name: Build .deb and .flatpak

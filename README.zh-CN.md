@@ -12,6 +12,7 @@
 
 [![最新版本](https://img.shields.io/github/v/release/mybna134/VarPaper?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/mybna134/VarPaper/releases/latest)
 [![构建状态](https://img.shields.io/github/actions/workflow/status/mybna134/VarPaper/ci.yml?branch=main&style=for-the-badge&label=Build&logo=githubactions)](https://github.com/mybna134/VarPaper/actions/workflows/ci.yml)
+[![Codecov](https://codecov.io/gh/mybna134/VarPaper/branch/main/graph/badge.svg)](https://codecov.io/gh/mybna134/VarPaper)
 
 [![English](https://img.shields.io/badge/Language-English-0A66C2?style=for-the-badge)](README.md)
 [![简体中文](https://img.shields.io/badge/Language-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-0A66C2?style=for-the-badge)](README.zh-CN.md)
@@ -78,6 +79,10 @@ cd VarPaper
 ```
 
 脚本会将两个安装包写入 `dist/`。如需构建本地 Linux 程序包，请运行 `./scripts/build-linux.sh`。开发时可运行 `flutter run -d linux` 和 `cargo test --workspace`。
+
+## 代码覆盖率
+
+CI 会将 Rust 和 Flutter 测试覆盖率上传到 Codecov。覆盖率预算要求变更行达到 80%，允许 1 个百分点的误差；整体覆盖率以 PR 基线提交为准，降幅最多为 1 个百分点。需要在 GitHub Actions 仓库密钥中配置 `CODECOV_TOKEN`。
 
 ## 项目结构
 
