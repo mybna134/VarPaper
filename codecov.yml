@@ -15,10 +15,18 @@ flags:
   flutter:
     carryforward: true
 
-# Generated code: flutter_rust_bridge bindings, Isar schemas, gen-l10n output.
 ignore:
-  - "rust/src/frb_generated.rs"
-  - "lib/src/bridge_generated.dart/**"
-  - "lib/**/*.g.dart"
-  - "lib/**/*.freezed.dart"
-  - "lib/l10n/app_localizations*.dart"
+  # These modules require a real display server, GPU, or libmpv playback context.
+  - crates/wayvid-engine/src/egl.rs
+  - crates/wayvid-engine/src/engine/mod.rs
+  - crates/wayvid-engine/src/engine/session.rs
+  - crates/wayvid-engine/src/engine/x11.rs
+  - crates/wayvid-engine/src/mpv.rs
+  - crates/wayvid-engine/src/wayland/**
+  # Generated bridge and database code is not maintained or tested directly.
+  - rust/src/frb_generated.rs
+  - lib/src/bridge_generated.dart/**
+  - lib/src/storage/settings_store.g.dart
+  - lib/**/*.g.dart
+  - lib/**/*.freezed.dart
+  - lib/l10n/app_localizations*.dart
