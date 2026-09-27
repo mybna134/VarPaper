@@ -80,10 +80,6 @@ cd VarPaper
 
 脚本会将两个安装包写入 `dist/`。如需构建本地 Linux 程序包，请运行 `./scripts/build-linux.sh`。开发时可运行 `flutter run -d linux` 和 `cargo test --workspace`。
 
-## 代码覆盖率
-
-CI 会将 Rust 和 Flutter 测试覆盖率上传到 Codecov。覆盖率预算要求变更行达到 80%，允许 1 个百分点的误差；整体覆盖率以 PR 基线提交为准，降幅最多为 1 个百分点。需要在 GitHub Actions 仓库密钥中配置 `CODECOV_TOKEN`。
-
 ## 项目结构
 
 ```text

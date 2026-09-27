@@ -80,10 +80,6 @@ cd VarPaper
 
 The script writes both packages to `dist/`. For a local Linux bundle, run `./scripts/build-linux.sh`. For development, run `flutter run -d linux` and `cargo test --workspace`.
 
-## Code coverage
-
-CI uploads Rust and Flutter test coverage to Codecov. The coverage budget sets an 80% target for changed lines, with a 1 percentage point tolerance. Overall coverage is compared with the base commit and may decrease by at most 1 percentage point. The `CODECOV_TOKEN` repository secret must be configured in GitHub Actions.
-
 ## Project structure
 
 ```text
