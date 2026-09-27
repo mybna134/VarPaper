@@ -76,8 +76,10 @@ impl FrameTiming {
     /// Record the completion of a frame and update statistics
     #[inline]
     pub fn end_frame(&mut self) {
-        let duration = self.last_frame_start.elapsed();
+        self.push_frame_duration(self.last_frame_start.elapsed());
+    }
 
+    fn push_frame_duration(&mut self, duration: Duration) {
         // Add to history, maintaining size limit
         if self.frame_durations.len() >= FRAME_HISTORY_SIZE {
             self.frame_durations.pop_front();
@@ -201,22 +203,78 @@ pub struct FrameStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::thread::sleep;
+
+    /// 60 FPS budget is ~16.7ms.
+    fn push(timing: &mut FrameTiming, millis: u64, count: usize) {
+        for _ in 0..count {
+            timing.push_frame_duration(Duration::from_millis(millis));
+        }
+    }
 
     #[test]
     fn test_frame_timing_basic() {
         let mut timing = FrameTiming::new(60);
+        timing.begin_frame();
+        timing.end_frame();
+        push(&mut timing, 5, 19);
 
-        for _ in 0..20 {
-            timing.begin_frame();
-            sleep(Duration::from_millis(10));
-            timing.end_frame();
-
-            assert!(!timing.should_skip_frame());
-        }
-
+        assert!(!timing.should_skip_frame());
         let stats = timing.get_stats();
         assert_eq!(stats.frames_rendered, 20);
         assert_eq!(stats.frames_skipped, 0);
+        assert_eq!(stats.skip_percentage, 0.0);
+    }
+
+    #[test]
+    fn test_no_decision_before_enough_samples() {
+        let mut timing = FrameTiming::new(0); // defaults to 60 FPS
+        assert_eq!(timing.get_load_percentage(), 0.0);
+        assert_eq!(timing.get_stats().avg_frame_duration_ms, 0.0);
+        push(&mut timing, 100, 9);
+        assert!(!timing.should_skip_frame());
+    }
+
+    #[test]
+    fn test_skip_mode_hysteresis() {
+        let mut timing = FrameTiming::new(100); // 10ms budget
+        push(&mut timing, 20, 10); // 200% load
+
+        // Needs HYSTERESIS_FRAMES consecutive overloaded checks to enter.
+        assert!(!timing.should_skip_frame());
+        assert!(!timing.should_skip_frame());
+        assert!(timing.should_skip_frame());
+
+        // Load between thresholds keeps the current mode.
+        push(&mut timing, 7, FRAME_HISTORY_SIZE); // 70% load
+        for _ in 0..5 {
+            assert!(timing.should_skip_frame());
+        }
+
+        // Recovery also needs consecutive checks.
+        push(&mut timing, 2, FRAME_HISTORY_SIZE); // 20% load
+        assert!(timing.should_skip_frame());
+        assert!(timing.should_skip_frame());
+        assert!(!timing.should_skip_frame());
+    }
+
+    #[test]
+    fn test_stats_and_reset() {
+        let mut timing = FrameTiming::new(100);
+        push(&mut timing, 5, FRAME_HISTORY_SIZE + 10);
+        timing.record_skip();
+        timing.should_skip_frame();
+
+        let stats = timing.get_stats();
+        assert_eq!(stats.frames_rendered, FRAME_HISTORY_SIZE as u64 + 10);
+        assert_eq!(stats.total_frames, FRAME_HISTORY_SIZE as u64 + 11);
+        assert!(stats.skip_percentage > 0.0);
+        assert!((stats.current_load_pct - 50.0).abs() < 1e-6);
+        assert!((stats.avg_frame_duration_ms - 5.0).abs() < 1e-6);
+        assert!(!stats.in_skip_mode);
+
+        timing.reset_stats();
+        let stats = timing.get_stats();
+        assert_eq!(stats.total_frames, 0);
+        assert_eq!(stats.skip_percentage, 0.0);
     }
 }

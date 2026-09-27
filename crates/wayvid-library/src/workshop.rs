@@ -119,10 +119,12 @@ impl SteamLibrary {
         }
     }
 
-    /// Get all library paths (including root)
+    /// Get all library paths (including root), without duplicates
     pub fn all_libraries(&self) -> Vec<&PathBuf> {
+        let mut seen = HashSet::new();
         std::iter::once(&self.root)
             .chain(self.libraries.iter())
+            .filter(|path| seen.insert(*path))
             .collect()
     }
 
@@ -403,7 +405,7 @@ impl WorkshopScanner {
         for workshop_path in workshop_paths {
             let item_path = workshop_path.join(workshop_id.to_string());
             if item_path.exists() {
-                return match self.parse_workshop_item_const(&item_path, workshop_id)? {
+                return match self.parse_workshop_item(&item_path, workshop_id)? {
                     Some(item) => Ok(Some(item)),
                     None => continue,
                 };
@@ -411,20 +413,6 @@ impl WorkshopScanner {
         }
 
         Ok(None)
-    }
-
-    /// Parse workshop item (const version, doesn't modify cache)
-    fn parse_workshop_item_const(
-        &self,
-        item_path: &Path,
-        workshop_id: u64,
-    ) -> Result<Option<WallpaperItem>> {
-        // Clone self temporarily to avoid mutation
-        let temp_scanner = WorkshopScanner {
-            steam: self.steam.clone(),
-            scanned_ids: HashSet::new(),
-        };
-        temp_scanner.parse_workshop_item(item_path, workshop_id)
     }
 
     /// Clear scanned cache
@@ -553,5 +541,158 @@ mod tests {
         // With project.json
         File::create(temp_dir.path().join("project.json")).unwrap();
         assert!(is_we_project(temp_dir.path()));
+    }
+
+    fn write(path: &Path, content: &str) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, content).unwrap();
+    }
+
+    /// Builds `<root>/steamapps/workshop/content/431960/<id>/...` fixtures.
+    fn fake_steam() -> (TempDir, SteamLibrary) {
+        let root = TempDir::new().unwrap();
+        let content = root
+            .path()
+            .join("steamapps/workshop/content")
+            .join(WALLPAPER_ENGINE_APP_ID.to_string());
+
+        write(
+            &content.join("100/project.json"),
+            r#"{"type":"video","file":"v.mp4","title":"Video","preview":"p.jpg","tags":["a"]}"#,
+        );
+        write(&content.join("100/v.mp4"), "");
+        write(&content.join("100/p.jpg"), "");
+        // Scene without a main file falls back to the project directory.
+        write(&content.join("200/project.json"), r#"{"type":"scene"}"#);
+        // Unsupported, missing main file, broken JSON, no project, non-numeric.
+        write(
+            &content.join("300/project.json"),
+            r#"{"type":"web","file":"index.html"}"#,
+        );
+        write(
+            &content.join("400/project.json"),
+            r#"{"type":"video","file":"gone.mp4"}"#,
+        );
+        write(&content.join("500/project.json"), "{not json");
+        fs::create_dir_all(content.join("600")).unwrap();
+        write(&content.join("notanid/project.json"), r#"{"type":"scene"}"#);
+        write(&content.join("700"), "a file, not a directory");
+        // Video without a file entry is unusable.
+        write(&content.join("800/project.json"), r#"{"type":"video"}"#);
+
+        let steam = SteamLibrary {
+            root: root.path().to_path_buf(),
+            libraries: vec![root.path().to_path_buf()],
+        };
+        (root, steam)
+    }
+
+    #[test]
+    fn test_library_folders_are_deduplicated() {
+        let root = TempDir::new().unwrap();
+        let extra = TempDir::new().unwrap();
+        let vdf = format!(
+            "\"libraryfolders\"\n{{\n\t\"0\" {{ \"path\"\t\"{}\" }}\n\t\"path\"\t\"{}\"\n\t\"path\"\t\"/does/not/exist\"\n}}",
+            root.path().display(),
+            extra.path().display()
+        );
+        write(&root.path().join("steamapps/libraryfolders.vdf"), &vdf);
+
+        let libraries = SteamLibrary::parse_library_folders(root.path()).unwrap();
+        assert_eq!(
+            libraries,
+            vec![root.path().to_path_buf(), extra.path().to_path_buf()]
+        );
+
+        let steam = SteamLibrary {
+            root: root.path().to_path_buf(),
+            libraries,
+        };
+        assert_eq!(steam.all_libraries().len(), 2);
+        assert!(!steam.has_wallpaper_engine());
+    }
+
+    #[test]
+    fn test_library_folders_without_vdf() {
+        let root = TempDir::new().unwrap();
+        let libraries = SteamLibrary::parse_library_folders(root.path()).unwrap();
+        assert_eq!(libraries, vec![root.path().to_path_buf()]);
+        assert_eq!(SteamLibrary::extract_vdf_value("\"path\""), None);
+    }
+
+    #[test]
+    fn test_scan_all_workshop_items() {
+        let (_root, steam) = fake_steam();
+        assert!(steam.has_wallpaper_engine());
+        assert_eq!(
+            steam.workshop_content_path(WALLPAPER_ENGINE_APP_ID).len(),
+            1
+        );
+
+        let mut scanner = WorkshopScanner::new(steam);
+        let mut items = scanner.scan_all().unwrap();
+        items.sort_by_key(|item| item.metadata.workshop_id);
+        let ids: Vec<_> = items
+            .iter()
+            .map(|item| item.metadata.workshop_id.unwrap())
+            .collect();
+        assert_eq!(ids, vec![100, 200]);
+
+        let video = &items[0];
+        assert_eq!(video.name, "Video");
+        assert_eq!(video.wallpaper_type, WallpaperType::Video);
+        assert_eq!(video.source_type, SourceType::SteamWorkshop);
+        assert!(video.source_path.ends_with("100/v.mp4"));
+        assert!(video
+            .thumbnail_path
+            .as_ref()
+            .unwrap()
+            .ends_with("100/p.jpg"));
+        assert_eq!(video.metadata.tags, vec!["a".to_string()]);
+
+        let scene = &items[1];
+        assert_eq!(scene.name, "Workshop #200");
+        assert_eq!(scene.wallpaper_type, WallpaperType::Scene);
+        assert!(scene.source_path.ends_with("200"));
+        assert_eq!(scene.thumbnail_path, None);
+
+        // Already scanned items are skipped until the cache is cleared.
+        assert!(scanner.scan_all().unwrap().is_empty());
+        scanner.clear_cache();
+        assert_eq!(scanner.scan_all().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_get_item() {
+        let (_root, steam) = fake_steam();
+        let scanner = WorkshopScanner::new(steam);
+        assert_eq!(scanner.get_item(100).unwrap().unwrap().name, "Video");
+        assert!(scanner.get_item(300).unwrap().is_none());
+        assert!(scanner.get_item(999).unwrap().is_none());
+        assert!(scanner.get_item(500).is_err());
+        assert_eq!(scanner.steam().all_libraries().len(), 1);
+    }
+
+    #[test]
+    fn test_scan_all_without_workshop_content() {
+        let root = TempDir::new().unwrap();
+        let mut scanner = WorkshopScanner::new(SteamLibrary {
+            root: root.path().to_path_buf(),
+            libraries: Vec::new(),
+        });
+        assert!(scanner.scan_all().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_get_project_type() {
+        let dir = TempDir::new().unwrap();
+        assert!(get_project_type(dir.path()).is_err());
+        write(&dir.path().join("project.json"), r#"{"type":"Scene"}"#);
+        assert_eq!(get_project_type(dir.path()).unwrap(), "Scene");
+        let project = WeProject::load(dir.path()).unwrap();
+        assert!(project.is_scene());
+        assert_eq!(project.wallpaper_type(), WallpaperType::Scene);
+        assert_eq!(project.main_file(dir.path()), None);
+        assert_eq!(project.preview_image(dir.path()), None);
     }
 }

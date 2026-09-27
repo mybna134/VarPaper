@@ -483,13 +483,15 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
     with WindowListener, TrayListener {
   Object? _traySignature;
   Future<void> _trayUpdate = Future.value();
+  // Riverpod forbids `ref` inside dispose(), so keep the controller here.
+  late final WayvidController _controller;
 
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
     trayManager.addListener(this);
-    ref.read(wayvidControllerProvider).addListener(_refreshTray);
+    _controller = ref.read(wayvidControllerProvider)..addListener(_refreshTray);
     _initTray();
   }
 
@@ -497,9 +499,9 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
   void dispose() {
     windowManager.removeListener(this);
     trayManager.removeListener(this);
-    ref.read(wayvidControllerProvider).removeListener(_refreshTray);
+    _controller.removeListener(_refreshTray);
     trayManager.destroy();
-    ref.read(wayvidControllerProvider).shutdown();
+    _controller.shutdown();
     super.dispose();
   }
 

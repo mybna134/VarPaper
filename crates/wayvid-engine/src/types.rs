@@ -174,12 +174,11 @@ impl Default for ToneMappingConfig {
 }
 
 impl ToneMappingConfig {
-    pub fn optimize_for_content(&mut self, metadata: &HdrMetadata) {
+    /// Replaces the default parameter with the algorithm's recommended one.
+    /// The content metadata is not yet used to tune the value further.
+    pub fn optimize_for_content(&mut self, _metadata: &HdrMetadata) {
         if (self.param - 1.0).abs() < 0.01 {
-            self.param = match metadata.peak_luminance {
-                Some(peak) if peak > 1000.0 => self.algorithm.recommended_param(),
-                _ => self.algorithm.recommended_param(),
-            };
+            self.param = self.algorithm.recommended_param();
         }
     }
 }
@@ -306,5 +305,168 @@ pub fn calculate_layout(
                 video_height,
             ),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hdr(color_space: ColorSpace, transfer_function: TransferFunction) -> HdrMetadata {
+        HdrMetadata {
+            color_space,
+            transfer_function,
+            ..HdrMetadata::default()
+        }
+    }
+
+    #[test]
+    fn hdr_detection_and_description() {
+        assert!(!HdrMetadata::default().is_hdr());
+        assert_eq!(HdrMetadata::default().format_description(), "SDR");
+        assert_eq!(
+            hdr(ColorSpace::Hdr10, TransferFunction::Pq).format_description(),
+            "HDR10"
+        );
+        assert_eq!(
+            hdr(ColorSpace::Hlg, TransferFunction::Hlg).format_description(),
+            "HLG"
+        );
+        assert_eq!(
+            hdr(ColorSpace::DolbyVision, TransferFunction::Srgb).format_description(),
+            "Dolby Vision"
+        );
+        assert_eq!(
+            hdr(ColorSpace::Sdr, TransferFunction::Pq).format_description(),
+            "HDR (Unknown)"
+        );
+        assert!(!hdr(ColorSpace::Unknown, TransferFunction::Unknown).is_hdr());
+    }
+
+    #[test]
+    fn parses_colorspace_and_transfer_function() {
+        assert_eq!(parse_colorspace("BT.709"), ColorSpace::Sdr);
+        assert_eq!(parse_colorspace("srgb"), ColorSpace::Sdr);
+        assert_eq!(parse_colorspace("bt.2020-ncl"), ColorSpace::Hdr10);
+        assert_eq!(parse_colorspace("bt2020"), ColorSpace::Hdr10);
+        assert_eq!(parse_colorspace("weird"), ColorSpace::Unknown);
+
+        assert_eq!(parse_transfer_function("SMPTE2084"), TransferFunction::Pq);
+        assert_eq!(
+            parse_transfer_function("arib-std-b67"),
+            TransferFunction::Hlg
+        );
+        assert_eq!(parse_transfer_function("bt.1886"), TransferFunction::Srgb);
+        assert_eq!(parse_transfer_function("?"), TransferFunction::Unknown);
+    }
+
+    #[test]
+    fn tone_mapping_algorithm_properties() {
+        use ToneMappingAlgorithm::*;
+        let expected = [
+            (Hable, "hable", 1.0, true),
+            (Mobius, "mobius", 0.3, true),
+            (Reinhard, "reinhard", 0.5, true),
+            (Bt2390, "bt.2390", 1.0, false),
+            (Clip, "clip", 1.0, false),
+        ];
+        for (algorithm, name, param, uses_param) in expected {
+            assert_eq!(algorithm.as_mpv_str(), name);
+            assert_eq!(algorithm.recommended_param(), param);
+            assert_eq!(algorithm.uses_param(), uses_param);
+        }
+    }
+
+    #[test]
+    fn tone_mapping_config_defaults_and_optimization() {
+        let parsed: ToneMappingConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(parsed.algorithm, ToneMappingAlgorithm::Hable);
+        assert_eq!(parsed.param, 1.0);
+        assert!(parsed.compute_peak);
+        assert_eq!(parsed.mode, "hybrid");
+
+        let mut config = ToneMappingConfig {
+            algorithm: ToneMappingAlgorithm::Mobius,
+            ..ToneMappingConfig::default()
+        };
+        config.optimize_for_content(&HdrMetadata {
+            peak_luminance: Some(4000.0),
+            ..HdrMetadata::default()
+        });
+        assert_eq!(config.param, 0.3);
+
+        // A user-tuned parameter is left untouched.
+        let mut tuned = ToneMappingConfig {
+            algorithm: ToneMappingAlgorithm::Reinhard,
+            param: 0.8,
+            ..ToneMappingConfig::default()
+        };
+        tuned.optimize_for_content(&HdrMetadata::default());
+        assert_eq!(tuned.param, 0.8);
+    }
+
+    #[test]
+    fn serde_names_match_config_format() {
+        assert_eq!(
+            serde_json::to_string(&RenderBackend::OpenGL).unwrap(),
+            "\"opengl\""
+        );
+        assert_eq!(
+            serde_json::to_string(&HdrMode::Disable).unwrap(),
+            "\"disable\""
+        );
+        assert_eq!(
+            serde_json::from_str::<ToneMappingAlgorithm>("\"bt2390\"").unwrap(),
+            ToneMappingAlgorithm::Bt2390
+        );
+    }
+
+    #[test]
+    fn output_info_logical_size() {
+        let info = OutputInfo {
+            name: "DP-1".into(),
+            width: 3840,
+            height: 2160,
+            scale: 2.0,
+            position: (0, 0),
+            active: true,
+            hdr_capabilities: OutputHdrCapabilities::default(),
+        };
+        assert_eq!(info.logical_size(), (1920.0, 1080.0));
+        assert!(!info.hdr_capabilities.hdr_supported);
+        assert_eq!(info.hdr_capabilities.max_luminance, Some(203.0));
+    }
+
+    #[test]
+    fn layout_fill_crops_wider_video_horizontally() {
+        let t = calculate_layout(LayoutMode::Fill, 3840, 1080, 1920, 1080);
+        assert_eq!(t.dst_rect, (0, 0, 1920, 1080));
+        assert_eq!(t.src_rect, (0.25, 0.0, 0.5, 1.0));
+    }
+
+    #[test]
+    fn layout_cover_crops_taller_video_vertically() {
+        let t = calculate_layout(LayoutMode::Cover, 1920, 2160, 1920, 1080);
+        assert_eq!(t.dst_rect, (0, 0, 1920, 1080));
+        assert_eq!(t.src_rect, (0.0, 0.25, 1.0, 0.5));
+    }
+
+    #[test]
+    fn layout_contain_letterboxes_and_pillarboxes() {
+        let wide = calculate_layout(LayoutMode::Contain, 3840, 1080, 1920, 1080);
+        assert_eq!(wide.src_rect, (0.0, 0.0, 1.0, 1.0));
+        assert_eq!(wide.dst_rect, (0, 270, 1920, 540));
+
+        let tall = calculate_layout(LayoutMode::Contain, 1080, 1080, 1920, 1080);
+        assert_eq!(tall.dst_rect, (420, 0, 1080, 1080));
+    }
+
+    #[test]
+    fn layout_stretch_and_centre() {
+        let stretch = calculate_layout(LayoutMode::Stretch, 640, 480, 1920, 1080);
+        assert_eq!(stretch.dst_rect, (0, 0, 1920, 1080));
+
+        let centre = calculate_layout(LayoutMode::Centre, 640, 480, 1920, 1080);
+        assert_eq!(centre.dst_rect, (640, 300, 640, 480));
     }
 }

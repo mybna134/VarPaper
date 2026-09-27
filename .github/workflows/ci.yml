@@ -46,7 +46,8 @@ jobs:
             libegl1-mesa-dev \
             libxkbcommon-dev \
             libfontconfig1-dev \
-            libx11-dev libxrandr-dev libxfixes-dev
+            libx11-dev libxrandr-dev libxfixes-dev \
+            ffmpeg
       
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -65,7 +66,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       
       - name: Run tests (workspace)
-        run: cargo llvm-cov --workspace --lcov --output-path lcov-rust.info
+        run: cargo llvm-cov --workspace --ignore-filename-regex 'frb_generated' --lcov --output-path lcov-rust.info
 
       - name: Validate package scripts and Flatpak manifest
         run: |

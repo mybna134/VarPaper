@@ -146,3 +146,42 @@ impl Drop for EngineController {
         self.stop();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn commands_fail_when_engine_is_not_running() {
+        let mut controller = EngineController::default();
+        assert!(!controller.is_running());
+        assert!(controller.outputs().is_empty());
+        assert!(controller.poll_events().is_empty());
+
+        let not_running = Err("Engine is not running".to_string());
+        assert_eq!(controller.pause(None), not_running);
+        assert_eq!(controller.resume(Some("DP-1".into())), not_running);
+        assert_eq!(controller.clear_wallpaper(None), not_running);
+        assert_eq!(
+            controller.apply_wallpaper(None, PathBuf::from("/tmp/a.mp4")),
+            not_running
+        );
+        assert_eq!(
+            controller.update_config(EngineConfig::default()),
+            not_running
+        );
+
+        // Stopping an idle controller is a no-op.
+        controller.stop();
+        assert!(!controller.is_running());
+    }
+
+    #[test]
+    fn wait_for_outputs_times_out_without_engine() {
+        let mut controller = EngineController::new();
+        assert_eq!(
+            controller.wait_for_outputs(Duration::from_millis(20)),
+            Err("Timed out waiting for display outputs".to_string())
+        );
+    }
+}

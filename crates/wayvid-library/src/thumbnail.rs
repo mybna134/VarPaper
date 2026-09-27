@@ -177,10 +177,8 @@ impl ThumbnailGenerator {
             "mp4" | "mkv" | "webm" | "avi" | "mov" | "m4v" | "wmv" | "flv" => {
                 self.generate_video_thumbnail(path)?
             }
-            // Animated GIF - extract first frame
-            "gif" => self.generate_gif_thumbnail(path)?,
-            // Image files
-            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" => {
+            // Image files (animated GIFs decode to their first frame)
+            "gif" | "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" => {
                 self.generate_image_thumbnail(path)?
             }
             _ => {
@@ -204,32 +202,6 @@ impl ThumbnailGenerator {
         debug!("Generating image thumbnail for: {}", path.display());
 
         let img = image::open(path).context("Failed to open image")?;
-        let (orig_width, orig_height) = img.dimensions();
-
-        // Resize maintaining aspect ratio
-        let thumbnail = img.thumbnail(self.width, self.height);
-        let (thumb_width, thumb_height) = thumbnail.dimensions();
-
-        // Encode to output format
-        let data = encode_image(&thumbnail, self.format)?;
-
-        Ok(ThumbnailResult {
-            data,
-            width: thumb_width,
-            height: thumb_height,
-            original_width: orig_width,
-            original_height: orig_height,
-            format: self.format.extension().to_string(),
-            cached: false,
-        })
-    }
-
-    /// Generate thumbnail for GIF (first frame)
-    fn generate_gif_thumbnail(&self, path: &Path) -> Result<ThumbnailResult> {
-        debug!("Generating GIF thumbnail for: {}", path.display());
-
-        // Open GIF and get first frame
-        let img = image::open(path).context("Failed to open GIF")?;
         let (orig_width, orig_height) = img.dimensions();
 
         // Resize maintaining aspect ratio
@@ -732,5 +704,139 @@ mod tests {
 
         // Different paths should produce different hash
         assert_ne!(hash_path(path1), hash_path(path3));
+    }
+
+    fn generator(dir: &Path, format: ThumbnailFormat) -> ThumbnailGenerator {
+        ThumbnailGenerator::with_options(64, 36, format, dir.join("cache"))
+    }
+
+    #[test]
+    fn test_all_output_formats_and_gif_input() {
+        let temp_dir = TempDir::new().unwrap();
+        let gif_path = temp_dir.path().join("anim.GIF");
+        DynamicImage::new_rgb8(320, 180).save(&gif_path).unwrap();
+
+        for format in [
+            ThumbnailFormat::WebP,
+            ThumbnailFormat::Png,
+            ThumbnailFormat::Jpeg,
+        ] {
+            let gen = generator(temp_dir.path(), format);
+            let result = gen.generate(&gif_path).unwrap();
+            assert_eq!((result.width, result.height), (64, 36));
+            assert_eq!((result.original_width, result.original_height), (320, 180));
+            assert_eq!(result.format, format.extension());
+            assert!(gen.is_cached(&gif_path));
+            assert!(gen
+                .cache_path(&gif_path)
+                .to_string_lossy()
+                .ends_with(format.extension()));
+        }
+    }
+
+    #[test]
+    fn test_generate_errors() {
+        let temp_dir = TempDir::new().unwrap();
+        let gen = generator(temp_dir.path(), ThumbnailFormat::Png);
+
+        let unsupported = temp_dir.path().join("doc.txt");
+        std::fs::write(&unsupported, "text").unwrap();
+        let error = gen.generate(&unsupported).unwrap_err().to_string();
+        assert!(error.contains("Unsupported file type"), "{error}");
+
+        let broken = temp_dir.path().join("broken.png");
+        std::fs::write(&broken, "not a png").unwrap();
+        assert!(gen.generate(&broken).is_err());
+        assert!(!gen.is_cached(&broken));
+
+        // A corrupt cache entry is ignored rather than returned.
+        std::fs::write(gen.cache_path(&broken), "garbage").unwrap();
+        assert!(gen.get_cached(&broken).is_none());
+    }
+
+    #[test]
+    fn test_clear_cache() {
+        let temp_dir = TempDir::new().unwrap();
+        let gen = generator(temp_dir.path(), ThumbnailFormat::Png);
+        let image_path = temp_dir.path().join("a.png");
+        DynamicImage::new_rgb8(10, 10).save(&image_path).unwrap();
+        gen.generate(&image_path).unwrap();
+
+        let stats = gen.cache_stats();
+        assert_eq!(stats.count, 1);
+        assert!(stats.total_mb() > 0.0);
+        assert_eq!(gen.clear_cache().unwrap(), 1);
+        assert_eq!(gen.cache_stats().count, 0);
+
+        let missing = ThumbnailGenerator::with_options(
+            1,
+            1,
+            ThumbnailFormat::Png,
+            temp_dir.path().join("cache"),
+        );
+        std::fs::remove_dir_all(temp_dir.path().join("cache")).unwrap();
+        assert_eq!(missing.clear_cache().unwrap(), 0);
+    }
+
+    #[test]
+    fn test_video_thumbnail() {
+        let temp_dir = TempDir::new().unwrap();
+        let gen = generator(temp_dir.path(), ThumbnailFormat::WebP);
+        let video = temp_dir.path().join("clip.mp4");
+
+        if !gen.can_generate_video_thumbnails() {
+            assert!(gen.generate(&video).is_err());
+            return;
+        }
+
+        let status = Command::new("ffmpeg")
+            .args(["-y", "-v", "error", "-f", "lavfi", "-i"])
+            .arg("color=c=red:s=320x240:d=1")
+            .arg(&video)
+            .status()
+            .unwrap();
+        assert!(status.success());
+
+        assert_eq!(get_video_dimensions(&video), Some((320, 240)));
+        assert!(get_video_duration(&video).unwrap() > 0.0);
+
+        let result = gen.generate(&video).unwrap();
+        assert_eq!((result.original_width, result.original_height), (320, 240));
+        assert!(result.width <= 64 && result.height <= 36);
+        assert_eq!(result.format, "webp");
+
+        let not_video = temp_dir.path().join("fake.mkv");
+        std::fs::write(&not_video, "nope").unwrap();
+        assert!(gen.generate(&not_video).is_err());
+        assert_eq!(get_video_dimensions(&not_video), None);
+        assert_eq!(get_video_duration(&not_video), None);
+    }
+
+    #[test]
+    fn test_thumbnail_service_reports_results() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let mut service = ThumbnailService::new(1);
+            assert_eq!(service.pending_count(), 0);
+            assert!(service.try_recv().is_none());
+            assert_eq!(service.generator().width, THUMBNAIL_WIDTH);
+
+            service
+                .request(ThumbnailRequest {
+                    source_path: PathBuf::from("/nonexistent/file.unknown"),
+                    wallpaper_id: "id-1".into(),
+                    priority: ThumbnailPriority::High,
+                })
+                .await
+                .unwrap();
+            let response = service.recv().await.unwrap();
+            assert_eq!(response.wallpaper_id, "id-1");
+            assert!(response.result.is_err());
+            assert_eq!(service.pending_count(), 0);
+        });
+        assert!(ThumbnailPriority::High > ThumbnailPriority::Low);
     }
 }

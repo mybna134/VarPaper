@@ -525,3 +525,196 @@ fn preview_cache_path(id: &str) -> PathBuf {
         .join("previews")
         .join(format!("{:x}.webp", hasher.finish()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wayvid_engine::types::ToneMappingAlgorithm;
+    use wayvid_engine::{HdrMode, HwdecMode, LayoutMode};
+    use wayvid_library::{SourceType, WallpaperItem, WallpaperType};
+
+    fn config_dto() -> EngineConfigDto {
+        EngineConfigDto {
+            volume: 0.5,
+            fps_limit: Some(30),
+            loop_playback: true,
+            layout: "contain".into(),
+            hwdec: "force".into(),
+            mute: false,
+            start_time: 2.0,
+            playback_rate: 1.5,
+            hdr_mode: "disabled".into(),
+            tone_mapping_algorithm: "mobius".into(),
+            tone_mapping_param: 0.4,
+            tone_mapping_mode: "rgb".into(),
+            tone_mapping_compute_peak: false,
+            auto_play: false,
+            pause_on_battery: true,
+        }
+    }
+
+    #[test]
+    fn bridge_error_display_and_conversion() {
+        let error = BridgeError::message("code", "boom");
+        assert_eq!(error.to_string(), "code: boom");
+        let converted: BridgeError = anyhow::anyhow!("failed").into();
+        assert_eq!(converted.code, "operation_failed");
+        assert_eq!(converted.message, "failed");
+    }
+
+    #[test]
+    fn converts_engine_config() {
+        let config = config_to_engine(config_dto());
+        assert_eq!(config.video.layout, LayoutMode::Contain);
+        assert_eq!(config.video.hwdec, HwdecMode::Force);
+        assert_eq!(config.video.hdr_mode, HdrMode::Disable);
+        assert_eq!(
+            config.video.tone_mapping.algorithm,
+            ToneMappingAlgorithm::Mobius
+        );
+        assert_eq!(config.video.tone_mapping.param, 0.4);
+        assert_eq!(config.video.tone_mapping.mode, "rgb");
+        assert!(!config.video.tone_mapping.compute_peak);
+        assert_eq!(config.video.volume, 0.5);
+        assert_eq!(config.video.playback_rate, 1.5);
+        assert_eq!(config.fps_limit, Some(30));
+        assert!(!config.auto_play);
+        assert!(config.pause_on_battery);
+    }
+
+    #[test]
+    fn clamps_out_of_range_engine_config() {
+        let config = config_to_engine(EngineConfigDto {
+            volume: 3.0,
+            fps_limit: Some(0),
+            start_time: -5.0,
+            playback_rate: 100.0,
+            ..config_dto()
+        });
+        assert_eq!(config.video.volume, 1.0);
+        assert_eq!(config.video.start_time, 0.0);
+        assert_eq!(config.video.playback_rate, 10.0);
+        assert_eq!(config.fps_limit, None);
+    }
+
+    #[test]
+    fn parses_string_enums_with_fallbacks() {
+        assert_eq!(parse_layout("stretch"), LayoutMode::Stretch);
+        assert_eq!(parse_layout("cover"), LayoutMode::Cover);
+        assert_eq!(parse_layout("center"), LayoutMode::Centre);
+        assert_eq!(parse_layout("centre"), LayoutMode::Centre);
+        assert_eq!(parse_layout("bogus"), LayoutMode::Fill);
+
+        assert_eq!(parse_hwdec("none"), HwdecMode::No);
+        assert_eq!(parse_hwdec("no"), HwdecMode::No);
+        assert_eq!(parse_hwdec("auto"), HwdecMode::Auto);
+
+        assert_eq!(parse_hdr_mode("force"), HdrMode::Force);
+        assert_eq!(parse_hdr_mode("disable"), HdrMode::Disable);
+        assert_eq!(parse_hdr_mode(""), HdrMode::Auto);
+
+        assert_eq!(
+            parse_tone_mapping_algorithm("reinhard"),
+            ToneMappingAlgorithm::Reinhard
+        );
+        assert_eq!(
+            parse_tone_mapping_algorithm("bt.2390"),
+            ToneMappingAlgorithm::Bt2390
+        );
+        assert_eq!(
+            parse_tone_mapping_algorithm("bt2390"),
+            ToneMappingAlgorithm::Bt2390
+        );
+        assert_eq!(
+            parse_tone_mapping_algorithm("clip"),
+            ToneMappingAlgorithm::Clip
+        );
+        assert_eq!(
+            parse_tone_mapping_algorithm("other"),
+            ToneMappingAlgorithm::Hable
+        );
+    }
+
+    #[test]
+    fn converts_wallpaper_item_to_dto() {
+        let mut item = WallpaperItem::new(
+            PathBuf::from("/walls/scene/project.json"),
+            "Scene".into(),
+            SourceType::SteamWorkshop,
+            WallpaperType::Scene,
+        );
+        item.thumbnail_path = Some(PathBuf::from("/walls/scene/preview.jpg"));
+        item.metadata.resolution = Some((1920, 1080));
+        item.metadata.workshop_id = Some(42);
+        item.metadata.tags = vec!["anime".into()];
+        item.last_used = Some(item.added_at);
+
+        let dto = wallpaper_to_dto(&item);
+        assert_eq!(dto.id, item.id);
+        assert_eq!(dto.source_path, "/walls/scene/project.json");
+        assert_eq!(
+            dto.thumbnail_path.as_deref(),
+            Some("/walls/scene/preview.jpg")
+        );
+        assert_eq!(dto.source_type, "workshop");
+        assert_eq!(dto.wallpaper_category, "scene");
+        assert_eq!(dto.wallpaper_type, "scene");
+        assert_eq!(dto.metadata.resolution_width, Some(1920));
+        assert_eq!(dto.metadata.resolution_height, Some(1080));
+        assert_eq!(dto.metadata.workshop_id, Some(42));
+        assert_eq!(dto.metadata.tags, vec!["anime".to_string()]);
+        assert_eq!(dto.last_used, Some(dto.added_at.clone()));
+
+        let gif = WallpaperItem::new(
+            PathBuf::from("/walls/a.gif"),
+            "Gif".into(),
+            SourceType::LocalFile,
+            WallpaperType::Gif,
+        );
+        let dto = wallpaper_to_dto(&gif);
+        assert_eq!(dto.wallpaper_category, "video");
+        assert_eq!(dto.wallpaper_type, "gif");
+        assert_eq!(dto.metadata.resolution_width, None);
+        assert_eq!(dto.thumbnail_path, None);
+        assert_eq!(dto.last_used, None);
+    }
+
+    #[test]
+    fn converts_output_to_monitor() {
+        let info = wayvid_engine::OutputInfo {
+            name: "HDMI-A-1".into(),
+            width: -1,
+            height: 1080,
+            scale: 1.25,
+            position: (1920, 0),
+            active: true,
+            hdr_capabilities: Default::default(),
+        };
+        let monitor = monitor_from_engine(&info);
+        assert_eq!(monitor.name, "HDMI-A-1");
+        assert_eq!(monitor.width, 0);
+        assert_eq!(monitor.height, 1080);
+        assert_eq!((monitor.x, monitor.y), (1920, 0));
+        assert_eq!(monitor.scale, 1.25);
+        assert!(!monitor.primary);
+    }
+
+    #[test]
+    fn detects_direct_images() {
+        assert!(is_direct_image(Path::new("a.PNG")));
+        assert!(is_direct_image(Path::new("/x/b.jpeg")));
+        assert!(is_direct_image(Path::new("c.webp")));
+        assert!(!is_direct_image(Path::new("d.mp4")));
+        assert!(!is_direct_image(Path::new("noext")));
+    }
+
+    #[test]
+    fn preview_cache_path_is_stable_per_id() {
+        let first = preview_cache_path("abc");
+        assert_eq!(first, preview_cache_path("abc"));
+        assert_ne!(first, preview_cache_path("abd"));
+        assert!(first.ends_with(first.file_name().unwrap()));
+        assert_eq!(first.extension().unwrap(), "webp");
+        assert!(first.parent().unwrap().ends_with("wayvid/previews"));
+    }
+}

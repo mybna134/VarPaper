@@ -14,3 +14,11 @@ flags:
     carryforward: true
   flutter:
     carryforward: true
+
+# Generated code: flutter_rust_bridge bindings, Isar schemas, gen-l10n output.
+ignore:
+  - "rust/src/frb_generated.rs"
+  - "lib/src/bridge_generated.dart/**"
+  - "lib/**/*.g.dart"
+  - "lib/**/*.freezed.dart"
+  - "lib/l10n/app_localizations*.dart"

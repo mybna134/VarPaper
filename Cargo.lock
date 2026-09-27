@@ -3006,6 +3006,7 @@ dependencies = [
  "lz4_flex",
  "raw-window-handle",
  "serde",
+ "serde_json",
  "smithay-client-toolkit",
  "thiserror 1.0.69",
  "tracing",

@@ -206,14 +206,16 @@ impl FolderScanner {
         }
     }
 
-    /// Add custom video extension
+    /// Add custom video extension (a leading `.` is ignored)
     pub fn add_video_extension(&mut self, ext: &str) {
-        self.video_extensions.insert(ext.to_lowercase());
+        self.video_extensions
+            .insert(ext.trim_start_matches('.').to_lowercase());
     }
 
-    /// Add custom image extension
+    /// Add custom image extension (a leading `.` is ignored)
     pub fn add_image_extension(&mut self, ext: &str) {
-        self.image_extensions.insert(ext.to_lowercase());
+        self.image_extensions
+            .insert(ext.trim_start_matches('.').to_lowercase());
     }
 }
 
@@ -314,19 +316,7 @@ impl IncrementalScanner {
             }
         }
 
-        // Find removed files
-        let removed_paths: Vec<PathBuf> = self
-            .known_files
-            .keys()
-            .filter(|p| p.starts_with(path) && !current_files.contains(*p))
-            .cloned()
-            .collect();
-
-        for removed_path in removed_paths {
-            let id = WallpaperItem::generate_id(&removed_path);
-            result.removed.push(id);
-            self.known_files.remove(&removed_path);
-        }
+        result.removed = self.forget_removed(path, &current_files);
 
         result.duration_ms = start.elapsed().as_millis() as u64;
         Ok(result)
@@ -404,22 +394,24 @@ impl IncrementalScanner {
             }
         }
 
-        // Find removed files
-        let removed_paths: Vec<PathBuf> = self
-            .known_files
-            .keys()
-            .filter(|p| p.starts_with(path) && !current_files.contains(*p))
-            .cloned()
-            .collect();
-
-        for removed_path in removed_paths {
-            let id = WallpaperItem::generate_id(&removed_path);
-            result.removed.push(id);
-            self.known_files.remove(&removed_path);
-        }
+        result.removed = self.forget_removed(path, &current_files);
 
         result.duration_ms = start.elapsed().as_millis() as u64;
         Ok(result)
+    }
+
+    /// Drop known files under `path` that were not seen in this scan and
+    /// return their wallpaper IDs.
+    fn forget_removed(&mut self, path: &Path, current_files: &HashSet<PathBuf>) -> Vec<String> {
+        let mut removed = Vec::new();
+        self.known_files.retain(|known, _| {
+            let keep = !known.starts_with(path) || current_files.contains(known);
+            if !keep {
+                removed.push(WallpaperItem::generate_id(known));
+            }
+            keep
+        });
+        removed
     }
 
     /// Clear known files cache
@@ -727,5 +719,103 @@ mod tests {
         assert_eq!(result1.removed.len(), 2);
         assert_eq!(result1.files_scanned, 30);
         assert_eq!(result1.duration_ms, 300);
+    }
+
+    #[test]
+    fn test_incremental_parallel_scanner_tracks_changes() {
+        let temp_dir = TempDir::new().unwrap();
+        create_test_files(temp_dir.path());
+        let mut scanner = IncrementalScanner::default();
+
+        let first = scanner
+            .scan_incremental_parallel(temp_dir.path(), false)
+            .unwrap();
+        assert_eq!(first.added.len(), 3);
+        assert_eq!(first.files_scanned, 3);
+        assert_eq!(scanner.known_file_count(), 3);
+
+        let unchanged = scanner
+            .scan_incremental_parallel(temp_dir.path(), false)
+            .unwrap();
+        assert!(!unchanged.has_changes());
+
+        // Modify one file (with an mtime clearly in the past) and remove another.
+        let video = temp_dir.path().join("video1.mp4");
+        File::options()
+            .write(true)
+            .open(&video)
+            .unwrap()
+            .set_modified(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        fs::remove_file(temp_dir.path().join("image1.png")).unwrap();
+
+        let changed = scanner
+            .scan_incremental_parallel(temp_dir.path(), false)
+            .unwrap();
+        assert_eq!(changed.updated.len(), 1);
+        assert_eq!(changed.updated[0].source_path, video);
+        assert_eq!(
+            changed.removed,
+            vec![WallpaperItem::generate_id(
+                &temp_dir.path().join("image1.png")
+            )]
+        );
+        assert_eq!(scanner.known_file_count(), 2);
+
+        scanner.clear_cache();
+        assert_eq!(scanner.known_file_count(), 0);
+        assert!(!scanner
+            .scan_incremental_parallel(&temp_dir.path().join("missing"), true)
+            .unwrap()
+            .has_changes());
+    }
+
+    #[test]
+    fn test_incremental_scanner_detects_update_and_removal() {
+        let temp_dir = TempDir::new().unwrap();
+        create_test_files(temp_dir.path());
+        let mut scanner = IncrementalScanner::new();
+        scanner.scan_incremental(temp_dir.path(), true).unwrap();
+
+        File::options()
+            .write(true)
+            .open(temp_dir.path().join("video2.mkv"))
+            .unwrap()
+            .set_modified(SystemTime::UNIX_EPOCH)
+            .unwrap();
+        fs::remove_file(temp_dir.path().join("video1.mp4")).unwrap();
+
+        let result = scanner.scan_incremental(temp_dir.path(), true).unwrap();
+        assert_eq!(result.updated.len(), 1);
+        assert_eq!(result.removed.len(), 1);
+        assert!(result.added.is_empty());
+    }
+
+    #[test]
+    fn test_scan_folders_parallel_and_custom_extensions() {
+        let first = TempDir::new().unwrap();
+        let second = TempDir::new().unwrap();
+        create_test_files(first.path());
+        File::create(second.path().join("clip.xyz")).unwrap();
+        File::create(second.path().join("pic.abc")).unwrap();
+
+        let mut scanner = FolderScanner::new();
+        scanner.add_video_extension(".XYZ");
+        scanner.add_image_extension("abc");
+        assert_eq!(
+            scanner.get_wallpaper_type(&second.path().join("clip.xyz")),
+            Some(WallpaperType::Video)
+        );
+
+        let results = scanner
+            .scan_folders_parallel(&[
+                (first.path().to_path_buf(), false),
+                (second.path().to_path_buf(), true),
+                (PathBuf::from("/definitely/missing"), false),
+            ])
+            .unwrap();
+        assert_eq!(results[first.path()].len(), 3);
+        assert_eq!(results[second.path()].len(), 2);
+        assert!(results[Path::new("/definitely/missing")].is_empty());
     }
 }
