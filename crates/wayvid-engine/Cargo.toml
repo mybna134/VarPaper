@@ -52,3 +52,5 @@ backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]
 
 [dev-dependencies]
 serde_json = { workspace = true }
+wayland-server = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["server"] }

@@ -1,0 +1,14 @@
+0.002436309	Rss:               95540 kB	Pss:               69932 kB	Anonymous:         31444 kB	Swap:                  0 kB	malloc_live=29282752 malloc_free=966208 mmap=1691648
+5.003584247	Rss:              182472 kB	Pss:              150026 kB	Anonymous:         78268 kB	Swap:                  0 kB	malloc_live=66765584 malloc_free=1572080 mmap=5656576
+10.003879813	Rss:              201188 kB	Pss:              168714 kB	Anonymous:         96920 kB	Swap:                  0 kB	malloc_live=70694560 malloc_free=20707680 mmap=1691648
+15.003909924	Rss:              216900 kB	Pss:              186226 kB	Anonymous:        112632 kB	Swap:                  0 kB	malloc_live=70733312 malloc_free=35820032 mmap=1691648
+20.00385124	Rss:              228736 kB	Pss:              196262 kB	Anonymous:        124468 kB	Swap:                  0 kB	malloc_live=70754944 malloc_free=46534016 mmap=1691648
+25.004167174	Rss:              243264 kB	Pss:              210790 kB	Anonymous:        138996 kB	Swap:                  0 kB	malloc_live=70795488 malloc_free=61927200 mmap=1691648
+30.004030864	Rss:              251356 kB	Pss:              218882 kB	Anonymous:        147088 kB	Swap:                  0 kB	malloc_live=70825536 malloc_free=69233088 mmap=1691648
+35.003964255	Rss:              260572 kB	Pss:              228098 kB	Anonymous:        156304 kB	Swap:                  0 kB	malloc_live=70845824 malloc_free=78523008 mmap=1691648
+40.00459654	Rss:              260992 kB	Pss:              228519 kB	Anonymous:        156712 kB	Swap:                  0 kB	malloc_live=70868272 malloc_free=78660304 mmap=1691648
+45.004002245	Rss:              261028 kB	Pss:              228555 kB	Anonymous:        156748 kB	Swap:                  0 kB	malloc_live=70926976 malloc_free=78601600 mmap=1691648
+50.004073343	Rss:              273868 kB	Pss:              241395 kB	Anonymous:        169588 kB	Swap:                  0 kB	malloc_live=70966928 malloc_free=91681136 mmap=1691648
+55.004236873	Rss:              273892 kB	Pss:              241419 kB	Anonymous:        169612 kB	Swap:                  0 kB	malloc_live=70986608 malloc_free=91661456 mmap=1691648
+60.004566443	Rss:              282528 kB	Pss:              250055 kB	Anonymous:        178248 kB	Swap:                  0 kB	malloc_live=71010272 malloc_free=100485152 mmap=1691648
+post_shutdown	malloc_live=996208 malloc_free=170499216 mmap=0

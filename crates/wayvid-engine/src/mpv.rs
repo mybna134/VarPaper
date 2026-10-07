@@ -104,10 +104,11 @@ pub struct MpvPlayer {
     frame_available: Arc<AtomicBool>,
     pending_source: Option<String>,
     source_loaded: bool,
+    // Box keeps the get-proc-address callback context stable across moves.
+    render_egl: Option<Box<EglContext>>,
 }
 
-// Safety: mpv_handle can be safely sent between threads
-unsafe impl Send for MpvPlayer {}
+// Render/player ownership stays on the engine thread with its EGL context.
 
 /// libmpv requires the numeric locale to be exactly `C` during initialization.
 ///
@@ -258,6 +259,7 @@ impl MpvPlayer {
             frame_available: Arc::new(AtomicBool::new(false)),
             pending_source: Some(config.source.clone()),
             source_loaded: false,
+            render_egl: None,
         })
     }
 
@@ -298,7 +300,8 @@ impl MpvPlayer {
 
         let get_proc_address: extern "C" fn(*mut c_void, *const i8) -> *mut c_void =
             get_proc_address_wrapper;
-        let get_proc_address_ctx = egl_context as *const _ as *mut c_void;
+        let render_egl = Box::new(egl_context.clone());
+        let get_proc_address_ctx = render_egl.as_ref() as *const _ as *mut c_void;
 
         let opengl_init_params = libmpv_sys::mpv_opengl_init_params {
             get_proc_address: Some(get_proc_address),
@@ -346,6 +349,7 @@ impl MpvPlayer {
             );
         }
 
+        self.render_egl = Some(render_egl);
         self.render_context = Some(render_context);
         info!("  ✓ Render context created successfully");
 
@@ -777,8 +781,18 @@ impl Drop for MpvPlayer {
     fn drop(&mut self) {
         debug!("Dropping MPV player for {}", self.output_info.name);
 
-        if let Some(render_ctx) = self.render_context {
+        if let Some(render_ctx) = self.render_context.take() {
+            #[cfg(test)]
+            assert!(
+                self.render_egl.as_ref().unwrap().is_current(),
+                "MPV must be freed with its original GL context current"
+            );
             unsafe {
+                libmpv_sys::mpv_render_context_set_update_callback(
+                    render_ctx,
+                    None,
+                    ptr::null_mut(),
+                );
                 libmpv_sys::mpv_render_context_free(render_ctx);
             }
         }

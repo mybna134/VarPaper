@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:varpaper/main.dart';
 import 'package:varpaper/src/bridge_generated.dart/bridge.dart';
@@ -273,6 +275,40 @@ void main() {
     await controller.shutdown();
   });
 
+  test('refresh and shutdown invalidate delayed preview results', () async {
+    final service = _DelayedPreviewService();
+    final controller = await _create(FakeStore(), service);
+    final item = wallpaper('a');
+    final old = controller.thumbnail(item);
+    await controller.refresh();
+    final current = controller.thumbnail(item);
+    expect(service.pending.length, 2);
+    service.pending[0].complete(PreviewDto(bytes: tinyPng));
+    await old;
+    expect(identical(controller.thumbnail(item), current), isTrue);
+    service.pending[1].complete(PreviewDto(bytes: tinyPng));
+    await current;
+    final late = controller.thumbnail(wallpaper('b'));
+    await controller.shutdown();
+    service.pending[2].complete(PreviewDto(bytes: tinyPng));
+    await late;
+    expect(await controller.thumbnail(item), isNull);
+    expect(service.pending.length, 3);
+  });
+
+  test('dispose rejects new previews after a pending load finishes', () async {
+    final service = _DelayedPreviewService();
+    final controller = await _create(FakeStore(), service);
+    final item = wallpaper('a');
+    final pending = controller.thumbnail(item);
+    controller.dispose();
+    service.pending.single.complete(PreviewDto(bytes: tinyPng));
+    await pending;
+    expect(await controller.thumbnail(item), isNull);
+    expect(service.pending.length, 1);
+    await controller.shutdown();
+  });
+
   test('thumbnails are cached per wallpaper and failures yield null', () async {
     final service = FakeService(
       folders: {
@@ -293,4 +329,21 @@ void main() {
     expect(service.calls, contains('open:https://example.com'));
     await controller.shutdown();
   });
+}
+
+class _DelayedPreviewService extends FakeService {
+  final pending = <Completer<PreviewDto>>[];
+
+  @override
+  Future<PreviewDto> loadPreview({
+    required String wallpaperId,
+    required String path,
+    required String wallpaperType,
+    required int width,
+    required int height,
+  }) {
+    final result = Completer<PreviewDto>();
+    pending.add(result);
+    return result.future;
+  }
 }

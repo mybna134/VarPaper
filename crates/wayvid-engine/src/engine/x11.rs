@@ -317,12 +317,24 @@ pub(super) fn run(
     for (_, wallpaper) in active.drain() {
         destroy_wallpaper(&display, &egl, wallpaper);
     }
+    #[cfg(test)]
+    {
+        drop(egl);
+        assert_eq!(
+            crate::egl::native_counts(),
+            (0, 0),
+            "X11 engine leaked native graphics resources"
+        );
+    }
     let _ = events.send(EngineEvent::Stopped);
     Ok(())
 }
 
 fn destroy_wallpaper(display: &Display, egl: &EglContext, mut wallpaper: ActiveWallpaper) {
     wallpaper.session.cleanup_egl(egl);
+    // Session Drop retries a recoverable binding failure while this window is
+    // still valid. No native window may die before its MPV/EGL resources.
+    drop(wallpaper.session);
     unsafe {
         xlib::XDestroyWindow(display.raw, wallpaper.window);
         xlib::XFlush(display.raw);
@@ -387,6 +399,10 @@ fn handle_command(
     events: &Sender<EngineEvent>,
 ) {
     match command {
+        #[cfg(test)]
+        EngineCommand::ResourceCounts(reply) => {
+            let _ = reply.send(crate::egl::native_counts());
+        }
         EngineCommand::ApplyWallpaper { path, output } => {
             let names: Vec<_> = output
                 .map(|name| vec![name])
@@ -508,6 +524,174 @@ fn apply_wallpaper(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn playback_initialization_failure_preserves_error_and_rolls_back() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let output = display.outputs().unwrap().remove(0);
+        let baseline = crate::egl::native_counts();
+        let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+        let window = display.create_desktop_window(&output).unwrap();
+        let mut session = WallpaperSession::new(
+            PathBuf::from("invalid\0path"),
+            output.clone(),
+            Default::default(),
+        )
+        .unwrap();
+        let error = session
+            .render_frame_to_x11_window(&egl, window, output.width, output.height)
+            .unwrap_err();
+        assert!(error.to_string().contains("nul"), "{error}");
+        assert_eq!(crate::egl::native_counts(), (baseline.0 + 1, baseline.1));
+        assert!(session.surface_identity().is_none());
+        destroy_wallpaper(&display, &egl, ActiveWallpaper { window, session });
+        drop(egl);
+        assert_eq!(crate::egl::native_counts(), baseline);
+    }
+
+    #[test]
+    fn consecutive_session_cleanup_rebinds_and_recovers() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let output = display.outputs().unwrap().remove(0);
+        let baseline = crate::egl::native_counts();
+        let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packaging/varpaper.png");
+        let mut wallpapers = Vec::new();
+        for _ in 0..2 {
+            let window = display.create_desktop_window(&output).unwrap();
+            let mut session =
+                WallpaperSession::new(path.clone(), output.clone(), Default::default()).unwrap();
+            session
+                .render_frame_to_x11_window(&egl, window, output.width, output.height)
+                .unwrap();
+            wallpapers.push(ActiveWallpaper { window, session });
+        }
+        egl.make_current_none().unwrap();
+        crate::egl::fail_next_binding();
+        assert!(wallpapers[0].session.release_resources().is_err());
+        assert_eq!(
+            crate::egl::native_counts(),
+            (baseline.0 + 1, baseline.1 + 2)
+        );
+        destroy_wallpaper(&display, &egl, wallpapers.remove(0));
+        let second_window = wallpapers[0].window;
+        wallpapers[0]
+            .session
+            .render_frame_to_x11_window(&egl, second_window, output.width, output.height)
+            .unwrap();
+        destroy_wallpaper(&display, &egl, wallpapers.remove(0));
+        assert_eq!(crate::egl::native_counts(), (baseline.0 + 1, baseline.1));
+        drop(egl);
+        assert_eq!(crate::egl::native_counts(), baseline);
+    }
+
+    #[test]
+    fn repeated_apply_swap_clear_releases_native_resources() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let output = display.outputs().unwrap().remove(0);
+        let baseline = crate::egl::native_counts();
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packaging/varpaper.png");
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut config = EngineConfig::default();
+        let outputs = HashMap::from([(output.name.clone(), output.clone())]);
+        let mut active = HashMap::new();
+        for restart in 0..20 {
+            let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+            for _ in 0..5 {
+                apply_wallpaper(
+                    &path,
+                    &output.name,
+                    &config,
+                    &display,
+                    &egl,
+                    &outputs,
+                    &mut active,
+                )
+                .unwrap();
+                let wallpaper = active.get_mut(&output.name).unwrap();
+                let original_window = wallpaper.window;
+                wallpaper
+                    .session
+                    .render_frame_to_x11_window(&egl, original_window, output.width, output.height)
+                    .unwrap();
+                let counts = crate::egl::native_counts();
+                let original_surface = wallpaper.session.surface_identity();
+                apply_wallpaper(
+                    &path,
+                    &output.name,
+                    &config,
+                    &display,
+                    &egl,
+                    &outputs,
+                    &mut active,
+                )
+                .unwrap();
+                assert_eq!(active[&output.name].window, original_window);
+                assert_eq!(
+                    active[&output.name].session.surface_identity(),
+                    original_surface
+                );
+                assert_eq!(crate::egl::native_counts(), counts);
+                handle_command(
+                    EngineCommand::ClearWallpaper { output: None },
+                    &mut config,
+                    &display,
+                    &egl,
+                    &outputs,
+                    &mut active,
+                    &tx,
+                );
+                handle_command(
+                    EngineCommand::ClearWallpaper { output: None },
+                    &mut config,
+                    &display,
+                    &egl,
+                    &outputs,
+                    &mut active,
+                    &tx,
+                );
+                assert!(active.is_empty());
+                assert_eq!(crate::egl::native_counts(), (baseline.0 + 1, baseline.1));
+                // Query root children instead of querying a destroyed window,
+                // which would trigger Xlib's default fatal BadWindow handler.
+                let (mut root, mut parent, mut children, mut count) = (0, 0, ptr::null_mut(), 0);
+                unsafe {
+                    assert_ne!(
+                        xlib::XQueryTree(
+                            display.raw,
+                            display.root,
+                            &mut root,
+                            &mut parent,
+                            &mut children,
+                            &mut count
+                        ),
+                        0
+                    );
+                    if !children.is_null() {
+                        assert!(!std::slice::from_raw_parts(children, count as usize)
+                            .contains(&original_window));
+                        xlib::XFree(children.cast());
+                    }
+                }
+                while rx.try_recv().is_ok() {}
+            }
+            drop(egl);
+            assert_eq!(
+                crate::egl::native_counts(),
+                baseline,
+                "engine cycle {restart}"
+            );
+        }
+    }
 
     #[test]
     fn x11_window_and_egl_lifecycle() {
