@@ -36,6 +36,8 @@ pub struct WallpaperSession {
     player: Option<MpvPlayer>,
     /// EGL window for this surface
     egl_window: Option<EglWindow>,
+    /// Retains the GL owner through player destruction, including error exits.
+    egl_context: Option<EglContext>,
     /// Current playback state
     state: PlaybackState,
     /// Current volume (0.0 - 1.0)
@@ -47,6 +49,11 @@ pub struct WallpaperSession {
 }
 
 impl WallpaperSession {
+    #[cfg(test)]
+    pub(super) fn surface_identity(&self) -> Option<khronos_egl::Surface> {
+        self.egl_window.as_ref().and_then(EglWindow::identity)
+    }
+
     /// Create a new wallpaper session
     pub fn new(
         wallpaper_path: PathBuf,
@@ -64,6 +71,7 @@ impl WallpaperSession {
             video_config,
             player: None,
             egl_window: None,
+            egl_context: None,
             state: PlaybackState::Stopped,
             volume: 0.0,
             initialized: false,
@@ -150,6 +158,7 @@ impl WallpaperSession {
         if start_paused {
             let _ = player.pause();
         }
+        self.egl_context = Some(egl_context.clone());
         self.egl_window = Some(egl_window);
         self.player = Some(player);
         self.initialized = true;
@@ -329,37 +338,51 @@ impl WallpaperSession {
         &self.output_info.name
     }
 
-    /// Cleanup EGL resources before destroying the session
-    /// This must be called when switching wallpapers to properly release EGL surfaces
-    pub fn cleanup_egl(&mut self, egl_context: &crate::egl::EglContext) {
-        // First stop MPV to release OpenGL resources
-        if let Some(player) = self.player.take() {
-            drop(player);
+    /// Release playback before the backend destroys its native window.
+    /// The original context must be current when libmpv releases GL objects.
+    pub fn cleanup_egl(&mut self, _egl_context: &EglContext) {
+        if let Err(error) = self.release_resources() {
+            warn!(
+                "Failed to clean playback for {}: {}",
+                self.output_info.name, error
+            );
         }
+    }
 
-        // Destroy EGL surface properly
-        if let Some(ref egl_window) = self.egl_window {
-            if let Err(e) = egl_context.destroy_surface(egl_window) {
-                warn!("Failed to destroy EGL surface: {}", e);
+    pub(super) fn release_resources(&mut self) -> Result<()> {
+        if self.player.is_some() {
+            if let Some(window) = &self.egl_window {
+                // Keep ownership if binding fails; Drop retries before releasing
+                // fields, and backend cleanup must leave the native window alive.
+                window.make_current()?;
             }
+            drop(self.player.take());
         }
-        self.egl_window = None;
+        // EglWindow's destructor destroys the surface before wl_egl_window.
+        drop(self.egl_window.take());
+        self.egl_context = None;
         self.initialized = false;
+        Ok(())
     }
 }
 
 impl Drop for WallpaperSession {
     fn drop(&mut self) {
         debug!("Dropping WallpaperSession for {}", self.output_info.name);
-
-        // Stop playback first
-        if let Some(player) = self.player.take() {
-            drop(player);
-        }
-
-        // Release EGL window
-        if let Some(egl_window) = self.egl_window.take() {
-            drop(egl_window);
+        if let Err(error) = self.release_resources() {
+            warn!(
+                "Playback cleanup retry for {}: {}",
+                self.output_info.name, error
+            );
+            // A recoverable binding failure gets a retry while the native window
+            // and original context still exist. Permanent driver failure is not
+            // part of the normal lifecycle contract.
+            if let Err(error) = self.release_resources() {
+                warn!(
+                    "Playback cleanup failed for {}: {}",
+                    self.output_info.name, error
+                );
+            }
         }
     }
 }

@@ -29,7 +29,7 @@ use wayland_client::protocol::wl_compositor::{self, WlCompositor};
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_registry::{self, WlRegistry};
 use wayland_client::protocol::wl_surface::{self, WlSurface};
-use wayland_client::{Connection, Dispatch, QueueHandle};
+use wayland_client::{Connection, Dispatch, Proxy, QueueHandle};
 use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
     zwlr_layer_surface_v1::{self, Anchor, ZwlrLayerSurfaceV1},
@@ -226,6 +226,8 @@ fn run_engine_thread(
         on_battery: check_battery_status(),
         power_paused: false,
         last_battery_check: std::time::Instant::now(),
+        next_surface_generation: 0,
+        connection: connection.clone(),
     };
 
     // Create event loop
@@ -293,7 +295,7 @@ fn run_engine_thread(
     // Main event loop with power management
     let battery_check_interval = std::time::Duration::from_secs(10);
 
-    while !shutdown.load(Ordering::Relaxed) {
+    while !shutdown.load(Ordering::Relaxed) && state.running {
         // Periodically check battery status
         if state.last_battery_check.elapsed() >= battery_check_interval {
             state.on_battery = check_battery_status();
@@ -341,17 +343,13 @@ fn run_engine_thread(
 
     info!("PlaybackEngine shutting down");
 
-    // Cleanup layer surfaces
-    for (output, info) in state.layer_surfaces.drain() {
-        debug!("Destroying layer surface for output: {}", output);
-        info.layer_surface.destroy();
-    }
-
-    // Cleanup sessions
-    for (output, session) in state.sessions.drain() {
-        debug!("Destroying session for output: {}", output);
-        drop(session);
-    }
+    state.cleanup();
+    #[cfg(test)]
+    assert_eq!(
+        crate::egl::native_counts(),
+        (0, 0),
+        "Wayland engine leaked native graphics resources"
+    );
 
     state.running = false;
     let _ = events_tx.send(EngineEvent::Stopped);
@@ -403,7 +401,13 @@ fn render_all_surfaces(state: &mut EngineState) {
 
         // Request next frame callback
         if let Some(qh) = state.queue_handle.as_ref() {
-            let _callback = surface_info.wl_surface.frame(qh, output_name.clone());
+            let _callback = surface_info.wl_surface.frame(
+                qh,
+                SurfaceIdentity {
+                    output: output_name.clone(),
+                    generation: surface_info.generation,
+                },
+            );
             surface_info.wl_surface.commit();
         }
     }
@@ -439,10 +443,73 @@ struct EngineState {
     power_paused: bool,
     /// Last battery check time
     last_battery_check: std::time::Instant,
+    next_surface_generation: u64,
+    // Keep the display alive through EGL and protocol teardown; flush requests.
+    connection: Connection,
+}
+
+impl EngineState {
+    /// MPV/EGL must end before their Wayland protocol windows. Used on every
+    /// exit path, including event-loop errors; replacement never calls this.
+    fn remove_wallpaper(&mut self, output: &str) -> bool {
+        let existed = self.sessions.remove(output).is_some();
+        // Removing the session drops it synchronously with its context current.
+        self.layer_surfaces.remove(output);
+        existed
+    }
+
+    fn remove_output(&mut self, global: u32) {
+        if let Some(pending) = self.pending_outputs.remove(&global) {
+            let name = pending
+                .output_name
+                .clone()
+                .unwrap_or_else(|| format!("output-{}", global));
+            self.remove_wallpaper(&name);
+            self.outputs.remove_output(&name);
+            let _ = self.events_tx.send(EngineEvent::OutputRemoved(name));
+            // PendingOutput releases its owned wl_output after playback ends.
+        }
+    }
+
+    fn cleanup(&mut self) {
+        self.sessions.clear();
+        self.layer_surfaces.clear();
+        self.pending_outputs.clear();
+        self.outputs = OutputManager::new();
+        self.egl_context = None;
+        if let Err(error) = self.connection.flush() {
+            debug!("Wayland cleanup flush: {}", error);
+        }
+    }
+
+    fn current_surface(&mut self, identity: &SurfaceIdentity) -> Option<&mut LayerSurfaceInfo> {
+        self.layer_surfaces
+            .get_mut(&identity.output)
+            .filter(|surface| surface.generation == identity.generation)
+    }
+}
+
+impl Drop for EngineState {
+    fn drop(&mut self) {
+        self.cleanup();
+        if let Some(shell) = self.layer_shell.take() {
+            if shell.is_alive() && shell.version() >= 3 {
+                shell.destroy();
+                let _ = self.connection.flush();
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SurfaceIdentity {
+    output: String,
+    generation: u64,
 }
 
 /// Layer surface state for an output
 struct LayerSurfaceInfo {
+    generation: u64,
     /// The wl_surface
     wl_surface: WlSurface,
     /// The layer surface
@@ -455,6 +522,17 @@ struct LayerSurfaceInfo {
     configured: bool,
     /// Frame callback pending
     frame_pending: bool,
+}
+
+impl Drop for LayerSurfaceInfo {
+    fn drop(&mut self) {
+        if self.layer_surface.is_alive() {
+            self.layer_surface.destroy();
+        }
+        if self.wl_surface.is_alive() {
+            self.wl_surface.destroy();
+        }
+    }
 }
 
 /// Pending output information during enumeration
@@ -480,9 +558,21 @@ struct PendingOutput {
     done: bool,
 }
 
+impl Drop for PendingOutput {
+    fn drop(&mut self) {
+        if self.wl_output.is_alive() && self.wl_output.version() >= 3 {
+            self.wl_output.release();
+        }
+    }
+}
+
 /// Handle incoming command from GUI
 fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
     match cmd {
+        #[cfg(test)]
+        EngineCommand::ResourceCounts(reply) => {
+            let _ = reply.send(crate::egl::native_counts());
+        }
         EngineCommand::UpdateConfig(config) => {
             state.config = config.clone();
             for session in state.sessions.values_mut() {
@@ -534,13 +624,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             };
 
             for output_name in outputs_to_clear {
-                // Remove layer surface first
-                if let Some(info) = state.layer_surfaces.remove(&output_name) {
-                    info.layer_surface.destroy();
-                }
-                // Then remove session
-                if let Some(session) = state.sessions.remove(&output_name) {
-                    drop(session);
+                if state.remove_wallpaper(&output_name) {
                     let _ = state.events_tx.send(EngineEvent::WallpaperCleared {
                         output: output_name,
                     });
@@ -614,7 +698,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
 
         EngineCommand::Shutdown => {
             debug!("Shutdown requested");
-            // Shutdown is handled by the shutdown flag, not here
+            state.running = false;
         }
     }
 }
@@ -626,18 +710,11 @@ fn apply_wallpaper_to_output(
     output_name: &str,
     qh: &QueueHandle<EngineState>,
 ) -> Result<()> {
-    // Check if we can reuse existing layer surface (hot-swap optimization)
-    if let Some(surface_info) = state.layer_surfaces.get(output_name) {
-        if surface_info.configured {
-            // Layer surface exists and is configured - just update the video source
-            if let Some(session) = state.sessions.get_mut(output_name) {
-                info!(
-                    "Hot-swapping wallpaper for {} (reusing surface)",
-                    output_name
-                );
-                session.load_new_wallpaper(path)?;
-                return Ok(());
-            }
+    // Reuse even a surface waiting for configure: only its source changes.
+    if state.layer_surfaces.contains_key(output_name) {
+        if let Some(session) = state.sessions.get_mut(output_name) {
+            session.load_new_wallpaper(path)?;
+            return Ok(());
         }
     }
 
@@ -646,7 +723,7 @@ fn apply_wallpaper_to_output(
     let output_info = output_state.info.clone();
     let wl_output = output_state.wl_output.clone();
 
-    // Check prerequisites
+    state.remove_wallpaper(output_name);
     let compositor = state
         .compositor
         .as_ref()
@@ -655,20 +732,11 @@ fn apply_wallpaper_to_output(
         .layer_shell
         .as_ref()
         .context("Layer shell not available")?;
-
-    // Cleanup existing session EGL resources before destroying
-    if let Some(mut old_session) = state.sessions.remove(output_name) {
-        if let Some(ref egl_ctx) = state.egl_context {
-            old_session.cleanup_egl(egl_ctx);
-        }
-        drop(old_session);
-    }
-
-    // Remove existing layer surface
-    if let Some(old_info) = state.layer_surfaces.remove(output_name) {
-        old_info.layer_surface.destroy();
-        // wl_surface is automatically destroyed when dropped
-    }
+    state.next_surface_generation += 1;
+    let identity = SurfaceIdentity {
+        output: output_name.to_string(),
+        generation: state.next_surface_generation,
+    };
 
     info!(
         "Creating layer surface for {} ({}x{})",
@@ -676,7 +744,7 @@ fn apply_wallpaper_to_output(
     );
 
     // Create wl_surface
-    let wl_surface = compositor.create_surface(qh, output_name.to_string());
+    let wl_surface = compositor.create_surface(qh, identity.clone());
 
     // Create layer surface on background layer
     let layer_surface = layer_shell.get_layer_surface(
@@ -685,7 +753,7 @@ fn apply_wallpaper_to_output(
         zwlr_layer_shell_v1::Layer::Background,
         CString::new("wayvid").unwrap().into_string().unwrap(),
         qh,
-        output_name.to_string(),
+        identity.clone(),
     );
 
     // Configure layer surface
@@ -704,6 +772,7 @@ fn apply_wallpaper_to_output(
     state.layer_surfaces.insert(
         output_name.to_string(),
         LayerSurfaceInfo {
+            generation: identity.generation,
             wl_surface,
             layer_surface,
             width: output_info.width as u32,
@@ -783,16 +852,7 @@ impl Dispatch<WlRegistry, ()> for EngineState {
                 }
             }
             wl_registry::Event::GlobalRemove { name } => {
-                // Check if this was an output
-                if let Some(pending) = state.pending_outputs.remove(&name) {
-                    if let Some(output_name) = &pending.output_name {
-                        info!("Output removed: {}", output_name);
-                        state.outputs.remove_output(output_name);
-                        let _ = state
-                            .events_tx
-                            .send(EngineEvent::OutputRemoved(output_name.clone()));
-                    }
-                }
+                state.remove_output(name);
             }
             _ => {}
         }
@@ -901,12 +961,12 @@ impl Dispatch<WlCompositor, ()> for EngineState {
 }
 
 // Dispatch for wl_surface
-impl Dispatch<WlSurface, String> for EngineState {
+impl Dispatch<WlSurface, SurfaceIdentity> for EngineState {
     fn event(
         _state: &mut Self,
         _proxy: &WlSurface,
         _event: wl_surface::Event,
-        _data: &String,
+        _data: &SurfaceIdentity,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
@@ -929,15 +989,19 @@ impl Dispatch<ZwlrLayerShellV1, ()> for EngineState {
 }
 
 // Dispatch for zwlr_layer_surface_v1
-impl Dispatch<ZwlrLayerSurfaceV1, String> for EngineState {
+impl Dispatch<ZwlrLayerSurfaceV1, SurfaceIdentity> for EngineState {
     fn event(
         state: &mut Self,
         layer_surface: &ZwlrLayerSurfaceV1,
         event: zwlr_layer_surface_v1::Event,
-        output_name: &String,
+        identity: &SurfaceIdentity,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
+        if state.current_surface(identity).is_none() {
+            return;
+        }
+        let output_name = &identity.output;
         match event {
             zwlr_layer_surface_v1::Event::Configure {
                 serial,
@@ -972,7 +1036,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, String> for EngineState {
             }
             zwlr_layer_surface_v1::Event::Closed => {
                 info!("Layer surface closed for {}", output_name);
-                state.layer_surfaces.remove(output_name);
+                state.remove_wallpaper(output_name);
             }
             _ => {}
         }
@@ -980,18 +1044,18 @@ impl Dispatch<ZwlrLayerSurfaceV1, String> for EngineState {
 }
 
 // Dispatch for frame callback
-impl Dispatch<WlCallback, String> for EngineState {
+impl Dispatch<WlCallback, SurfaceIdentity> for EngineState {
     fn event(
         state: &mut Self,
         _callback: &WlCallback,
         event: wl_callback::Event,
-        output_name: &String,
+        identity: &SurfaceIdentity,
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
         if let wl_callback::Event::Done { callback_data: _ } = event {
             // Frame callback triggered - mark surface ready for rendering
-            if let Some(info) = state.layer_surfaces.get_mut(output_name) {
+            if let Some(info) = state.current_surface(identity) {
                 info.frame_pending = true;
             }
         }
@@ -1033,6 +1097,72 @@ mod backend_tests {
     use super::*;
 
     #[test]
+    fn live_engine_repeated_playback_and_restart() {
+        if std::env::var_os("VARPAPER_TEST_ENGINE_CYCLES").is_none() {
+            return;
+        }
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../packaging/varpaper.png");
+        for _ in 0..20 {
+            let (handle, events) = spawn_engine(EngineConfig::default()).unwrap();
+            let mut ready = false;
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+            while !ready {
+                assert!(std::time::Instant::now() < deadline);
+                match events.recv_timeout(std::time::Duration::from_millis(500)) {
+                    Ok(EngineEvent::Started) => ready = true,
+                    Ok(EngineEvent::Error(error)) => panic!("{error}"),
+                    _ => {}
+                }
+            }
+            for _ in 0..5 {
+                handle
+                    .send(EngineCommand::ApplyWallpaper {
+                        path: path.clone(),
+                        output: None,
+                    })
+                    .unwrap();
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                loop {
+                    let (tx, rx) = mpsc::channel();
+                    handle.send(EngineCommand::ResourceCounts(tx)).unwrap();
+                    if rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap() == (1, 1) {
+                        break;
+                    }
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "playback never initialized"
+                    );
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                handle
+                    .send(EngineCommand::ApplyWallpaper {
+                        path: path.clone(),
+                        output: None,
+                    })
+                    .unwrap();
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                handle
+                    .send(EngineCommand::ClearWallpaper { output: None })
+                    .unwrap();
+                let (tx, rx) = mpsc::channel();
+                handle.send(EngineCommand::ResourceCounts(tx)).unwrap();
+                assert_eq!(
+                    rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap(),
+                    (1, 0)
+                );
+                for event in events.try_iter() {
+                    if let EngineEvent::Error(error) = event {
+                        panic!("{error}");
+                    }
+                }
+            }
+            handle.request_shutdown();
+            handle.join().unwrap();
+        }
+    }
+
+    #[test]
     fn native_session_wins_over_xwayland_display() {
         assert_eq!(
             select_backend_for("wayland", true, true).unwrap(),
@@ -1065,3 +1195,6 @@ mod backend_tests {
         handle.join().unwrap();
     }
 }
+
+#[cfg(test)]
+mod wayland_tests;

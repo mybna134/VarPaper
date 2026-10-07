@@ -16,6 +16,7 @@ import 'package:window_manager/window_manager.dart';
 import 'src/bridge_generated.dart/bridge.dart';
 import 'src/bridge_generated.dart/frb_generated.dart';
 import 'src/l10n.dart';
+import 'src/preview_cache.dart';
 import 'src/storage/settings_store.dart';
 
 Future<void> main() async {
@@ -119,7 +120,7 @@ class WayvidController extends ChangeNotifier {
   String page = 'library';
   Timer? eventTimer;
   bool _pollingEvents = false;
-  final Map<String, Future<PreviewDto?>> _thumbnailFutures = {};
+  final _thumbnailCache = PreviewCache();
   final Map<String, WallpaperAssignmentRecord> _assignments = {};
 
   /// Wallpaper id currently applied to each output, keyed by output name.
@@ -202,7 +203,7 @@ class WayvidController extends ChangeNotifier {
   Future<void> refresh() async {
     await _run(() async {
       wallpapers = [];
-      _thumbnailFutures.clear();
+      _thumbnailCache.clear();
       monitors = await service.refreshMonitors();
       for (final folder in settings.libraryFolders) {
         _mergeWallpapers(await service.scanFolder(path: folder));
@@ -398,24 +399,16 @@ class WayvidController extends ChangeNotifier {
   }
 
   Future<PreviewDto?> thumbnail(WallpaperDto wallpaper) {
-    return _thumbnailFutures.putIfAbsent(
+    return _thumbnailCache.load(
       wallpaper.id,
-      () => _loadThumbnail(wallpaper),
-    );
-  }
-
-  Future<PreviewDto?> _loadThumbnail(WallpaperDto wallpaper) async {
-    try {
-      return await service.loadPreview(
+      () => service.loadPreview(
         wallpaperId: wallpaper.id,
         path: wallpaper.sourcePath,
         wallpaperType: wallpaper.wallpaperType,
         width: 640,
         height: 360,
-      );
-    } catch (_) {
-      return null;
-    }
+      ),
+    );
   }
 
   Future<void> openUrl(String url) async =>
@@ -423,7 +416,15 @@ class WayvidController extends ChangeNotifier {
 
   Future<void> shutdown() async {
     eventTimer?.cancel();
+    _thumbnailCache.close();
     await service.shutdown();
+  }
+
+  @override
+  void dispose() {
+    eventTimer?.cancel();
+    _thumbnailCache.close();
+    super.dispose();
   }
 
   List<WallpaperDto> get visibleWallpapers {

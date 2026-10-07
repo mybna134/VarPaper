@@ -9,6 +9,9 @@ use crate::types::OutputInfo;
 /// Commands sent from GUI to engine
 #[derive(Debug, Clone)]
 pub enum EngineCommand {
+    /// Query native acquisitions on the engine thread during lifecycle tests.
+    #[cfg(test)]
+    ResourceCounts(std::sync::mpsc::Sender<(usize, usize)>),
     /// Apply wallpaper to output(s)
     ApplyWallpaper {
         /// Path to video/image file
