@@ -340,6 +340,9 @@ void main() {
       });
       messenger.setMockMethodCallHandler(windowChannel, (call) async {
         windowCalls.add(call.method);
+        if (call.method == 'setSkipTaskbar') {
+          expect(call.arguments, {'isSkipTaskbar': false});
+        }
         if (call.method == 'isVisible') return windowVisible;
         if (call.method.startsWith('is')) return false;
         return null;
@@ -404,12 +407,17 @@ void main() {
       final labels = items().map((item) => item['label']).toList();
       expect(labels, containsAll(['Show VarPaper', 'Pause', 'Unmute']));
 
+      windowCalls.clear();
       await click(tester, 'settings');
       expect(controller.page, 'settings');
-      expect(windowCalls, containsAll(['show', 'focus']));
+      expect(windowCalls, ['setSkipTaskbar', 'isMinimized', 'show', 'focus']);
+      windowCalls.clear();
       await click(tester, 'library');
       expect(controller.page, 'library');
+      expect(windowCalls, ['setSkipTaskbar', 'isMinimized', 'show', 'focus']);
+      windowCalls.clear();
       await click(tester, 'show');
+      expect(windowCalls, ['setSkipTaskbar', 'isMinimized', 'show', 'focus']);
 
       await click(tester, 'next');
       expect(controller.appliedByOutput, {'A': 'a'});
@@ -443,7 +451,13 @@ void main() {
       windowCalls.clear();
       await send('tray_manager', 'onTrayIconMouseDown', null);
       await tester.pumpAndSettle();
-      expect(windowCalls, containsAllInOrder(['isVisible', 'show', 'focus']));
+      expect(windowCalls, [
+        'isVisible',
+        'setSkipTaskbar',
+        'isMinimized',
+        'show',
+        'focus',
+      ]);
 
       // Closing hides to tray while minimizeToTray is enabled.
       windowCalls.clear();

@@ -39,6 +39,23 @@ void main() {
     await directory.delete(recursive: true);
   });
 
+  test('start minimized defaults to false and survives reopening', () async {
+    expect((await store.load()).gui.startMinimized, isFalse);
+    for (final enabled in [true, false]) {
+      await store.save(
+        (await store.load()).apply(SettingsPatch(startMinimized: enabled)),
+      );
+      await isar.close();
+      isar = await Isar.open(
+        [AppSettingsRecordSchema, WallpaperAssignmentRecordSchema],
+        directory: directory.path,
+        name: 'store_test',
+      );
+      store = SettingsStore(isar);
+      expect((await store.load()).gui.startMinimized, enabled);
+    }
+  });
+
   test('per-output assignments are upserted, listed and removed', () async {
     expect(await store.loadAssignments(), isEmpty);
 

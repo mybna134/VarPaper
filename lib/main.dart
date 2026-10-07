@@ -29,23 +29,7 @@ Future<void> main() async {
   await RustLib.init();
 
   final controller = await WayvidController.create(settingsStore);
-  final settings = controller.settings;
-  final options = WindowOptions(
-    size: Size(
-      settings.gui.windowWidth.toDouble(),
-      settings.gui.windowHeight.toDouble(),
-    ),
-    minimumSize: const Size(800, 600),
-    center: true,
-    title: 'VarPaper',
-    skipTaskbar: settings.gui.startMinimized,
-  );
-  await windowManager.waitUntilReadyToShow(options, () async {
-    if (!settings.gui.startMinimized) {
-      await windowManager.show();
-      await windowManager.focus();
-    }
-  });
+  await configureStartupWindow(controller.settings.gui);
 
   runApp(
     ProviderScope(
@@ -53,6 +37,27 @@ Future<void> main() async {
       child: const WayvidApp(),
     ),
   );
+}
+
+Future<void> configureStartupWindow(GuiSettingsDto gui) async {
+  final options = WindowOptions(
+    size: Size(gui.windowWidth.toDouble(), gui.windowHeight.toDouble()),
+    minimumSize: const Size(800, 600),
+    center: true,
+    title: 'VarPaper',
+    skipTaskbar: gui.startMinimized,
+  );
+  await windowManager.waitUntilReadyToShow(options);
+  if (!gui.startMinimized) {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+}
+
+Future<void> showMainWindow() async {
+  await windowManager.setSkipTaskbar(false);
+  await windowManager.show();
+  await windowManager.focus();
 }
 
 final wayvidControllerProvider = ChangeNotifierProvider<WayvidController>(
@@ -544,8 +549,7 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
                 key: 'show',
                 label: l10n.text('Show VarPaper'),
                 onClick: (_) async {
-                  await windowManager.show();
-                  await windowManager.focus();
+                  await showMainWindow();
                 },
               ),
               MenuItem(
@@ -553,8 +557,7 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
                 label: l10n.text('Library'),
                 onClick: (_) async {
                   controller.navigate('library');
-                  await windowManager.show();
-                  await windowManager.focus();
+                  await showMainWindow();
                 },
               ),
               MenuItem(
@@ -562,8 +565,7 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
                 label: l10n.text('Settings'),
                 onClick: (_) async {
                   controller.navigate('settings');
-                  await windowManager.show();
-                  await windowManager.focus();
+                  await showMainWindow();
                 },
               ),
               MenuItem.separator(),
@@ -621,8 +623,7 @@ class _WayvidAppState extends ConsumerState<WayvidApp>
     if (await windowManager.isVisible()) {
       await windowManager.hide();
     } else {
-      await windowManager.show();
-      await windowManager.focus();
+      await showMainWindow();
     }
   }
 
