@@ -1,6 +1,6 @@
 //! In-process lifecycle wrapper for the Linux playback engine.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -12,6 +12,7 @@ pub struct EngineController {
     handle: Option<EngineHandle>,
     events_rx: Option<Receiver<EngineEvent>>,
     outputs_ready: bool,
+    pending_events: VecDeque<EngineEvent>,
     outputs: HashMap<String, wayvid_engine::OutputInfo>,
 }
 
@@ -21,6 +22,7 @@ impl EngineController {
             handle: None,
             events_rx: None,
             outputs_ready: false,
+            pending_events: VecDeque::new(),
             outputs: HashMap::new(),
         }
     }
@@ -42,6 +44,7 @@ impl EngineController {
         self.events_rx = Some(events_rx);
         self.outputs_ready = false;
         self.outputs.clear();
+        self.pending_events.clear();
         Ok(())
     }
 
@@ -53,9 +56,16 @@ impl EngineController {
         self.events_rx = None;
         self.outputs_ready = false;
         self.outputs.clear();
+        self.pending_events.clear();
     }
 
     pub fn poll_events(&mut self) -> Vec<EngineEvent> {
+        let mut received: Vec<_> = self.pending_events.drain(..).collect();
+        received.extend(self.drain_incoming());
+        received
+    }
+
+    fn drain_incoming(&mut self) -> Vec<EngineEvent> {
         let mut received = Vec::new();
         if let Some(receiver) = &self.events_rx {
             while let Ok(event) = receiver.try_recv() {
@@ -118,8 +128,66 @@ impl EngineController {
         self.send_command(EngineCommand::UpdateConfig(config))
     }
 
-    pub fn apply_wallpaper(&self, output: Option<String>, path: PathBuf) -> Result<(), String> {
-        self.send_command(EngineCommand::ApplyWallpaper { output, path })
+    pub fn apply_wallpaper(&mut self, output: Option<String>, path: PathBuf) -> Result<(), String> {
+        if !self.is_running() {
+            return Err("Engine is not running".into());
+        }
+        let before = self.drain_incoming();
+        self.pending_events.extend(before);
+        let mut waiting: HashSet<String> = output
+            .clone()
+            .map(|name| HashSet::from([name]))
+            .unwrap_or_else(|| self.outputs.keys().cloned().collect());
+        if waiting.is_empty() {
+            return Err("No display outputs available".into());
+        }
+        self.send_command(EngineCommand::ApplyWallpaper {
+            output,
+            path: path.clone(),
+        })?;
+        let deadline = Instant::now() + Duration::from_secs(12);
+        while Instant::now() < deadline {
+            let events = self.drain_incoming();
+            let mut failure = None;
+            for event in &events {
+                match event {
+                    EngineEvent::WallpaperApplied {
+                        output,
+                        path: applied,
+                    } if applied == &path => {
+                        waiting.remove(output);
+                    }
+                    EngineEvent::WallpaperFailed {
+                        output,
+                        path: failed,
+                        error,
+                    } if failed == &path && waiting.contains(output) => {
+                        failure = Some(format!("{output}: {error}"));
+                    }
+                    EngineEvent::OutputRemoved(output) if waiting.contains(output) => {
+                        failure = Some(format!(
+                            "Output {output} disconnected during wallpaper initialization"
+                        ));
+                    }
+                    EngineEvent::Error(error) => {
+                        failure = Some(error.clone());
+                    }
+                    _ => {}
+                }
+            }
+            self.pending_events.extend(events);
+            if let Some(error) = failure {
+                return Err(error);
+            }
+            if waiting.is_empty() {
+                return Ok(());
+            }
+            if !self.is_running() {
+                return Err("Engine stopped before wallpaper first frame".into());
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Err("Timed out waiting for wallpaper first frame".into())
     }
 
     pub fn clear_wallpaper(&self, output: Option<String>) -> Result<(), String> {
@@ -150,6 +218,30 @@ impl Drop for EngineController {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn apply_returns_after_first_frame_and_keeps_correlated_events() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let mut controller = EngineController::new();
+        controller.start(EngineConfig::default()).unwrap();
+        controller.wait_for_outputs(Duration::from_secs(5)).unwrap();
+        let output = controller.outputs()[0].name.clone();
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packaging/varpaper.png");
+        controller
+            .apply_wallpaper(Some(output.clone()), path.clone())
+            .unwrap();
+        assert!(controller.poll_events().iter().any(|event| matches!(event,
+            EngineEvent::WallpaperApplied { output: applied, path: source } if applied == &output && source == &path)));
+        let missing = path.with_file_name("missing-candidate.png");
+        assert!(controller
+            .apply_wallpaper(Some(output.clone()), missing.clone())
+            .is_err());
+        assert!(controller.poll_events().iter().any(|event| matches!(event,
+            EngineEvent::WallpaperFailed { output: failed, path: source, .. } if failed == &output && source == &missing)));
+        controller.stop();
+    }
 
     #[test]
     fn commands_fail_when_engine_is_not_running() {

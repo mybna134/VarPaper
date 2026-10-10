@@ -8,6 +8,8 @@ description = "Video rendering engine for VarPaper (Wayland/X11 + MPV)"
 repository = "https://github.com/YangYuS8/wayvid"
 
 [dependencies]
+wayvid-library = { path = "../wayvid-library" }
+serde_json = { workspace = true }
 # Wayland client
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client", "unstable"] }
@@ -43,6 +45,7 @@ calloop-wayland-source = "0.4"
 # Utilities
 bitflags = "2.4"
 libc = "0.2"
+libloading = "0.8"
 lz4_flex = "0.11.3"
 
 [features]
@@ -51,6 +54,7 @@ backend-wayland = []
 backend-vulkan = ["dep:ash", "dep:ash-window", "dep:raw-window-handle"]
 
 [dev-dependencies]
+tempfile = { workspace = true }
 serde_json = { workspace = true }
 wayland-server = "0.31"
 wayland-protocols-wlr = { version = "0.3", features = ["server"] }

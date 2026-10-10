@@ -3017,12 +3017,14 @@ dependencies = [
  "gl",
  "khronos-egl",
  "libc",
+ "libloading",
  "libmpv-sys",
  "lz4_flex",
  "raw-window-handle",
  "serde",
  "serde_json",
  "smithay-client-toolkit",
+ "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "wayland-client",
@@ -3030,6 +3032,7 @@ dependencies = [
  "wayland-protocols",
  "wayland-protocols-wlr",
  "wayland-server",
+ "wayvid-library",
  "x11",
 ]
 

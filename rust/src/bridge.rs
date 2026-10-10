@@ -65,6 +65,9 @@ pub struct WallpaperDto {
     pub source_type: String,
     pub wallpaper_category: String,
     pub wallpaper_type: String,
+    pub project_source_json: Option<String>,
+    pub compatibility: String,
+    pub compatibility_reason: Option<String>,
     pub metadata: WallpaperMetadataDto,
     pub added_at: String,
     pub last_used: Option<String>,
@@ -192,6 +195,21 @@ impl WayvidService {
         height: u32,
     ) -> Result<PreviewDto, BridgeError> {
         let source = PathBuf::from(path);
+        if matches!(wallpaper_type.as_str(), "scene" | "web" | "unsupported") {
+            let root = if source.is_dir() {
+                source.as_path()
+            } else {
+                source.parent().unwrap_or(Path::new("."))
+            };
+            let project = wayvid_library::workshop::WeProject::load(root)
+                .map_err(|error| BridgeError::message("preview_unavailable", error.to_string()))?;
+            return Ok(PreviewDto {
+                image_path: project
+                    .preview_image(root)
+                    .map(|path| path.to_string_lossy().into_owned()),
+                bytes: Vec::new(),
+            });
+        }
         if wallpaper_type == "image" && is_direct_image(&source) {
             return Ok(PreviewDto {
                 image_path: Some(source.to_string_lossy().to_string()),
@@ -291,6 +309,7 @@ impl WayvidService {
         path: String,
         output: Option<String>,
     ) -> Result<(), BridgeError> {
+        let source = validate_media_source(Path::new(&path))?;
         let mut guard = self.lock()?;
         guard
             .engine
@@ -298,12 +317,8 @@ impl WayvidService {
             .map_err(|message| BridgeError::message("engine_not_ready", message))?;
         guard
             .engine
-            .apply_wallpaper(output.clone(), PathBuf::from(&path))
+            .apply_wallpaper(output.clone(), source)
             .map_err(|message| BridgeError::message("apply_failed", message))?;
-        guard.events.push_back(ServiceEvent::WallpaperApplied {
-            output: output.unwrap_or_else(|| "all".to_string()),
-            path,
-        });
         Ok(())
     }
 
@@ -363,6 +378,16 @@ impl WayvidService {
                         .events
                         .push_back(ServiceEvent::OutputsChanged { outputs })
                 }
+                wayvid_engine::EngineEvent::WallpaperFailed {
+                    output,
+                    path,
+                    error,
+                } => {
+                    guard.events.push_back(ServiceEvent::Error {
+                        code: "wallpaper_failed".to_string(),
+                        message: format!("{output}: {}: {error}", path.display()),
+                    });
+                }
                 wayvid_engine::EngineEvent::Error(message) => {
                     guard.events.push_back(ServiceEvent::Error {
                         code: "engine_error".to_string(),
@@ -390,6 +415,46 @@ impl WayvidService {
             .lock()
             .map_err(|_| BridgeError::message("service_poisoned", "Rust service lock poisoned"))
     }
+}
+
+// Keep the legacy path API safe while typed renderers are being integrated.
+// A project manifest/directory must never reach mpv as if it were a video.
+fn validate_media_source(path: &Path) -> Result<PathBuf, BridgeError> {
+    let root = if path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(Path::new("."))
+    };
+    if root.join("project.json").exists() {
+        let shared = SteamLibrary::try_discover()
+            .map(|steam| steam.shared_asset_roots())
+            .unwrap_or_default();
+        let item = wayvid_library::project::discover_project(
+            root,
+            wayvid_library::SourceType::LocalDirectory,
+            None,
+            shared,
+        )
+        .map_err(BridgeError::from)?;
+        if item.compatibility != wayvid_library::CompatibilityStatus::Ready {
+            return Err(BridgeError::message(
+                item.compatibility.as_str(),
+                item.compatibility_reason
+                    .unwrap_or_else(|| "Project cannot be loaded".into()),
+            ));
+        }
+        return Ok(item.source_path);
+    }
+    if wayvid_library::FolderScanner::new()
+        .get_wallpaper_type(path)
+        .is_none()
+    {
+        return Err(BridgeError::message(
+            "unsupported",
+            "Unsupported wallpaper file or project",
+        ));
+    }
+    Ok(path.to_path_buf())
 }
 
 fn config_to_engine(config: EngineConfigDto) -> EngineConfig {
@@ -468,14 +533,14 @@ fn wallpaper_to_dto(item: &wayvid_library::WallpaperItem) -> WallpaperDto {
             .as_ref()
             .map(|path| path.to_string_lossy().to_string()),
         source_type: item.source_type.as_str().to_string(),
-        wallpaper_category: match item.wallpaper_type {
-            wayvid_library::WallpaperType::Scene => "scene",
-            wayvid_library::WallpaperType::Video
-            | wayvid_library::WallpaperType::Gif
-            | wayvid_library::WallpaperType::Image => "video",
-        }
-        .to_string(),
+        wallpaper_category: item.wallpaper_type.as_str().to_string(),
         wallpaper_type: item.wallpaper_type.as_str().to_string(),
+        project_source_json: item
+            .project
+            .as_ref()
+            .map(|project| serde_json::to_string(project).expect("Project source is serializable")),
+        compatibility: item.compatibility.as_str().into(),
+        compatibility_reason: item.compatibility_reason.clone(),
         metadata: WallpaperMetadataDto {
             title: item.metadata.title.clone(),
             author: item.metadata.author.clone(),
@@ -672,11 +737,123 @@ mod tests {
             WallpaperType::Gif,
         );
         let dto = wallpaper_to_dto(&gif);
-        assert_eq!(dto.wallpaper_category, "video");
+        assert_eq!(dto.wallpaper_category, "gif");
         assert_eq!(dto.wallpaper_type, "gif");
         assert_eq!(dto.metadata.resolution_width, None);
         assert_eq!(dto.thumbnail_path, None);
         assert_eq!(dto.last_used, None);
+    }
+
+    #[test]
+    fn dto_preserves_project_context_status_and_every_actual_type() {
+        for wallpaper_type in [
+            WallpaperType::Video,
+            WallpaperType::Scene,
+            WallpaperType::Web,
+            WallpaperType::Image,
+            WallpaperType::Gif,
+            WallpaperType::Unsupported,
+        ] {
+            let mut item = WallpaperItem::new(
+                "/walls/project.json".into(),
+                "project".into(),
+                SourceType::LocalDirectory,
+                wallpaper_type,
+            );
+            item.project = Some(wayvid_library::ProjectSource {
+                version: 1,
+                manifest: item.source_path.clone(),
+                root: "/walls".into(),
+                declared_type: "Application".into(),
+                entry: Some("program.exe".into()),
+                shared_asset_roots: vec!["/shared".into()],
+                properties: serde_json::json!({"color":{"value":"1 0 0"}}),
+                property_overrides: Default::default(),
+            });
+            item.compatibility = wayvid_library::CompatibilityStatus::Unsupported;
+            item.compatibility_reason = Some("Unsupported project type: Application".into());
+            let dto = wallpaper_to_dto(&item);
+            assert_eq!(dto.wallpaper_category, wallpaper_type.as_str());
+            assert_eq!(dto.wallpaper_type, wallpaper_type.as_str());
+            assert_eq!(dto.compatibility, "unsupported");
+            assert_eq!(dto.compatibility_reason, item.compatibility_reason);
+            let restored: wayvid_library::ProjectSource =
+                serde_json::from_str(dto.project_source_json.as_deref().unwrap()).unwrap();
+            assert_eq!(Some(restored), item.project);
+        }
+    }
+
+    #[tokio::test]
+    async fn project_previews_never_use_video_extraction() {
+        let root = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            root.path().join("project.json"),
+            r#"{"type":"web","file":"index.html"}"#,
+        )
+        .unwrap();
+        let service = WayvidService::new().unwrap();
+        for wallpaper_type in ["web", "scene", "unsupported"] {
+            let preview = service
+                .load_preview(
+                    "missing-preview".into(),
+                    root.path()
+                        .join("project.json")
+                        .to_string_lossy()
+                        .into_owned(),
+                    wallpaper_type.into(),
+                    640,
+                    360,
+                )
+                .await
+                .unwrap();
+            assert!(preview.bytes.is_empty());
+            assert!(preview.image_path.is_none());
+        }
+        std::fs::write(root.path().join("preview.jpg"), b"preview").unwrap();
+        std::fs::write(
+            root.path().join("project.json"),
+            r#"{"type":"web","file":"index.html","preview":"preview.jpg"}"#,
+        )
+        .unwrap();
+        let preview = service
+            .load_preview(
+                "declared-preview".into(),
+                root.path().to_string_lossy().into_owned(),
+                "web".into(),
+                640,
+                360,
+            )
+            .await
+            .unwrap();
+        assert!(preview.image_path.unwrap().ends_with("preview.jpg"));
+    }
+
+    #[test]
+    fn project_paths_never_reach_the_media_renderer_without_validation() {
+        let root = tempfile::TempDir::new().unwrap();
+        let manifest = root.path().join("project.json");
+        std::fs::write(root.path().join("index.html"), "<html/>").unwrap();
+        std::fs::write(&manifest, r#"{"type":"web","file":"index.html"}"#).unwrap();
+        assert_eq!(
+            validate_media_source(&manifest).unwrap_err().code,
+            "requires_renderer"
+        );
+        std::fs::write(&manifest, r#"{"type":"application","file":"program.exe"}"#).unwrap();
+        assert_eq!(
+            validate_media_source(root.path()).unwrap_err().code,
+            "unsupported"
+        );
+        std::fs::write(&manifest, r#"{"type":"video","file":"../outside.mp4"}"#).unwrap();
+        assert_eq!(
+            validate_media_source(&manifest).unwrap_err().code,
+            "invalid"
+        );
+        std::fs::write(&manifest, r#"{"type":"video","file":"video.mp4"}"#).unwrap();
+        std::fs::write(root.path().join("video.mp4"), "video").unwrap();
+        assert_eq!(
+            validate_media_source(&manifest).unwrap(),
+            root.path().join("video.mp4")
+        );
     }
 
     #[test]

@@ -9,7 +9,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'bridge.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `detect_monitors`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `wallpaper_to_dto`
+// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `wallpaper_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ServiceInner`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
@@ -264,6 +264,9 @@ class WallpaperDto {
   final String sourceType;
   final String wallpaperCategory;
   final String wallpaperType;
+  final String? projectSourceJson;
+  final String compatibility;
+  final String? compatibilityReason;
   final WallpaperMetadataDto metadata;
   final String addedAt;
   final String? lastUsed;
@@ -276,6 +279,9 @@ class WallpaperDto {
     required this.sourceType,
     required this.wallpaperCategory,
     required this.wallpaperType,
+    this.projectSourceJson,
+    required this.compatibility,
+    this.compatibilityReason,
     required this.metadata,
     required this.addedAt,
     this.lastUsed,
@@ -290,6 +296,9 @@ class WallpaperDto {
       sourceType.hashCode ^
       wallpaperCategory.hashCode ^
       wallpaperType.hashCode ^
+      projectSourceJson.hashCode ^
+      compatibility.hashCode ^
+      compatibilityReason.hashCode ^
       metadata.hashCode ^
       addedAt.hashCode ^
       lastUsed.hashCode;
@@ -306,6 +315,9 @@ class WallpaperDto {
           sourceType == other.sourceType &&
           wallpaperCategory == other.wallpaperCategory &&
           wallpaperType == other.wallpaperType &&
+          projectSourceJson == other.projectSourceJson &&
+          compatibility == other.compatibility &&
+          compatibilityReason == other.compatibilityReason &&
           metadata == other.metadata &&
           addedAt == other.addedAt &&
           lastUsed == other.lastUsed;

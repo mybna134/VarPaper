@@ -83,8 +83,8 @@ pub struct EglWindow {
     context: EglContext,
     egl_window: Option<wegl::WlEglSurface>,
     egl_surface: Cell<Option<egl::Surface>>,
-    width: i32,
-    height: i32,
+    width: Cell<i32>,
+    height: Cell<i32>,
 }
 
 impl EglContext {
@@ -188,19 +188,24 @@ impl EglContext {
         #[cfg(test)]
         initialization_checkpoint(2)?;
 
-        // 6. Create OpenGL context
-        let context_attribs = [
-            egl::CONTEXT_MAJOR_VERSION,
-            3,
-            egl::CONTEXT_MINOR_VERSION,
-            0,
-            egl::CONTEXT_OPENGL_PROFILE_MASK,
-            egl::CONTEXT_OPENGL_CORE_PROFILE_BIT,
-            egl::NONE,
-        ];
-
+        // Prefer the Scene shader baseline; retain the media renderer's prior
+        // OpenGL 3.0 fallback on older drivers. Scene detects/rejects that target.
+        let context_attributes = |minor| {
+            [
+                egl::CONTEXT_MAJOR_VERSION,
+                3,
+                egl::CONTEXT_MINOR_VERSION,
+                minor,
+                egl::CONTEXT_OPENGL_PROFILE_MASK,
+                egl::CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                egl::NONE,
+            ]
+        };
         let context = instance
-            .create_context(display.raw, configs, None, &context_attribs)
+            .create_context(display.raw, configs, None, &context_attributes(3))
+            .or_else(|_| {
+                instance.create_context(display.raw, configs, None, &context_attributes(0))
+            })
             .context("Failed to create EGL context")?;
 
         #[cfg(test)]
@@ -253,8 +258,8 @@ impl EglContext {
             egl_window: Some(egl_window),
             context: self.clone(),
             egl_surface: Cell::new(Some(egl_surface)),
-            width,
-            height,
+            width: Cell::new(width),
+            height: Cell::new(height),
         })
     }
 
@@ -283,8 +288,8 @@ impl EglContext {
             egl_window: None,
             context: self.clone(),
             egl_surface: Cell::new(Some(egl_surface)),
-            width,
-            height,
+            width: Cell::new(width),
+            height: Cell::new(height),
         })
     }
 
@@ -407,28 +412,28 @@ impl EglWindow {
 
     /// Get window width
     pub fn width(&self) -> i32 {
-        self.width
+        self.width.get()
     }
 
     /// Get window height
     pub fn height(&self) -> i32 {
-        self.height
+        self.height.get()
     }
 
     /// Resize the EGL window
-    pub fn resize(&mut self, width: i32, height: i32) -> Result<()> {
+    pub fn resize(&self, width: i32, height: i32) -> Result<()> {
         if self.egl_surface.get().is_none() {
             bail!("Cannot resize a released EGL surface");
         }
-        if self.width == width && self.height == height {
+        if self.width.get() == width && self.height.get() == height {
             return Ok(());
         }
 
         if let Some(window) = &self.egl_window {
             window.resize(width, height, 0, 0);
         }
-        self.width = width;
-        self.height = height;
+        self.width.set(width);
+        self.height.set(height);
 
         tracing::debug!("EGL window resized to {}x{}", width, height);
         Ok(())

@@ -289,8 +289,11 @@ pub(super) fn run(
                 power_paused = on_battery;
             }
         }
-        if !power_paused {
+        {
             for (name, wallpaper) in &mut active {
+                if power_paused {
+                    wallpaper.session.pause();
+                }
                 if let Some(output) = outputs.get(name) {
                     if let Err(error) = wallpaper.session.render_frame_to_x11_window(
                         &egl,
@@ -299,6 +302,21 @@ pub(super) fn run(
                         output.height,
                     ) {
                         warn!("X11 render failed for {name}: {error}");
+                        if let Some(path) = wallpaper.session.take_failed_source() {
+                            let _ = events.send(EngineEvent::WallpaperFailed {
+                                output: name.clone(),
+                                path,
+                                error: error.to_string(),
+                            });
+                        } else {
+                            let _ = events.send(EngineEvent::Error(format!("{name}: {error}")));
+                        }
+                    }
+                    if let Some(path) = wallpaper.session.take_committed() {
+                        let _ = events.send(EngineEvent::WallpaperApplied {
+                            output: name.clone(),
+                            path,
+                        });
                     }
                 }
             }
@@ -409,14 +427,13 @@ fn handle_command(
                 .unwrap_or_else(|| outputs.keys().cloned().collect());
             for name in names {
                 match apply_wallpaper(&path, &name, config, display, egl, outputs, active) {
-                    Ok(()) => {
-                        let _ = events.send(EngineEvent::WallpaperApplied {
+                    Ok(()) => {}
+                    Err(error) => {
+                        let _ = events.send(EngineEvent::WallpaperFailed {
                             output: name,
                             path: path.clone(),
+                            error: error.to_string(),
                         });
-                    }
-                    Err(error) => {
-                        let _ = events.send(EngineEvent::Error(error.to_string()));
                     }
                 }
             }
@@ -524,6 +541,144 @@ fn apply_wallpaper(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gif_renderer_produces_repeating_red_and_blue_frames() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let output = display.outputs().unwrap().remove(0);
+        let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+        let window = display.create_desktop_window(&output).unwrap();
+        let surface = std::rc::Rc::new(egl.create_x11_window(window, 64, 64).unwrap());
+        surface.make_current().unwrap();
+        egl.load_gl_functions();
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("colors.gif");
+        // Public-domain 1x1 palette fixture: two frames, 200 ms each, red/blue.
+        let mut gif = b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\x00\x00\x00\x00\xff".to_vec();
+        gif.extend_from_slice(b"!\xff\x0bNETSCAPE2.0\x03\x01\x00\x00\x00");
+        for color in [0x44, 0x4c] {
+            gif.extend_from_slice(
+                b"!\xf9\x04\x04\x14\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02",
+            );
+            gif.extend_from_slice(&[color, 1, 0]);
+        }
+        gif.push(b';');
+        std::fs::write(&path, gif).unwrap();
+        let mut renderer = crate::renderer::create_renderer(
+            &path,
+            &crate::mpv::VideoConfig {
+                hwdec: crate::types::HwdecMode::No,
+                layout: crate::types::LayoutMode::Stretch,
+                ..Default::default()
+            },
+            &output,
+            &egl,
+            surface.clone(),
+        )
+        .unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut transitions = Vec::new();
+        while Instant::now() < deadline && transitions.len() < 4 {
+            if renderer.render(64, 64, 0).unwrap() {
+                let mut pixel = [0u8; 4];
+                unsafe {
+                    gl::ReadPixels(
+                        32,
+                        32,
+                        1,
+                        1,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        pixel.as_mut_ptr().cast(),
+                    );
+                }
+                let color = if pixel[0] > 200 && pixel[2] < 30 {
+                    Some(0)
+                } else if pixel[2] > 200 && pixel[0] < 30 {
+                    Some(1)
+                } else {
+                    None
+                };
+                if let Some(color) = color {
+                    if transitions.last() != Some(&color) {
+                        transitions.push(color);
+                    }
+                }
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(transitions, vec![0, 1, 0, 1], "GIF did not animate/loop");
+        renderer.close().unwrap();
+        drop(renderer);
+        drop(surface);
+        drop(egl);
+        unsafe {
+            xlib::XDestroyWindow(display.raw, window);
+        }
+    }
+
+    #[test]
+    fn candidate_scene_commits_after_frame_and_failed_replacement_keeps_source() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none()
+            || std::env::var_os("VARPAPER_SCENE_LIBRARY").is_none()
+        {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let output = display.outputs().unwrap().remove(0);
+        let baseline = crate::egl::native_counts();
+        let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+        let window = display.create_desktop_window(&output).unwrap();
+        let image = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packaging/varpaper.png");
+        let mut session =
+            WallpaperSession::new(image.clone(), output.clone(), Default::default()).unwrap();
+        assert!(session.wallpaper_path().is_none());
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while session.take_committed().is_none() {
+            assert!(Instant::now() < deadline);
+            session
+                .render_frame_to_x11_window(&egl, window, output.width, output.height)
+                .unwrap();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let surface = session.surface_identity();
+        let project = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            project.path().join("project.json"),
+            r#"{"type":"scene","title":"Candidate fixture","file":"scene.json"}"#,
+        )
+        .unwrap();
+        std::fs::write(project.path().join("scene.json"), r#"{"camera":{"center":"0 0 0","eye":"0 0 1","up":"0 1 0"},"general":{"orthogonalprojection":{"width":64,"height":64},"clearcolor":"0.25 0.5 0.75"},"objects":[]}"#).unwrap();
+        session.load_new_wallpaper(project.path()).unwrap();
+        assert_eq!(session.wallpaper_path(), image.to_str());
+        assert!(session.take_committed().is_none());
+        session
+            .render_frame_to_x11_window(&egl, window, output.width, output.height)
+            .unwrap();
+        assert_eq!(session.take_committed().as_deref(), Some(project.path()));
+        assert_eq!(session.surface_identity(), surface);
+        let broken = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            broken.path().join("project.json"),
+            r#"{"type":"scene","title":"Broken fixture","file":"scene.json"}"#,
+        )
+        .unwrap();
+        std::fs::write(broken.path().join("scene.json"), "{}").unwrap();
+        assert!(session.load_new_wallpaper(broken.path()).is_err());
+        assert_eq!(session.wallpaper_path(), project.path().to_str());
+        assert!(session.take_committed().is_none());
+        session.pause();
+        session.resume();
+        session
+            .render_frame_to_x11_window(&egl, window, output.width, output.height)
+            .unwrap();
+        destroy_wallpaper(&display, &egl, ActiveWallpaper { window, session });
+        drop(egl);
+        assert_eq!(crate::egl::native_counts(), baseline);
+    }
 
     #[test]
     fn playback_initialization_failure_preserves_error_and_rolls_back() {

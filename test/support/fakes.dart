@@ -74,6 +74,8 @@ WallpaperDto wallpaper(
   String? name,
   String sourceType = 'local_file',
   String category = 'video',
+  String compatibility = 'ready',
+  String? compatibilityReason,
   String? title,
   String? author,
   String? description,
@@ -85,6 +87,8 @@ WallpaperDto wallpaper(
   sourceType: sourceType,
   wallpaperCategory: category,
   wallpaperType: category,
+  compatibility: compatibility,
+  compatibilityReason: compatibilityReason,
   metadata: WallpaperMetadataDto(
     title: title,
     author: author,

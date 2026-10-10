@@ -150,6 +150,44 @@ void main() {
     await controller.shutdown();
   });
 
+  test(
+    'unavailable project renderers fail before applying or saving',
+    () async {
+      final store = FakeStore();
+      final service = FakeService(
+        folders: {
+          '/w': [
+            wallpaper(
+              'web',
+              category: 'web',
+              compatibility: 'requires_renderer',
+              compatibilityReason: 'Web renderer unavailable',
+            ),
+            wallpaper(
+              'app',
+              category: 'unsupported',
+              compatibility: 'unsupported',
+              compatibilityReason: 'Unsupported project type: application',
+            ),
+          ],
+        },
+      );
+      final controller = await _create(store, service);
+      await controller.scanFolder('/w');
+      await controller.apply('web');
+      expect(controller.error, contains('Web renderer unavailable'));
+      await controller.apply('app');
+      expect(
+        controller.error,
+        contains('Unsupported project type: application'),
+      );
+      expect(controller.appliedByOutput, isEmpty);
+      expect(await store.loadAssignments(), isEmpty);
+      expect(service.calls.where((call) => call.startsWith('apply:')), isEmpty);
+      await controller.shutdown();
+    },
+  );
+
   test('apply to all monitors, clear all, and unknown ids', () async {
     final store = FakeStore();
     final service = FakeService(

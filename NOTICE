@@ -16,3 +16,12 @@ and LICENSE-APACHE. Copyright notices in source files remain applicable.
 The VarPaper distribution is licensed under GNU GPL version 3 only; see
 LICENSE. The retained upstream licenses and notices continue to apply to
 their respective material.
+
+The native Scene compatibility component under native/wallpaperengine adapts
+linux-wallpaperengine (Almamu), revision
+b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d. Its GPL version 3 license is preserved
+at native/wallpaperengine/upstream/LICENSE. The original application/CLI and
+desktop drivers are excluded; VarPaper provides the owning application context.
+Pinned third-party source snapshots and their checksums/repositories are listed
+in native/wallpaperengine/dependencies.json. Their original license and copyright
+texts are retained inside each source archive in native/wallpaperengine/vendor.

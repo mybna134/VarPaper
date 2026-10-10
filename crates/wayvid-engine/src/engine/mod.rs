@@ -335,10 +335,13 @@ fn run_engine_thread(
             .dispatch(frame_duration, &mut state)
             .context("Event loop dispatch failed")?;
 
-        // Render frames for configured layer surfaces (skip if power paused)
-        if !state.power_paused {
-            render_all_surfaces(&mut state);
+        // Paused sessions can still prepare a candidate's first static frame.
+        if state.power_paused {
+            for session in state.sessions.values_mut() {
+                session.pause();
+            }
         }
+        render_all_surfaces(&mut state);
     }
 
     info!("PlaybackEngine shutting down");
@@ -397,6 +400,24 @@ fn render_all_surfaces(state: &mut EngineState) {
             surface_info.height as i32,
         ) {
             warn!("Frame render error for {}: {}", output_name, e);
+            if let Some(path) = session.take_failed_source() {
+                let _ = state.events_tx.send(EngineEvent::WallpaperFailed {
+                    output: output_name.clone(),
+                    path,
+                    error: e.to_string(),
+                });
+            } else {
+                let _ = state
+                    .events_tx
+                    .send(EngineEvent::Error(format!("{output_name}: {e}")));
+            }
+        }
+
+        if let Some(path) = session.take_committed() {
+            let _ = state.events_tx.send(EngineEvent::WallpaperApplied {
+                output: output_name.clone(),
+                path,
+            });
         }
 
         // Request next frame callback
@@ -601,15 +622,14 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
 
             for output_name in outputs_to_apply {
                 match apply_wallpaper_to_output(state, &path, &output_name, &qh) {
-                    Ok(()) => {
-                        let _ = state.events_tx.send(EngineEvent::WallpaperApplied {
-                            output: output_name,
-                            path: path.clone(),
-                        });
-                    }
+                    Ok(()) => {}
                     Err(e) => {
                         error!("Failed to apply wallpaper to {}: {}", output_name, e);
-                        let _ = state.events_tx.send(EngineEvent::Error(e.to_string()));
+                        let _ = state.events_tx.send(EngineEvent::WallpaperFailed {
+                            output: output_name,
+                            path: path.clone(),
+                            error: e.to_string(),
+                        });
                     }
                 }
             }

@@ -1291,6 +1291,9 @@ impl SseDecode for crate::bridge::WallpaperDto {
         let mut var_sourceType = <String>::sse_decode(deserializer);
         let mut var_wallpaperCategory = <String>::sse_decode(deserializer);
         let mut var_wallpaperType = <String>::sse_decode(deserializer);
+        let mut var_projectSourceJson = <Option<String>>::sse_decode(deserializer);
+        let mut var_compatibility = <String>::sse_decode(deserializer);
+        let mut var_compatibilityReason = <Option<String>>::sse_decode(deserializer);
         let mut var_metadata = <crate::bridge::WallpaperMetadataDto>::sse_decode(deserializer);
         let mut var_addedAt = <String>::sse_decode(deserializer);
         let mut var_lastUsed = <Option<String>>::sse_decode(deserializer);
@@ -1302,6 +1305,9 @@ impl SseDecode for crate::bridge::WallpaperDto {
             source_type: var_sourceType,
             wallpaper_category: var_wallpaperCategory,
             wallpaper_type: var_wallpaperType,
+            project_source_json: var_projectSourceJson,
+            compatibility: var_compatibility,
+            compatibility_reason: var_compatibilityReason,
             metadata: var_metadata,
             added_at: var_addedAt,
             last_used: var_lastUsed,
@@ -1576,6 +1582,9 @@ impl flutter_rust_bridge::IntoDart for crate::bridge::WallpaperDto {
             self.source_type.into_into_dart().into_dart(),
             self.wallpaper_category.into_into_dart().into_dart(),
             self.wallpaper_type.into_into_dart().into_dart(),
+            self.project_source_json.into_into_dart().into_dart(),
+            self.compatibility.into_into_dart().into_dart(),
+            self.compatibility_reason.into_into_dart().into_dart(),
             self.metadata.into_into_dart().into_dart(),
             self.added_at.into_into_dart().into_dart(),
             self.last_used.into_into_dart().into_dart(),
@@ -1896,6 +1905,9 @@ impl SseEncode for crate::bridge::WallpaperDto {
         <String>::sse_encode(self.source_type, serializer);
         <String>::sse_encode(self.wallpaper_category, serializer);
         <String>::sse_encode(self.wallpaper_type, serializer);
+        <Option<String>>::sse_encode(self.project_source_json, serializer);
+        <String>::sse_encode(self.compatibility, serializer);
+        <Option<String>>::sse_encode(self.compatibility_reason, serializer);
         <crate::bridge::WallpaperMetadataDto>::sse_encode(self.metadata, serializer);
         <String>::sse_encode(self.added_at, serializer);
         <Option<String>>::sse_encode(self.last_used, serializer);
@@ -1937,14 +1949,14 @@ mod io {
     flutter_rust_bridge::frb_generated_boilerplate_io!();
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_wayvid_gui_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+    pub extern "C" fn frbgen_varpaper_rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
         ptr: *const std::ffi::c_void,
     ) {
         MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>>::increment_strong_count(ptr as _);
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn frbgen_wayvid_gui_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+    pub extern "C" fn frbgen_varpaper_rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
         ptr: *const std::ffi::c_void,
     ) {
         MoiArc::<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>>::decrement_strong_count(ptr as _);
