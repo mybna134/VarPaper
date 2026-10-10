@@ -1,0 +1,4 @@
+VARPAPER_SCENE_1 {
+  global: vp_scene_*;
+  local: *;
+};

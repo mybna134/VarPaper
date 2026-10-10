@@ -34,3 +34,34 @@ flutter analyze lib/main.dart lib/src/l10n.dart test/widget_test.dart
 flutter test
 dpkg-deb --info dist/*.deb
 ```
+
+## Native Scene development
+
+The in-development Scene component uses pinned repository snapshots from
+linux-wallpaperengine. Its standalone build and first-frame fixtures need no
+reference checkout. Install CMake 3.24+, a C++20 compiler, Python 3, pkg-config,
+GLEW, GLFW3, SDL2, LZ4, FreeType, FFmpeg development libraries and libmpv.
+
+```bash
+python3 native/wallpaperengine/verify_sources.py
+cmake -S native/wallpaperengine -B build/native-scene -DCMAKE_BUILD_TYPE=Release
+cmake --build build/native-scene --target varpaper_scene_test -j4
+xvfb-run -a ctest --test-dir build/native-scene --output-on-failure
+xvfb-run -a env VARPAPER_TEST_X11=1 XDG_SESSION_TYPE=x11 SDL_AUDIODRIVER=dummy \
+  VARPAPER_SCENE_LIBRARY="$PWD/build/native-scene/libvarpaper_scene.so" \
+  cargo test -p wayvid-engine -- --test-threads=1
+```
+
+The Rust Scene owner retains its native library, project-scoped resource
+callbacks and EGL surface. Creation, frames and destruction run on the render
+thread with that surface current. Native exceptions return caller-owned error
+messages. Read buffers transfer temporarily and are released exactly once.
+Only versioned C ABI symbols are exported, keeping QuickJS symbols separate
+from libmpv's JavaScript engine. See `native/wallpaperengine/scene.h` and the
+component README for callback and cleanup contracts.
+
+These fixtures currently cover the minimal Scene clear-color frame, Image to
+Scene replacement, invalid candidate rollback, native failure cleanup and
+thread ownership. Full SceneScript/audio visualization, Web, packaging and
+desktop qualification remain tracked in `add-all-wallpaper-types`; scanning
+still reports Scene/Web as requiring their completed renderer integration.

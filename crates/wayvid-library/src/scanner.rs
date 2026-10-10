@@ -18,10 +18,10 @@ use notify::RecursiveMode;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, DebouncedEventKind, Debouncer};
 use parking_lot::RwLock;
 use rayon::prelude::*;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use walkdir::WalkDir;
 
-use crate::{SourceType, WallpaperItem, WallpaperType};
+use crate::{SourceType, SteamLibrary, WallpaperItem, WallpaperType};
 
 /// File scanner for discovering wallpapers
 #[derive(Debug, Clone)]
@@ -56,26 +56,11 @@ impl FolderScanner {
             return Ok(Vec::new());
         }
 
-        let mut items = Vec::new();
-
-        let walker = if recursive {
-            WalkDir::new(path)
-        } else {
-            WalkDir::new(path).max_depth(1)
-        };
-
-        for entry in walker.into_iter().filter_map(|e| e.ok()) {
-            let file_path = entry.path();
-
-            if !file_path.is_file() {
-                continue;
-            }
-
-            if let Some(item) = self.process_file(file_path) {
-                debug!("  📄 Found: {}", item.name);
-                items.push(item);
-            }
-        }
+        let items = self
+            .wallpaper_paths(path, recursive)
+            .iter()
+            .filter_map(|path| self.process_file(path))
+            .collect::<Vec<_>>();
 
         info!("  ✓ Found {} wallpapers", items.len());
         Ok(items)
@@ -92,26 +77,11 @@ impl FolderScanner {
 
         let start = Instant::now();
 
-        // Collect all file paths first
-        let walker = if recursive {
-            WalkDir::new(path)
-        } else {
-            WalkDir::new(path).max_depth(1)
-        };
-
-        let file_paths: Vec<PathBuf> = walker
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_file())
-            .filter(|e| self.is_wallpaper_file(e.path()))
-            .map(|e| e.path().to_owned())
-            .collect();
-
-        // Process files in parallel
-        let items: Vec<WallpaperItem> = file_paths
+        let items = self
+            .wallpaper_paths(path, recursive)
             .par_iter()
             .filter_map(|path| self.process_file(path))
-            .collect();
+            .collect::<Vec<_>>();
 
         let duration = start.elapsed();
         info!(
@@ -155,6 +125,19 @@ impl FolderScanner {
 
     /// Process a single file and create WallpaperItem if valid
     pub fn process_file(&self, path: &Path) -> Option<WallpaperItem> {
+        if path.file_name().is_some_and(|name| name == "project.json") {
+            let root = path.parent()?;
+            let shared = SteamLibrary::try_discover()
+                .map(|steam| steam.shared_asset_roots())
+                .unwrap_or_default();
+            return crate::project::discover_project(
+                root,
+                SourceType::LocalDirectory,
+                None,
+                shared,
+            )
+            .ok();
+        }
         let extension = path.extension()?.to_string_lossy().to_lowercase();
 
         let wallpaper_type = if self.video_extensions.contains(&extension) {
@@ -183,12 +166,50 @@ impl FolderScanner {
 
     /// Check if a file is a supported wallpaper
     pub fn is_wallpaper_file(&self, path: &Path) -> bool {
+        if path.file_name().is_some_and(|name| name == "project.json") {
+            return true;
+        }
         if let Some(ext) = path.extension() {
             let ext = ext.to_string_lossy().to_lowercase();
             self.video_extensions.contains(&ext) || self.image_extensions.contains(&ext)
         } else {
             false
         }
+    }
+
+    fn wallpaper_paths(&self, path: &Path, recursive: bool) -> Vec<PathBuf> {
+        let walker = if recursive {
+            WalkDir::new(path)
+        } else {
+            WalkDir::new(path).max_depth(1)
+        };
+        let mut walker = walker.into_iter();
+        let mut paths = Vec::new();
+        let mut seen = HashSet::new();
+        while let Some(entry) = walker.next() {
+            let Ok(entry) = entry else {
+                continue;
+            };
+            let path = entry.path();
+            if entry.file_type().is_dir() && path.join("project.json").exists() {
+                // Normalize project identities even for overlapping folder aliases.
+                // Keep a symlinked manifest in place so loading can reject escape.
+                let identity = path
+                    .canonicalize()
+                    .unwrap_or_else(|_| path.into())
+                    .join("project.json");
+                if seen.insert(identity.clone()) {
+                    paths.push(identity);
+                }
+                walker.skip_current_dir();
+            } else if entry.file_type().is_file()
+                && self.is_wallpaper_file(path)
+                && seen.insert(path.to_path_buf())
+            {
+                paths.push(path.to_path_buf());
+            }
+        }
+        paths
     }
 
     /// Get the wallpaper type for a file
@@ -278,21 +299,9 @@ impl IncrementalScanner {
             return Ok(result);
         }
 
-        let walker = if recursive {
-            WalkDir::new(path)
-        } else {
-            WalkDir::new(path).max_depth(1)
-        };
-
         let mut current_files: HashSet<PathBuf> = HashSet::new();
-
-        for entry in walker.into_iter().filter_map(|e| e.ok()) {
-            let file_path = entry.path();
-
-            if !file_path.is_file() || !self.scanner.is_wallpaper_file(file_path) {
-                continue;
-            }
-
+        let paths = self.scanner.wallpaper_paths(path, recursive);
+        for file_path in &paths {
             result.files_scanned += 1;
             current_files.insert(file_path.to_owned());
 
@@ -335,20 +344,7 @@ impl IncrementalScanner {
             return Ok(result);
         }
 
-        // Collect all wallpaper files
-        let walker = if recursive {
-            WalkDir::new(path)
-        } else {
-            WalkDir::new(path).max_depth(1)
-        };
-
-        let file_paths: Vec<PathBuf> = walker
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_file())
-            .filter(|e| self.scanner.is_wallpaper_file(e.path()))
-            .map(|e| e.path().to_owned())
-            .collect();
+        let file_paths = self.scanner.wallpaper_paths(path, recursive);
 
         result.files_scanned = file_paths.len();
         let current_files: HashSet<PathBuf> = file_paths.iter().cloned().collect();
@@ -582,6 +578,87 @@ mod tests {
     use super::*;
     use std::fs::File;
     use tempfile::TempDir;
+
+    #[test]
+    fn project_scans_prune_assets_and_preserve_types_and_identity() {
+        let dir = TempDir::new().unwrap();
+        for (name, kind, entry) in [
+            ("scene", "SCENE", "scene.json"),
+            ("web", "Web", "index.html"),
+            ("app", "application", "program.exe"),
+            ("unknown", "future", "main.bin"),
+        ] {
+            let root = dir.path().join(name);
+            fs::create_dir_all(root.join("assets")).unwrap();
+            fs::write(
+                root.join("project.json"),
+                serde_json::json!({"type":kind,"file":entry}).to_string(),
+            )
+            .unwrap();
+            fs::write(root.join(entry), "{}").unwrap();
+            fs::write(root.join("assets/hidden.mp4"), "asset").unwrap();
+            fs::write(root.join("preview.jpg"), "preview").unwrap();
+        }
+        fs::create_dir(dir.path().join("broken")).unwrap();
+        fs::write(dir.path().join("broken/project.json"), "{broken").unwrap();
+        fs::write(dir.path().join("broken/hidden.mp4"), "asset").unwrap();
+        fs::write(dir.path().join("still.png"), "image").unwrap();
+        fs::write(dir.path().join("animation.gif"), "gif").unwrap();
+        let scanner = FolderScanner::new();
+        let mut single = scanner.scan_folder(dir.path(), true).unwrap();
+        let mut parallel = scanner.scan_folder_parallel(dir.path(), true).unwrap();
+        single.sort_by(|a, b| a.id.cmp(&b.id));
+        parallel.sort_by(|a, b| a.id.cmp(&b.id));
+        assert_eq!(single.len(), 7);
+        assert_eq!(
+            single.iter().map(|item| &item.id).collect::<Vec<_>>(),
+            parallel.iter().map(|item| &item.id).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            single
+                .iter()
+                .filter(|item| item.wallpaper_type == WallpaperType::Unsupported)
+                .count(),
+            3
+        );
+        let web = single
+            .iter()
+            .find(|item| item.wallpaper_type == WallpaperType::Web)
+            .unwrap();
+        let by_root = scanner.scan_folder(&dir.path().join("web"), false).unwrap();
+        assert_eq!(by_root.len(), 1);
+        assert_eq!(by_root[0].id, web.id);
+        let workshop = crate::project::discover_project(
+            &dir.path().join("web"),
+            SourceType::SteamWorkshop,
+            Some(42),
+            vec![],
+        )
+        .unwrap();
+        assert_eq!(workshop.id, web.id);
+        assert_eq!(
+            single
+                .iter()
+                .find(|item| item.wallpaper_type == WallpaperType::Image)
+                .unwrap()
+                .id,
+            WallpaperItem::generate_id(&dir.path().join("still.png"))
+        );
+        let mut incremental = IncrementalScanner::new();
+        assert_eq!(
+            incremental
+                .scan_incremental(dir.path(), true)
+                .unwrap()
+                .added
+                .len(),
+            7
+        );
+        assert!(incremental
+            .scan_incremental_parallel(dir.path(), true)
+            .unwrap()
+            .added
+            .is_empty());
+    }
 
     fn create_test_files(dir: &Path) {
         File::create(dir.join("video1.mp4")).unwrap();

@@ -4,13 +4,16 @@
 //! on a specific Wayland output via the shared EGL context.
 
 use std::path::PathBuf;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::{debug, info, warn};
 use wayland_client::protocol::wl_surface::WlSurface;
 
 use crate::egl::{EglContext, EglWindow};
-use crate::mpv::{MpvPlayer, VideoConfig};
+use crate::mpv::VideoConfig;
+use crate::renderer::{create_renderer, WallpaperRenderer};
 use crate::types::OutputInfo;
 
 /// Playback state
@@ -33,9 +36,15 @@ pub struct WallpaperSession {
     /// Video configuration
     video_config: VideoConfig,
     /// MPV player instance
-    player: Option<MpvPlayer>,
+    player: Option<Box<dyn WallpaperRenderer>>,
+    candidate: Option<(PathBuf, Box<dyn WallpaperRenderer>, Instant)>,
+    committed: Option<PathBuf>,
+    failed_source: Option<PathBuf>,
+    first_frame: bool,
+    terminal_failure: bool,
+    initialized_at: Option<Instant>,
     /// EGL window for this surface
-    egl_window: Option<EglWindow>,
+    egl_window: Option<Rc<EglWindow>>,
     /// Retains the GL owner through player destruction, including error exits.
     egl_context: Option<EglContext>,
     /// Current playback state
@@ -51,7 +60,9 @@ pub struct WallpaperSession {
 impl WallpaperSession {
     #[cfg(test)]
     pub(super) fn surface_identity(&self) -> Option<khronos_egl::Surface> {
-        self.egl_window.as_ref().and_then(EglWindow::identity)
+        self.egl_window
+            .as_ref()
+            .and_then(|window| window.identity())
     }
 
     /// Create a new wallpaper session
@@ -70,6 +81,12 @@ impl WallpaperSession {
             wallpaper_path: Some(wallpaper_path),
             video_config,
             player: None,
+            candidate: None,
+            committed: None,
+            failed_source: None,
+            first_frame: false,
+            terminal_failure: false,
+            initialized_at: None,
             egl_window: None,
             egl_context: None,
             state: PlaybackState::Stopped,
@@ -117,27 +134,18 @@ impl WallpaperSession {
         // Keep the EGL window local until every initialization step succeeds.
         // If MPV or its render context fails, destroy this surface immediately
         // instead of leaving it in the session for the next retry.
-        let player_result = (|| -> Result<MpvPlayer> {
-            let mut config = self.video_config.clone();
-            if let Some(ref path) = self.wallpaper_path {
-                config.source = path.to_string_lossy().to_string();
-            }
-
-            let mut player = MpvPlayer::new(&config, &self.output_info)?;
-            info!("  ✓ MPV player created");
-
-            // Initialize MPV render context with EGL
-            player.init_render_context(egl_context)?;
-            info!("  ✓ MPV render context initialized");
-
-            // Load the wallpaper file
-            if let Some(ref path) = self.wallpaper_path {
-                player.load_file(path)?;
-                info!("  ✓ Loaded wallpaper: {}", path.display());
-            }
-
-            Ok(player)
-        })();
+        let egl_window = Rc::new(egl_window);
+        let mut candidate_config = self.video_config.clone();
+        candidate_config.mute = true;
+        let player_result = create_renderer(
+            self.wallpaper_path
+                .as_deref()
+                .context("Wallpaper source missing")?,
+            &candidate_config,
+            &self.output_info,
+            egl_context,
+            egl_window.clone(),
+        );
 
         let player = match player_result {
             Ok(player) => player,
@@ -162,6 +170,7 @@ impl WallpaperSession {
         self.egl_window = Some(egl_window);
         self.player = Some(player);
         self.initialized = true;
+        self.initialized_at = Some(Instant::now());
         self.state = if start_paused {
             PlaybackState::Paused
         } else {
@@ -181,10 +190,17 @@ impl WallpaperSession {
         width: i32,
         height: i32,
     ) -> Result<()> {
+        if self.terminal_failure {
+            return Ok(());
+        }
         // Lazy initialization
         if !self.initialized {
             let window = egl_context.create_window(wl_surface, width, height)?;
-            self.initialize_resources(egl_context, window)?;
+            if let Err(error) = self.initialize_resources(egl_context, window) {
+                self.terminal_failure = true;
+                self.failed_source = self.wallpaper_path.clone();
+                return Err(error);
+            }
         }
 
         self.render_initialized_frame(egl_context, width, height)
@@ -198,9 +214,16 @@ impl WallpaperSession {
         width: i32,
         height: i32,
     ) -> Result<()> {
+        if self.terminal_failure {
+            return Ok(());
+        }
         if !self.initialized {
             let surface = egl_context.create_x11_window(window, width, height)?;
-            self.initialize_resources(egl_context, surface)?;
+            if let Err(error) = self.initialize_resources(egl_context, surface) {
+                self.terminal_failure = true;
+                self.failed_source = self.wallpaper_path.clone();
+                return Err(error);
+            }
         }
         self.render_initialized_frame(egl_context, width, height)
     }
@@ -211,12 +234,12 @@ impl WallpaperSession {
         width: i32,
         height: i32,
     ) -> Result<()> {
-        if self.state != PlaybackState::Playing {
+        if self.state != PlaybackState::Playing && self.first_frame && self.candidate.is_none() {
             return Ok(());
         }
 
         // Get EGL window
-        let egl_window = match self.egl_window.as_mut() {
+        let egl_window = match self.egl_window.as_ref() {
             Some(w) => w,
             None => return Ok(()),
         };
@@ -229,26 +252,63 @@ impl WallpaperSession {
         // Make context current
         egl_context.make_current(egl_window)?;
 
-        // Render MPV frame only if we have a frame ready
-        if let Some(ref mut player) = self.player {
-            // Check if there's a new frame available
-            if player.has_frame() {
-                // Clear background
-                unsafe {
-                    gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                    gl::Clear(gl::COLOR_BUFFER_BIT);
-                    gl::Viewport(0, 0, width, height);
+        if let Some((path, candidate, started)) = self.candidate.as_mut() {
+            match candidate.render(width, height, 0) {
+                Ok(true) => {
+                    egl_context.swap_buffers(egl_window)?;
+                    candidate.update_config(&self.video_config)?;
+                    if self.state == PlaybackState::Paused {
+                        candidate.pause()?;
+                    }
+                    let (path, candidate, _) = self.candidate.take().unwrap();
+                    if let Some(player) = self.player.as_mut() {
+                        player.close()?;
+                    }
+                    self.player = Some(candidate);
+                    self.wallpaper_path = Some(path.clone());
+                    self.committed = Some(path);
+                    self.first_frame = true;
+                    return Ok(());
                 }
-
-                // Render the frame
-                if let Err(e) = player.render(width, height, 0) {
-                    warn!("MPV render error: {}", e);
+                Ok(false) if started.elapsed() < Duration::from_secs(10) => {}
+                result => {
+                    let message = match result {
+                        Err(error) => format!("Candidate {} failed: {error}", path.display()),
+                        _ => format!("Candidate {} did not produce a first frame", path.display()),
+                    };
+                    self.failed_source = Some(path.clone());
+                    drop(self.candidate.take());
+                    anyhow::bail!(message);
                 }
-
-                // Swap buffers only after rendering a valid frame
-                egl_context.swap_buffers(egl_window)?;
             }
-            // If no frame yet, don't swap - keep previous content
+        }
+        if let Some(player) = self.player.as_mut() {
+            let rendered = match player.render(width, height, 0) {
+                Ok(rendered) => rendered,
+                Err(error) => {
+                    self.terminal_failure = true;
+                    self.failed_source = self.wallpaper_path.clone();
+                    return Err(error);
+                }
+            };
+            if !rendered
+                && !self.first_frame
+                && self
+                    .initialized_at
+                    .is_some_and(|start| start.elapsed() >= Duration::from_secs(10))
+            {
+                self.terminal_failure = true;
+                self.failed_source = self.wallpaper_path.clone();
+                anyhow::bail!("Wallpaper did not produce a first frame");
+            }
+            if rendered {
+                egl_context.swap_buffers(egl_window)?;
+                if !self.first_frame {
+                    player.update_config(&self.video_config)?;
+                    self.first_frame = true;
+                    self.committed = self.wallpaper_path.clone();
+                }
+            }
         }
 
         Ok(())
@@ -286,7 +346,7 @@ impl WallpaperSession {
     pub fn set_volume(&mut self, volume: f32) {
         self.volume = volume.clamp(0.0, 1.0);
         if let Some(player) = &mut self.player {
-            let _ = player.set_volume((self.volume * 100.0) as f64);
+            let _ = player.set_volume(self.volume);
         }
     }
 
@@ -308,21 +368,45 @@ impl WallpaperSession {
             path.display()
         );
 
-        self.wallpaper_path = Some(path.to_path_buf());
-
-        if let Some(ref mut player) = self.player {
-            player.load_file(path)?;
-            info!("  ✓ New wallpaper loaded: {}", path.display());
+        if self.initialized {
+            let context = self
+                .egl_context
+                .as_ref()
+                .context("Missing renderer context")?;
+            let window = self
+                .egl_window
+                .as_ref()
+                .context("Missing renderer surface")?;
+            window.make_current()?;
+            let mut config = self.video_config.clone();
+            // Candidates produce no sound until their first frame commits.
+            config.mute = true;
+            let candidate =
+                create_renderer(path, &config, &self.output_info, context, window.clone())?;
+            self.candidate = Some((path.to_path_buf(), candidate, Instant::now()));
         } else {
-            // Player not initialized yet, will be loaded on first render
-            debug!("Player not yet initialized, wallpaper will load on first render");
+            self.terminal_failure = false;
+            self.wallpaper_path = Some(path.to_path_buf());
         }
 
         Ok(())
     }
 
+    pub(super) fn take_failed_source(&mut self) -> Option<PathBuf> {
+        self.failed_source
+            .take()
+            .or_else(|| self.candidate.as_ref().map(|(path, _, _)| path.clone()))
+    }
+
+    pub(super) fn take_committed(&mut self) -> Option<PathBuf> {
+        self.committed.take()
+    }
+
     /// Get current wallpaper path
     pub fn wallpaper_path(&self) -> Option<&str> {
+        if !self.first_frame || self.terminal_failure {
+            return None;
+        }
         self.wallpaper_path
             .as_ref()
             .map(|p| p.to_str().unwrap_or(""))
@@ -350,11 +434,18 @@ impl WallpaperSession {
     }
 
     pub(super) fn release_resources(&mut self) -> Result<()> {
-        if self.player.is_some() {
+        if self.player.is_some() || self.candidate.is_some() {
             if let Some(window) = &self.egl_window {
                 // Keep ownership if binding fails; Drop retries before releasing
                 // fields, and backend cleanup must leave the native window alive.
                 window.make_current()?;
+            }
+            if let Some((_, candidate, _)) = self.candidate.as_mut() {
+                candidate.close()?;
+            }
+            drop(self.candidate.take());
+            if let Some(player) = self.player.as_mut() {
+                player.close()?;
             }
             drop(self.player.take());
         }

@@ -206,8 +206,27 @@ impl MpvPlayer {
         set_option("cscale", "bilinear");
         set_option("fbo-format", "rgba8"); // Simpler FBO format
 
+        // Static images remain assigned until explicitly cleared or replaced.
+        let extension = std::path::Path::new(&config.source)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(
+            extension.as_str(),
+            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif"
+        ) {
+            set_option("image-display-duration", "inf");
+            set_option("keep-open", "yes");
+        }
+
         // Limit video FPS to reduce GPU load
-        set_option("vf", "fps=30"); // Cap video to 30fps for wallpaper use
+        if !matches!(
+            extension.as_str(),
+            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" | "gif"
+        ) {
+            set_option("vf", "fps=30");
+        }
 
         // Memory optimization
         set_option("demuxer-max-bytes", "16M");
@@ -382,7 +401,8 @@ impl MpvPlayer {
         }
 
         info!("  ✓ Source loaded successfully");
-        self.source_loaded = true;
+        self.source_loaded = false;
+        self.cached_dimensions = None;
         Ok(())
     }
 
@@ -512,12 +532,14 @@ impl MpvPlayer {
             return Ok(false);
         };
 
-        self.process_events();
+        self.process_events()?;
+        if !self.source_loaded || self.get_video_dimensions().is_none() {
+            return Ok(false);
+        }
 
         let update_flags = unsafe { libmpv_sys::mpv_render_context_update(render_ctx) };
-        let has_new_frame = (update_flags & MPV_RENDER_UPDATE_FRAME) != 0;
-
-        let _ = self.frame_available.swap(false, Ordering::AcqRel);
+        let callback_frame = self.frame_available.swap(false, Ordering::AcqRel);
+        let has_new_frame = (update_flags & MPV_RENDER_UPDATE_FRAME) != 0 || callback_frame;
 
         if !has_new_frame {
             return Ok(false);
@@ -572,7 +594,7 @@ impl MpvPlayer {
         }
     }
 
-    fn process_events(&mut self) {
+    fn process_events(&mut self) -> Result<()> {
         loop {
             let event = unsafe { libmpv_sys::mpv_wait_event(self.handle, 0.0) };
             if event.is_null() {
@@ -587,15 +609,29 @@ impl MpvPlayer {
 
             match event_id {
                 7 => {
+                    let data = unsafe {
+                        (*event)
+                            .data
+                            .cast::<libmpv_sys::mpv_event_end_file>()
+                            .as_ref()
+                    };
+                    if let Some(end) = data {
+                        if end.error < 0 {
+                            return Err(anyhow!("MPV source failed: error {}", end.error));
+                        }
+                    }
+                }
+                8 => {
+                    self.source_loaded = true;
                     // MPV_EVENT_FILE_LOADED
                     info!("📺 MPV: file loaded");
                     self.cached_dimensions = None;
                 }
-                16 => {
+                21 => {
                     // MPV_EVENT_PLAYBACK_RESTART
                     info!("📺 MPV: playback restart");
                 }
-                20 => {
+                17 => {
                     // MPV_EVENT_VIDEO_RECONFIG
                     info!("📺 MPV: video reconfig");
                     self.cached_dimensions = None;
@@ -605,6 +641,7 @@ impl MpvPlayer {
                 }
             }
         }
+        Ok(())
     }
 
     /// Get video dimensions
@@ -802,5 +839,51 @@ impl Drop for MpvPlayer {
                 libmpv_sys::mpv_terminate_destroy(self.handle);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn static_images_remain_open_without_loop_and_gif_keeps_loop_policy() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        let output = OutputInfo {
+            name: "media-fixture".into(),
+            width: 64,
+            height: 64,
+            scale: 1.0,
+            position: (0, 0),
+            active: true,
+            hdr_capabilities: Default::default(),
+        };
+        let config = VideoConfig {
+            source: "fixture.png".into(),
+            loop_playback: false,
+            ..Default::default()
+        };
+        let image = MpvPlayer::new(&config, &output).unwrap();
+        assert_eq!(
+            image
+                .get_property_string("image-display-duration")
+                .as_deref(),
+            Some("inf")
+        );
+        assert_eq!(
+            image.get_property_string("keep-open").as_deref(),
+            Some("yes")
+        );
+        drop(image);
+        let gif = MpvPlayer::new(
+            &VideoConfig {
+                source: "fixture.gif".into(),
+                ..Default::default()
+            },
+            &output,
+        )
+        .unwrap();
+        assert_eq!(gif.get_property_string("loop-file").as_deref(), Some("inf"));
     }
 }

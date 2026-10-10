@@ -1051,8 +1051,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   WallpaperDto dco_decode_wallpaper_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 10)
-      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    if (arr.length != 13)
+      throw Exception('unexpected arr length: expect 13 but see ${arr.length}');
     return WallpaperDto(
       id: dco_decode_String(arr[0]),
       name: dco_decode_String(arr[1]),
@@ -1061,9 +1061,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sourceType: dco_decode_String(arr[4]),
       wallpaperCategory: dco_decode_String(arr[5]),
       wallpaperType: dco_decode_String(arr[6]),
-      metadata: dco_decode_wallpaper_metadata_dto(arr[7]),
-      addedAt: dco_decode_String(arr[8]),
-      lastUsed: dco_decode_opt_String(arr[9]),
+      projectSourceJson: dco_decode_opt_String(arr[7]),
+      compatibility: dco_decode_String(arr[8]),
+      compatibilityReason: dco_decode_opt_String(arr[9]),
+      metadata: dco_decode_wallpaper_metadata_dto(arr[10]),
+      addedAt: dco_decode_String(arr[11]),
+      lastUsed: dco_decode_opt_String(arr[12]),
     );
   }
 
@@ -1434,6 +1437,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_sourceType = sse_decode_String(deserializer);
     var var_wallpaperCategory = sse_decode_String(deserializer);
     var var_wallpaperType = sse_decode_String(deserializer);
+    var var_projectSourceJson = sse_decode_opt_String(deserializer);
+    var var_compatibility = sse_decode_String(deserializer);
+    var var_compatibilityReason = sse_decode_opt_String(deserializer);
     var var_metadata = sse_decode_wallpaper_metadata_dto(deserializer);
     var var_addedAt = sse_decode_String(deserializer);
     var var_lastUsed = sse_decode_opt_String(deserializer);
@@ -1445,6 +1451,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       sourceType: var_sourceType,
       wallpaperCategory: var_wallpaperCategory,
       wallpaperType: var_wallpaperType,
+      projectSourceJson: var_projectSourceJson,
+      compatibility: var_compatibility,
+      compatibilityReason: var_compatibilityReason,
       metadata: var_metadata,
       addedAt: var_addedAt,
       lastUsed: var_lastUsed,
@@ -1787,6 +1796,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.sourceType, serializer);
     sse_encode_String(self.wallpaperCategory, serializer);
     sse_encode_String(self.wallpaperType, serializer);
+    sse_encode_opt_String(self.projectSourceJson, serializer);
+    sse_encode_String(self.compatibility, serializer);
+    sse_encode_opt_String(self.compatibilityReason, serializer);
     sse_encode_wallpaper_metadata_dto(self.metadata, serializer);
     sse_encode_String(self.addedAt, serializer);
     sse_encode_opt_String(self.lastUsed, serializer);

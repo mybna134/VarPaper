@@ -21,6 +21,8 @@ pub mod egl;
 pub mod engine;
 pub mod frame_timing;
 pub mod mpv;
+pub mod renderer;
+pub mod scene;
 pub mod types;
 pub mod wayland;
 

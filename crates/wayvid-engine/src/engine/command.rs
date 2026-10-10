@@ -88,6 +88,13 @@ pub enum EngineEvent {
         path: PathBuf,
     },
 
+    /// A candidate failed before replacing the active assignment.
+    WallpaperFailed {
+        output: String,
+        path: PathBuf,
+        error: String,
+    },
+
     /// Wallpaper cleared
     WallpaperCleared {
         /// Output name

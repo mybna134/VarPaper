@@ -66,6 +66,7 @@ class _Service implements WayvidService {
   Future<List<WallpaperDto>> scanFolder({required String path}) async => const [
     WallpaperDto(
       id: 'alpha',
+      compatibility: 'ready',
       name: 'Alpha',
       sourcePath: '/wallpapers/a.mp4',
       sourceType: 'local_file',
@@ -76,6 +77,7 @@ class _Service implements WayvidService {
     ),
     WallpaperDto(
       id: 'beta',
+      compatibility: 'ready',
       name: 'Beta',
       sourcePath: '/wallpapers/b.mp4',
       sourceType: 'local_file',

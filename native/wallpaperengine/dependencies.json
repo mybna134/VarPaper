@@ -1,0 +1,56 @@
+{
+  "glslang": {
+    "repository": "https://github.com/Almamu/glslang-WallpaperEngine.git",
+    "revision": "b775500a153f5ceb0e4b6f366b79c4c57521bb62",
+    "archive": "glslang.tar.gz",
+    "sha256": "5677194bea86bf21c651a2e8b950caf5947dacacae4703b6ed9f1e9885676116"
+  },
+  "spirv": {
+    "repository": "https://github.com/Almamu/SPIRV-Cross-WallpaperEngine.git",
+    "revision": "ad4d02220b01c1800e5a4e6671d6d8ca8ab07783",
+    "archive": "spirv.tar.gz",
+    "sha256": "60ea67117322798b3b81eed8381a57e2eea473c888c4167be6b58a259f45e857"
+  },
+  "quickjs": {
+    "repository": "https://github.com/quickjs-ng/quickjs.git",
+    "revision": "72ba50f63ee31202f8c18b8d07ab1e1c3486ee6f",
+    "archive": "quickjs.tar.gz",
+    "sha256": "0406322a4c0a6e30130886413712013d4d683f326c2c201bb0f32bca3500218c"
+  },
+  "json": {
+    "repository": "https://github.com/nlohmann/json.git",
+    "revision": "4424a0fcc1c7fa640b5c87d26776d99150dacd10",
+    "archive": "json.tar.gz",
+    "sha256": "aed69825e143af8a785027ec6e5adfa02c552779c3825ea991e246ab06164dfa"
+  },
+  "stb": {
+    "repository": "https://github.com/nothings/stb.git",
+    "revision": "f0569113c93ad095470c54bf34a17b36646bbbb5",
+    "archive": "stb.tar.gz",
+    "sha256": "b698d6bc0a4e345572e02f5a69f4d2e9531df59095f9f810d98c75254a628a20"
+  },
+  "kissfft": {
+    "repository": "https://github.com/mborgerding/kissfft.git",
+    "revision": "febd4caeed32e33ad8b2e0bb5ea77542c40f18ec",
+    "archive": "kissfft.tar.gz",
+    "sha256": "12e8c95d29e46b92e6ed1e8f82de7a32ce6ac2098aea17935ba727ed4abde8c7"
+  },
+  "glm": {
+    "repository": "https://github.com/g-truc/glm.git",
+    "revision": "0af55ccecd98d4e5a8d1fad7de25ba429d60e863",
+    "archive": "glm.tar.gz",
+    "sha256": "a2743314e2eb65edc1c76dfed00773fb39262b1d3c024be152d435e16c07052b"
+  },
+  "spirvtools": {
+    "repository": "https://github.com/KhronosGroup/SPIRV-Tools.git",
+    "revision": "ada1771a9f7a125573aa94fe551fdc44b45769bd",
+    "archive": "spirvtools.tar.gz",
+    "sha256": "cfa1a9c8eaef7a87b54fc491d619bf8563d323cb0c43532e2ec3d6fb27c92c1c"
+  },
+  "spirvheaders": {
+    "repository": "https://github.com/KhronosGroup/SPIRV-Headers.git",
+    "revision": "ddd2c099be25e3fec7cdc14106c17aca99512082",
+    "archive": "spirvheaders.tar.gz",
+    "sha256": "93dd85f680003663839f346f6fe610406027a28825029f100feda52102e8abe8"
+  }
+}

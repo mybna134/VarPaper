@@ -5,11 +5,14 @@
 //! scan results and never talks to the playback engine.
 //!
 mod model;
+pub mod project;
 pub mod scanner;
 pub mod thumbnail;
 pub mod workshop;
 
-pub use model::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+pub use model::{
+    CompatibilityStatus, ProjectSource, SourceType, WallpaperItem, WallpaperMetadata, WallpaperType,
+};
 pub use scanner::{
     AsyncFileWatcher, FileEvent, FileWatcher, FolderScanner, IncrementalScanner, ScanResult,
 };

@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 
-use crate::{SourceType, WallpaperItem, WallpaperMetadata, WallpaperType};
+use crate::{SourceType, WallpaperItem, WallpaperType};
 
 /// Wallpaper Engine app ID on Steam
 pub const WALLPAPER_ENGINE_APP_ID: u32 = 431960;
@@ -146,6 +146,20 @@ impl SteamLibrary {
             .workshop_content_path(WALLPAPER_ENGINE_APP_ID)
             .is_empty()
     }
+
+    /// Existing shared asset directories from locally installed Wallpaper Engine.
+    pub fn shared_asset_roots(&self) -> Vec<PathBuf> {
+        let mut roots: Vec<_> = self
+            .all_libraries()
+            .into_iter()
+            .map(|root| root.join("steamapps/common/wallpaper_engine/assets"))
+            .filter_map(|path| path.canonicalize().ok())
+            .filter(|path| path.is_dir())
+            .collect();
+        roots.sort();
+        roots.dedup();
+        roots
+    }
 }
 
 /// Wallpaper Engine project metadata from project.json
@@ -181,17 +195,15 @@ pub struct WeProject {
     /// Content rating
     #[serde(default)]
     pub contentrating: Option<String>,
+    /// Project properties and audio-processing declarations.
+    #[serde(default)]
+    pub general: serde_json::Value,
 }
 
 impl WeProject {
     /// Parse project.json from path
     pub fn load(project_dir: &Path) -> Result<Self> {
-        let project_file = project_dir.join("project.json");
-        let content = fs::read_to_string(&project_file)
-            .with_context(|| format!("Failed to read {}", project_file.display()))?;
-
-        serde_json::from_str(&content)
-            .with_context(|| format!("Failed to parse {}", project_file.display()))
+        crate::project::load_manifest(project_dir)
     }
 
     /// Check if this is a video type project
@@ -206,26 +218,29 @@ impl WeProject {
 
     /// Check if this project type is supported
     pub fn is_supported(&self) -> bool {
-        self.is_video() || self.is_scene()
+        self.wallpaper_type() != WallpaperType::Unsupported
     }
 
     /// Get the wallpaper type
     pub fn wallpaper_type(&self) -> WallpaperType {
-        match self.project_type.to_lowercase().as_str() {
-            "video" => WallpaperType::Video,
-            "scene" => WallpaperType::Scene,
-            _ => WallpaperType::Video, // Default
-        }
+        WallpaperType::from_project_type(&self.project_type)
     }
 
     /// Get the main file path
     pub fn main_file(&self, project_dir: &Path) -> Option<PathBuf> {
-        self.file.as_ref().map(|f| project_dir.join(f))
+        self.file
+            .as_ref()
+            .and_then(|name| crate::project::resource_name(name).ok())
+            .map(|name| project_dir.join(name))
     }
 
     /// Get the preview image path
     pub fn preview_image(&self, project_dir: &Path) -> Option<PathBuf> {
-        self.preview.as_ref().map(|p| project_dir.join(p))
+        self.preview.as_ref().and_then(|name| {
+            crate::project::loose_resource(project_dir, name)
+                .ok()
+                .flatten()
+        })
     }
 }
 
@@ -338,64 +353,13 @@ impl WorkshopScanner {
             return Ok(None);
         }
 
-        let project = WeProject::load(item_path)?;
-
-        // Only support video and scene types for now
-        if !project.is_supported() {
-            debug!("  ⏭️ Skipping unsupported type: {}", project.project_type);
-            return Ok(None);
-        }
-
-        // Get main file path
-        let source_path = match project.main_file(item_path) {
-            Some(path) if path.exists() => path,
-            Some(path) => {
-                debug!("  ⚠️ Main file not found: {}", path.display());
-                return Ok(None);
-            }
-            None => {
-                // For scene type, use project directory as source
-                if project.is_scene() {
-                    item_path.to_path_buf()
-                } else {
-                    return Ok(None);
-                }
-            }
-        };
-
-        // Create wallpaper item
-        let name = project
-            .title
-            .clone()
-            .unwrap_or_else(|| format!("Workshop #{}", workshop_id));
-
-        let mut item = WallpaperItem::new(
-            source_path,
-            name,
+        crate::project::discover_project(
+            item_path,
             SourceType::SteamWorkshop,
-            project.wallpaper_type(),
-        );
-
-        // Set metadata
-        item.metadata = WallpaperMetadata {
-            title: project.title.clone(),
-            author: None, // Not in project.json
-            description: project.description.clone(),
-            tags: project.tags.clone(),
-            duration_secs: None,
-            resolution: None,
-            file_size: None,
-            workshop_id: Some(workshop_id),
-        };
-
-        // Set thumbnail path if preview exists
-        if let Some(preview) = project.preview_image(item_path) {
-            if preview.exists() {
-                item.thumbnail_path = Some(preview);
-            }
-        }
-
-        Ok(Some(item))
+            Some(workshop_id),
+            self.steam.shared_asset_roots(),
+        )
+        .map(Some)
     }
 
     /// Get workshop item by ID
@@ -522,13 +486,22 @@ mod tests {
         assert!(project.is_scene());
         assert!(project.is_supported());
 
-        // Web type (unsupported)
+        // Web is a recognized project type, separate from renderer availability.
         let content = r#"{"type": "web", "file": "index.html"}"#;
         fs::write(&project_file, content).unwrap();
         let project = WeProject::load(temp_dir.path()).unwrap();
         assert!(!project.is_video());
         assert!(!project.is_scene());
+        assert!(project.is_supported());
+        assert_eq!(project.wallpaper_type(), WallpaperType::Web);
+        fs::write(
+            &project_file,
+            r#"{"type":"application","file":"program.exe"}"#,
+        )
+        .unwrap();
+        let project = WeProject::load(temp_dir.path()).unwrap();
         assert!(!project.is_supported());
+        assert_eq!(project.wallpaper_type(), WallpaperType::Unsupported);
     }
 
     #[test]
@@ -636,7 +609,7 @@ mod tests {
             .iter()
             .map(|item| item.metadata.workshop_id.unwrap())
             .collect();
-        assert_eq!(ids, vec![100, 200]);
+        assert_eq!(ids, vec![100, 200, 300, 400, 500, 800]);
 
         let video = &items[0];
         assert_eq!(video.name, "Video");
@@ -653,13 +626,21 @@ mod tests {
         let scene = &items[1];
         assert_eq!(scene.name, "Workshop #200");
         assert_eq!(scene.wallpaper_type, WallpaperType::Scene);
-        assert!(scene.source_path.ends_with("200"));
+        assert!(scene.source_path.ends_with("200/project.json"));
+        assert_eq!(scene.compatibility, crate::CompatibilityStatus::Invalid);
         assert_eq!(scene.thumbnail_path, None);
+        assert_eq!(items[2].wallpaper_type, WallpaperType::Web);
+        assert!(items[2]
+            .compatibility_reason
+            .as_ref()
+            .unwrap()
+            .contains("missing"));
+        assert_eq!(items[4].compatibility, crate::CompatibilityStatus::Invalid);
 
         // Already scanned items are skipped until the cache is cleared.
         assert!(scanner.scan_all().unwrap().is_empty());
         scanner.clear_cache();
-        assert_eq!(scanner.scan_all().unwrap().len(), 2);
+        assert_eq!(scanner.scan_all().unwrap().len(), 6);
     }
 
     #[test]
@@ -667,9 +648,15 @@ mod tests {
         let (_root, steam) = fake_steam();
         let scanner = WorkshopScanner::new(steam);
         assert_eq!(scanner.get_item(100).unwrap().unwrap().name, "Video");
-        assert!(scanner.get_item(300).unwrap().is_none());
+        assert_eq!(
+            scanner.get_item(300).unwrap().unwrap().wallpaper_type,
+            WallpaperType::Web
+        );
         assert!(scanner.get_item(999).unwrap().is_none());
-        assert!(scanner.get_item(500).is_err());
+        assert_eq!(
+            scanner.get_item(500).unwrap().unwrap().compatibility,
+            crate::CompatibilityStatus::Invalid
+        );
         assert_eq!(scanner.steam().all_libraries().len(), 1);
     }
 

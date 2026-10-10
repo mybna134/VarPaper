@@ -289,6 +289,11 @@ class WayvidController extends ChangeNotifier {
   Future<void> apply(String wallpaperId, {String? output}) async {
     await _run(() async {
       final wallpaper = wallpapers.firstWhere((item) => item.id == wallpaperId);
+      if (wallpaper.compatibility != 'ready') {
+        throw StateError(
+          wallpaper.compatibilityReason ?? 'Wallpaper renderer unavailable',
+        );
+      }
       if (!engineRunning) {
         await service.createEngine(config: settings.toEngineConfig());
         engineRunning = true;
