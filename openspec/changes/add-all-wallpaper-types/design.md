@@ -56,11 +56,17 @@ Scene 将频谱映射到参考实现 shader uniforms、效果/粒子和已声明
 
 每个 renderer 独立使用 monotonic animation clock/delta，暂停停止脚本 tick 并冻结动画；恢复时重设上一帧采样点。日期/本地时间直接来自系统时钟与时区，QuickJS Date 和文字脚本能更新时钟，恢复首帧立即取当前时间；时间测试使用可注入时钟覆盖跨分钟、日期和时区变化。媒体元数据属于后续扩展，不因“时间功能”隐式承诺全部播放器集成。
 
-### 5. CEF 离屏集成
+### 5. 可选 Chromium/CEF 离屏集成
 
-原生 Web adapter 管理一个进程级 CEF runtime、每赋值的独立 browser/request context、浏览器 subprocess 和 bounded paint buffer。CEF 生命周期在其要求的线程执行，通过队列将 paint/状态交给 Rust engine，不让 CEF 回调直接使用其他线程的 GL context。OnPaint 上传到输出 texture，保留最后一帧以避免无新 paint 时黑屏；resize 时只接收匹配尺寸的最新帧。
+默认不安装、不加载、不下载 Chromium/CEF。设置中的“Web 壁纸支持”提供安装、进度、取消、重试和卸载；组件状态来自实际已校验文件及兼容版本，不以布尔开关冒充已安装。Web 项目始终可发现和预览，组件未安装/损坏时禁用应用并提示到设置安装或修复，不自动下载，也不回退 mpv。
+
+原生 Web adapter 采用一个共享 Web 宿主进程，在其应用主线程初始化/关闭 CEF；每赋值拥有独立 browser/request context、浏览器 subprocess 和 bounded paint buffer。Rust engine 管理宿主生命周期，通过有大小上限、browser/request ID、generation 与序号的本地 IPC 交换控制和 paint/状态，不让 CEF 回调直接使用其他线程的 GL context。宿主故障报告关联 Web 赋值并可重启，媒体/Scene 与 GUI 继续工作。该方案使 CEF 的 main-application-thread 初始化和失败退出契约不占用 GTK/Flutter 主线程；它不是第二套桌面输出管理。OnPaint 上传到输出 texture，保留最后一帧以避免无新 paint 时黑屏；resize 时只接收匹配尺寸的最新帧。
 
 项目自定义 scheme 强制根目录校验；默认拒绝远程网络、文件下载和 executable launching。注入属性 schema 对应 typed values，增加参考 Web 路径尚未覆盖的属性/audio callback bridge。pause 需停止页面动画/timers、媒体和脚本推进，并验证恢复；若 CEF API 不能完全暂停，则销毁 browser 并保留静态帧，恢复按同一描述重建，不能只停纹理上传而让脚本/音频持续运行。关闭所有 browsers 并等待 subprocess 退出后关闭 runtime。CEF renderer 崩溃使对应赋值失败且可重试。
+
+运行库安装使用随应用固定的架构/version/ABI/download URL/SHA-256 清单；官方 CEF Chromium 分发源为 `https://cef-builds.spotifycdn.com/`。不允许任意 URL、HTTP 或跳转至未声明来源。只有用户点击安装才联网；页面默认禁止外网与安装器的下载权限分离。运行库、快照、icudtl、resources/locales 和分发许可按完整运行清单安装，不能只下载 libcef.so。下载在应用私有 data 目录暂存，限制下载/解包预算，拒绝 archive traversal、链接与重复文件，校验后原子提交；取消、断网、校验失败或磁盘不足保持未安装，清理临时文件并支持重试。安装串行化，持久状态只记录已完成版本；重启检测损坏和 ABI 不匹配。按平台选择固定兼容清单，不兼容架构明确报错。
+
+卸载先拒绝新 Web 请求、取消安装、等待 Web browsers/宿主/subprocess/音频 consumer 退出，然后释放文件；正在播放的 Web 输出清除，其他类型继续运行。保留用户项目、共享资产和已保存的 Web 描述/属性；重启时未安装组件的保存赋值显示不可用且不下载，再次安装后可恢复。卸载删除组件运行文件、下载归档、暂存/缓存/浏览器临时数据，实际空间占用可见；失败保持真实状态并允许重试，不能在进程仍用库时宣告卸载完成。
 
 替代方案 Flutter WebView 属于 GUI widget 且不具备现有桌面 EGL 渲染边界；采用参考项目的 CEF 路线便于验证 Canvas/WebGL。
 
@@ -68,12 +74,12 @@ Scene 将频谱映射到参考实现 shader uniforms、效果/粒子和已声明
 
 Isar 赋值新增可选描述版本、type、project manifest/root、property overrides，保留 sourcePath/sourceId 以兼容老记录和回滚。新字段为空按旧路径解析；只有已确认应用成功才保存。类型标签/过滤/预览/错误及属性编辑使用真实 type，category 不再把 Image/GIF 合并为 Video；明确呈现不能用于当前类型的设置。
 
-native component 用 CMake 构建，Cargo build integration 和 Flutter Linux 打包共用安装清单。固定上游修订、CEF 发布及校验和，包含 subprocess、CEF resources/locales、运行库和必要 Scene 依赖；不沿用上游隐式联网下载而不校验。维护 .deb 依赖、Flatpak modules/manifest 和 Arch 配方，满足本机参考目录不存在时可构建/运行。来源与保留许可记录到现有 NOTICE；这是实施交付的一部分。
+native component 用 CMake 构建，Cargo build integration 和 Flutter Linux 打包共用安装清单。固定上游修订、CEF SDK 发布及校验和；构建时可获取 SDK 编译 Web 宿主/subprocess，但基础发行包仅安装宿主/辅助程序、组件清单和必要 Scene 依赖，不安装 libcef/resources/locales，不将 CEF 设为强制运行依赖。Web 宿主仅在组件已安装时用应用私有目录中的完整运行清单启动，主应用不直接链接 libcef。维护 .deb、Flatpak 和 Arch 配方，分别测试默认离线媒体/Scene、用户点击后从官方源下载、应用私有目录加载、卸载后空间回收；Flatpak 的安装器网络权限不能使 Web 页面获得默认网络访问。构建/运行不依赖参考 checkout。来源与保留许可记录到现有 NOTICE；这是实施交付的一部分。
 
 ## Risks / Trade-offs
 
 - [原生移植依赖广、context 耦合] → 先完成独立首帧 vertical slice 和 C ABI 构建，再扩展对象/效果；所有列明特性均验收后才完成整个变更。
-- [CEF 增加体积、内存与辅助进程] → 延迟初始化、有界 paint 缓存、输出独立关闭、三种发行包 smoke test。
+- [CEF 增加体积、内存与辅助进程] → 用户主动安装/卸载、完整清单与空间显示、延迟初始化、有界 paint 缓存、输出独立关闭、三种发行包的未安装/安装/卸载 smoke test。
 - [上游只覆盖官方功能子集] → 固定参考版本、功能 fixture 与明确 unsupported 诊断；不承诺全部 Workshop。
 - [暂停/脚本资源耗尽] → 验证实际停止脚本/音频、限制 script budget、回归失败初始化及恢复路径。
 - [音频监控接口不可用] → 零输入继续渲染，捕获状态可见，重连后恢复。
@@ -83,7 +89,7 @@ native component 用 CMake 构建，Cargo build integration 和 Flutter Linux �
 ## Migration Plan
 
 1. 固定参考源和构建依赖，完成类型/描述适配及原生首帧链路。
-2. 完成 Scene 音频/时钟及 Web 回调，接入统一会话和事件。
+2. 完成 Scene 音频/时钟、可选 Web 组件安装/卸载及 Web 回调，接入统一会话和事件。
 3. 添加兼容 Isar 字段和 FRB 绑定、界面，再迁移旧赋值的恢复解析。
 4. 跑 fixture、Wayland/X11 mixed-output/lifecycle、三发行包验收和 CI quality；不得以只有扫描通过替代渲染验收。
 5. 回滚程序时旧媒体字段仍可读取，新 Scene/Web 赋值由旧版本忽略/报不支持；不删除原项目及用户资源。

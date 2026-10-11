@@ -70,7 +70,7 @@ jobs:
 
       - name: Validate package scripts and Flatpak manifest
         run: |
-          bash -n scripts/build-version.sh scripts/build-linux.sh scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh packaging/arch/build.sh packaging/arch/build-in-container.sh
+          bash -n scripts/build-version.sh scripts/build-web-host.sh scripts/build-linux.sh scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh packaging/arch/build.sh packaging/arch/build-in-container.sh
           python3 -m json.tool packaging/flatpak/manifest.json > /dev/null
 
       - uses: subosito/flutter-action@v2

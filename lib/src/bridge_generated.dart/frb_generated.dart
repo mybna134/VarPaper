@@ -67,7 +67,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => -1913217904;
+  int get rustContentHash => -1368566935;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -85,6 +85,10 @@ abstract class RustLibApi extends BaseApi {
     String? output,
   });
 
+  Future<void> crateBridgeWayvidServiceCancelWebSupportInstall({
+    required WayvidService that,
+  });
+
   Future<void> crateBridgeWayvidServiceClearWallpaper({
     required WayvidService that,
     String? output,
@@ -96,6 +100,10 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<ServiceInfo> crateBridgeWayvidServiceInitialize({
+    required WayvidService that,
+  });
+
+  Future<void> crateBridgeWayvidServiceInstallWebSupport({
     required WayvidService that,
   });
 
@@ -148,9 +156,17 @@ abstract class RustLibApi extends BaseApi {
     required WayvidService that,
   });
 
+  Future<void> crateBridgeWayvidServiceUninstallWebSupport({
+    required WayvidService that,
+  });
+
   Future<void> crateBridgeWayvidServiceUpdateEngineConfig({
     required WayvidService that,
     required EngineConfigDto config,
+  });
+
+  Future<WebSupportDto> crateBridgeWayvidServiceWebSupportStatus({
+    required WayvidService that,
   });
 
   RustArcIncrementStrongCountFnType
@@ -212,6 +228,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateBridgeWayvidServiceCancelWebSupportInstall({
+    required WayvidService that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 2,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateBridgeWayvidServiceCancelWebSupportInstallConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBridgeWayvidServiceCancelWebSupportInstallConstMeta =>
+      const TaskConstMeta(
+        debugName: "WayvidService_cancel_web_support_install",
+        argNames: ["that"],
+      );
+
+  @override
   Future<void> crateBridgeWayvidServiceClearWallpaper({
     required WayvidService that,
     String? output,
@@ -228,7 +280,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 2,
+            funcId: 3,
             port: port_,
           );
         },
@@ -266,7 +318,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 3,
+            funcId: 4,
             port: port_,
           );
         },
@@ -302,7 +354,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 4,
+            funcId: 5,
             port: port_,
           );
         },
@@ -320,6 +372,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kCrateBridgeWayvidServiceInitializeConstMeta =>
       const TaskConstMeta(
         debugName: "WayvidService_initialize",
+        argNames: ["that"],
+      );
+
+  @override
+  Future<void> crateBridgeWayvidServiceInstallWebSupport({
+    required WayvidService that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 6,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateBridgeWayvidServiceInstallWebSupportConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBridgeWayvidServiceInstallWebSupportConstMeta =>
+      const TaskConstMeta(
+        debugName: "WayvidService_install_web_support",
         argNames: ["that"],
       );
 
@@ -348,7 +436,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 5,
+            funcId: 7,
             port: port_,
           );
         },
@@ -385,7 +473,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 6,
+            funcId: 8,
             port: port_,
           );
         },
@@ -421,7 +509,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 7,
+            funcId: 9,
             port: port_,
           );
         },
@@ -459,7 +547,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 8,
+            funcId: 10,
             port: port_,
           );
         },
@@ -495,7 +583,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 9,
+            funcId: 11,
             port: port_,
           );
         },
@@ -531,7 +619,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 12,
             port: port_,
           );
         },
@@ -569,7 +657,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 13,
             port: port_,
           );
         },
@@ -607,7 +695,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 12,
+            funcId: 14,
             port: port_,
           );
         },
@@ -643,7 +731,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 13,
+            funcId: 15,
             port: port_,
           );
         },
@@ -677,7 +765,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 16,
             port: port_,
           );
         },
@@ -713,7 +801,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 17,
             port: port_,
           );
         },
@@ -735,6 +823,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Future<void> crateBridgeWayvidServiceUninstallWebSupport({
+    required WayvidService that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_unit,
+          decodeErrorData: sse_decode_bridge_error,
+        ),
+        constMeta: kCrateBridgeWayvidServiceUninstallWebSupportConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBridgeWayvidServiceUninstallWebSupportConstMeta =>
+      const TaskConstMeta(
+        debugName: "WayvidService_uninstall_web_support",
+        argNames: ["that"],
+      );
+
+  @override
   Future<void> crateBridgeWayvidServiceUpdateEngineConfig({
     required WayvidService that,
     required EngineConfigDto config,
@@ -751,7 +875,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -770,6 +894,42 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "WayvidService_update_engine_config",
         argNames: ["that", "config"],
+      );
+
+  @override
+  Future<WebSupportDto> crateBridgeWayvidServiceWebSupportStatus({
+    required WayvidService that,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
+            that,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 20,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_web_support_dto,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateBridgeWayvidServiceWebSupportStatusConstMeta,
+        argValues: [that],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBridgeWayvidServiceWebSupportStatusConstMeta =>
+      const TaskConstMeta(
+        debugName: "WayvidService_web_support_status",
+        argNames: ["that"],
       );
 
   RustArcIncrementStrongCountFnType
@@ -1086,6 +1246,24 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       resolutionHeight: dco_decode_opt_box_autoadd_u_32(arr[6]),
       fileSize: dco_decode_opt_box_autoadd_u_64(arr[7]),
       workshopId: dco_decode_opt_box_autoadd_u_64(arr[8]),
+    );
+  }
+
+  @protected
+  WebSupportDto dco_decode_web_support_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
+    return WebSupportDto(
+      state: dco_decode_String(arr[0]),
+      version: dco_decode_String(arr[1]),
+      diskBytes: dco_decode_f_64(arr[2]),
+      downloadedBytes: dco_decode_f_64(arr[3]),
+      totalBytes: dco_decode_opt_box_autoadd_f_64(arr[4]),
+      error: dco_decode_opt_String(arr[5]),
+      source: dco_decode_String(arr[6]),
+      supported: dco_decode_bool(arr[7]),
     );
   }
 
@@ -1488,6 +1666,29 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  WebSupportDto sse_decode_web_support_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_state = sse_decode_String(deserializer);
+    var var_version = sse_decode_String(deserializer);
+    var var_diskBytes = sse_decode_f_64(deserializer);
+    var var_downloadedBytes = sse_decode_f_64(deserializer);
+    var var_totalBytes = sse_decode_opt_box_autoadd_f_64(deserializer);
+    var var_error = sse_decode_opt_String(deserializer);
+    var var_source = sse_decode_String(deserializer);
+    var var_supported = sse_decode_bool(deserializer);
+    return WebSupportDto(
+      state: var_state,
+      version: var_version,
+      diskBytes: var_diskBytes,
+      downloadedBytes: var_downloadedBytes,
+      totalBytes: var_totalBytes,
+      error: var_error,
+      source: var_source,
+      supported: var_supported,
+    );
+  }
+
+  @protected
   void
   sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
     WayvidService self,
@@ -1820,6 +2021,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_u_64(self.fileSize, serializer);
     sse_encode_opt_box_autoadd_u_64(self.workshopId, serializer);
   }
+
+  @protected
+  void sse_encode_web_support_dto(
+    WebSupportDto self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.state, serializer);
+    sse_encode_String(self.version, serializer);
+    sse_encode_f_64(self.diskBytes, serializer);
+    sse_encode_f_64(self.downloadedBytes, serializer);
+    sse_encode_opt_box_autoadd_f_64(self.totalBytes, serializer);
+    sse_encode_opt_String(self.error, serializer);
+    sse_encode_String(self.source, serializer);
+    sse_encode_bool(self.supported, serializer);
+  }
 }
 
 @sealed
@@ -1848,6 +2065,9 @@ class WayvidServiceImpl extends RustOpaque implements WayvidService {
         output: output,
       );
 
+  Future<void> cancelWebSupportInstall() => RustLib.instance.api
+      .crateBridgeWayvidServiceCancelWebSupportInstall(that: this);
+
   Future<void> clearWallpaper({String? output}) => RustLib.instance.api
       .crateBridgeWayvidServiceClearWallpaper(that: this, output: output);
 
@@ -1858,6 +2078,9 @@ class WayvidServiceImpl extends RustOpaque implements WayvidService {
 
   Future<ServiceInfo> initialize() =>
       RustLib.instance.api.crateBridgeWayvidServiceInitialize(that: this);
+
+  Future<void> installWebSupport() => RustLib.instance.api
+      .crateBridgeWayvidServiceInstallWebSupport(that: this);
 
   Future<PreviewDto> loadPreview({
     required String wallpaperId,
@@ -1903,8 +2126,14 @@ class WayvidServiceImpl extends RustOpaque implements WayvidService {
   Future<void> stopEngine() =>
       RustLib.instance.api.crateBridgeWayvidServiceStopEngine(that: this);
 
+  Future<void> uninstallWebSupport() => RustLib.instance.api
+      .crateBridgeWayvidServiceUninstallWebSupport(that: this);
+
   Future<void> updateEngineConfig({required EngineConfigDto config}) => RustLib
       .instance
       .api
       .crateBridgeWayvidServiceUpdateEngineConfig(that: this, config: config);
+
+  Future<WebSupportDto> webSupportStatus() =>
+      RustLib.instance.api.crateBridgeWayvidServiceWebSupportStatus(that: this);
 }

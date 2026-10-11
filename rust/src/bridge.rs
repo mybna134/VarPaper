@@ -13,6 +13,8 @@ use wayvid_engine::{EngineConfig, VideoConfig};
 use wayvid_library::{FolderScanner, SteamLibrary, ThumbnailGenerator};
 
 use crate::engine::EngineController;
+use crate::web_component::WebComponent;
+use wayvid_library::{WallpaperItem, WallpaperType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeError {
@@ -41,6 +43,18 @@ impl BridgeError {
             message: message.into(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WebSupportDto {
+    pub state: String,
+    pub version: String,
+    pub disk_bytes: f64,
+    pub downloaded_bytes: f64,
+    pub total_bytes: Option<f64>,
+    pub error: Option<String>,
+    pub source: String,
+    pub supported: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,6 +147,7 @@ struct ServiceInner {
 
 #[derive(Clone)]
 pub struct WayvidService {
+    web_component: Arc<WebComponent>,
     inner: Arc<Mutex<ServiceInner>>,
 }
 
@@ -146,12 +161,56 @@ impl WayvidService {
             .try_init()
             .ok();
 
+        let component_root = dirs::data_local_dir()
+            .ok_or_else(|| {
+                BridgeError::message(
+                    "component_directory",
+                    "Application data directory is unavailable",
+                )
+            })?
+            .join("varpaper/components/web");
         Ok(Self {
+            web_component: WebComponent::shared(component_root),
             inner: Arc::new(Mutex::new(ServiceInner {
                 engine: EngineController::new(),
                 events: VecDeque::new(),
             })),
         })
+    }
+
+    pub async fn web_support_status(&self) -> WebSupportDto {
+        self.web_component.status()
+    }
+
+    pub async fn install_web_support(&self) -> Result<(), BridgeError> {
+        self.web_component
+            .install()
+            .map_err(|error| BridgeError::message("web_install_failed", error.to_string()))
+    }
+
+    pub async fn cancel_web_support_install(&self) {
+        self.web_component.cancel();
+    }
+
+    pub async fn uninstall_web_support(&self) -> Result<(), BridgeError> {
+        self.web_component
+            .prepare_uninstall()
+            .map_err(|error| BridgeError::message("web_uninstall_failed", error.to_string()))?;
+        let result = async {
+            while self.web_component.busy() {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            self.lock()?
+                .engine
+                .stop_web()
+                .map_err(|message| BridgeError::message("web_shutdown_failed", message))?;
+            self.web_component
+                .uninstall()
+                .map_err(|error| BridgeError::message("web_uninstall_failed", error.to_string()))
+        }
+        .await;
+        self.web_component.finish_uninstall();
+        result
     }
 
     pub fn initialize(&self) -> Result<ServiceInfo, BridgeError> {
@@ -170,7 +229,7 @@ impl WayvidService {
         })
         .await
         .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
-        Ok(items.iter().map(wallpaper_to_dto).collect())
+        Ok(items.iter().map(|item| self.wallpaper_dto(item)).collect())
     }
 
     pub async fn scan_workshop(&self) -> Result<Vec<WallpaperDto>, BridgeError> {
@@ -183,7 +242,25 @@ impl WayvidService {
         })
         .await
         .map_err(|error| BridgeError::message("join_failed", error.to_string()))??;
-        Ok(items.iter().map(wallpaper_to_dto).collect())
+        Ok(items.iter().map(|item| self.wallpaper_dto(item)).collect())
+    }
+
+    fn wallpaper_dto(&self, item: &WallpaperItem) -> WallpaperDto {
+        let mut dto = wallpaper_to_dto(item);
+        if item.wallpaper_type == WallpaperType::Web
+            && item.compatibility == wayvid_library::CompatibilityStatus::RequiresRenderer
+        {
+            if self.web_component.playback_allowed() && wayvid_engine::web::available() {
+                dto.compatibility = "ready".into();
+                dto.compatibility_reason = None;
+            } else if !self.web_component.playback_allowed() {
+                dto.compatibility_reason = Some(
+                    "Install Web wallpaper support in Settings before applying this wallpaper."
+                        .into(),
+                );
+            }
+        }
+        dto
     }
 
     pub async fn load_preview(
@@ -309,8 +386,9 @@ impl WayvidService {
         path: String,
         output: Option<String>,
     ) -> Result<(), BridgeError> {
-        let source = validate_media_source(Path::new(&path))?;
+        let source = validate_source(Path::new(&path), self.web_component.playback_allowed())?;
         let mut guard = self.lock()?;
+        let source = validate_source(&source, self.web_component.playback_allowed())?;
         guard
             .engine
             .wait_for_outputs(Duration::from_secs(5))
@@ -406,6 +484,7 @@ impl WayvidService {
     }
 
     pub async fn shutdown(&self) -> Result<(), BridgeError> {
+        self.web_component.cancel();
         self.lock()?.engine.stop();
         Ok(())
     }
@@ -419,7 +498,11 @@ impl WayvidService {
 
 // Keep the legacy path API safe while typed renderers are being integrated.
 // A project manifest/directory must never reach mpv as if it were a video.
+#[cfg(test)]
 fn validate_media_source(path: &Path) -> Result<PathBuf, BridgeError> {
+    validate_source(path, false)
+}
+fn validate_source(path: &Path, web_installed: bool) -> Result<PathBuf, BridgeError> {
     let root = if path.is_dir() {
         path
     } else {
@@ -436,7 +519,18 @@ fn validate_media_source(path: &Path) -> Result<PathBuf, BridgeError> {
             shared,
         )
         .map_err(BridgeError::from)?;
-        if item.compatibility != wayvid_library::CompatibilityStatus::Ready {
+        let web = item.wallpaper_type == WallpaperType::Web;
+        if web && !web_installed {
+            return Err(BridgeError::message(
+                "requires_renderer",
+                "Install Web wallpaper support in Settings before applying this wallpaper.",
+            ));
+        }
+        if item.compatibility != wayvid_library::CompatibilityStatus::Ready
+            && !(web
+                && web_installed
+                && item.compatibility == wayvid_library::CompatibilityStatus::RequiresRenderer)
+        {
             return Err(BridgeError::message(
                 item.compatibility.as_str(),
                 item.compatibility_reason

@@ -30,6 +30,9 @@ pub trait WallpaperRenderer {
         Ok(())
     }
     fn capabilities(&self) -> RendererCapabilities;
+    fn is_web(&self) -> bool {
+        false
+    }
 }
 
 impl WallpaperRenderer for MpvPlayer {
@@ -213,7 +216,16 @@ pub fn create_renderer(
                 scene.update_config(config)?;
                 return Ok(Box::new(scene));
             }
-            WallpaperType::Web => bail!("Web renderer has not been installed"),
+            WallpaperType::Web => {
+                let project = item.project.context("Web project source missing")?;
+                return Ok(Box::new(crate::web::WebRenderer::new(
+                    &project.root,
+                    project.entry.as_deref().context("Web entry missing")?,
+                    output.width,
+                    output.height,
+                    config,
+                )?));
+            }
             WallpaperType::Video | WallpaperType::Image | WallpaperType::Gif => {
                 media_path = item.source_path
             }

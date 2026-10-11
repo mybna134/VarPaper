@@ -428,8 +428,9 @@ impl ThumbnailService {
                                 wallpaper_id: req.wallpaper_id,
                                 result: result.map_err(|e| e.to_string()),
                             };
-                            let _ = tx.send(response).await;
+                            // Publish completion only after the pending counter agrees.
                             *pending.write() -= 1;
+                            let _ = tx.send(response).await;
                         }
                         None => break,
                     }
@@ -448,10 +449,11 @@ impl ThumbnailService {
     /// Submit a thumbnail request
     pub async fn request(&self, request: ThumbnailRequest) -> Result<()> {
         *self.pending_count.write() += 1;
-        self.request_tx
-            .send(request)
-            .await
-            .map_err(|_| anyhow::anyhow!("Thumbnail service channel closed"))
+        if self.request_tx.send(request).await.is_err() {
+            *self.pending_count.write() -= 1;
+            anyhow::bail!("Thumbnail service channel closed");
+        }
+        Ok(())
     }
 
     /// Try to receive a completed thumbnail

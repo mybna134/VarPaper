@@ -6,5 +6,6 @@ mod frb_generated; /* AUTO INJECTED BY flutter_rust_bridge. This line may not be
 
 mod bridge;
 mod engine;
+mod web_component;
 
 pub use bridge::*;

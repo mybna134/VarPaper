@@ -23,7 +23,11 @@ readelf -d "$bundle/lib/libwayvid_gui.so" | grep -Fq '[libmpv.so.2]' || {
   echo 'The Debian dependency list expects libmpv.so.2' >&2
   exit 1
 }
-glibc_min="$(readelf --version-info "$bundle/wayvid-gui" "$bundle"/lib/*.so \
+elf_files=("$bundle/wayvid-gui" "$bundle"/lib/*.so)
+if [[ -x "$bundle/libexec/varpaper-web-host" ]]; then
+  elf_files+=("$bundle/libexec/varpaper-web-host")
+fi
+glibc_min="$(readelf --version-info "${elf_files[@]}" \
   | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | cut -d_ -f2 | sort -Vu | tail -n 1)"
 [[ -n "$glibc_min" ]] || { echo 'Could not determine the minimum glibc version' >&2; exit 1; }
 

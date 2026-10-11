@@ -140,3 +140,14 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Chromium stays optional: bundle the helper without its CEF runtime dependency.
+# scripts/build-linux.sh supplies a helper compiled against the pinned SDK.
+if(DEFINED ENV{VARPAPER_WEB_HOST_BINARY})
+  install(PROGRAMS "$ENV{VARPAPER_WEB_HOST_BINARY}"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/libexec" COMPONENT Runtime)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../native/web/CEF-LICENSE"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses" COMPONENT Runtime)
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../native/web/runtime.json"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+endif()

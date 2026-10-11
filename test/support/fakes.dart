@@ -133,6 +133,44 @@ class FakeService implements WayvidService {
   final Map<String, List<WallpaperDto>> folders;
   final List<WallpaperDto> workshop;
 
+  WebSupportDto webSupport = const WebSupportDto(
+    state: 'not_installed',
+    version: 'test',
+    diskBytes: 0,
+    downloadedBytes: 0,
+    source: 'https://cef-builds.spotifycdn.com/',
+    supported: true,
+  );
+  int webStatusLoads = 0;
+  @override
+  Future<WebSupportDto> webSupportStatus() async {
+    webStatusLoads++;
+    return webSupport;
+  }
+
+  @override
+  Future<void> installWebSupport() async {
+    calls.add('installWebSupport');
+  }
+
+  @override
+  Future<void> cancelWebSupportInstall() async {
+    calls.add('cancelWebSupportInstall');
+  }
+
+  @override
+  Future<void> uninstallWebSupport() async {
+    calls.add('uninstallWebSupport');
+    webSupport = const WebSupportDto(
+      state: 'not_installed',
+      version: 'test',
+      diskBytes: 0,
+      downloadedBytes: 0,
+      source: 'https://cef-builds.spotifycdn.com/',
+      supported: true,
+    );
+  }
+
   Object? createEngineError;
   Object? pollError;
   final events = <ServiceEvent>[];

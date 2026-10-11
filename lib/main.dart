@@ -120,11 +120,62 @@ class WayvidController extends ChangeNotifier {
   String search = '';
   bool showLocalWallpapers = true;
   bool showWorkshopWallpapers = true;
-  Set<String> wallpaperCategories = {'scene', 'video'};
+  Set<String> wallpaperCategories = {
+    'scene',
+    'video',
+    'web',
+    'image',
+    'gif',
+    'unsupported',
+  };
   String? selectedWallpaperId;
   String page = 'library';
   Timer? eventTimer;
   bool _pollingEvents = false;
+  WebSupportDto? webSupport;
+  bool webSupportActionPending = false;
+  bool get webSupportBusy =>
+      webSupportActionPending ||
+      {
+        'downloading',
+        'verifying',
+        'installing',
+        'uninstalling',
+      }.contains(webSupport?.state);
+
+  Future<void> refreshWebSupport() async {
+    final previous = webSupport?.state;
+    webSupport = await service.webSupportStatus();
+    if (previous != null &&
+        previous != webSupport?.state &&
+        (previous == 'installed' || webSupport?.state == 'installed')) {
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> installWebSupport() =>
+      _manageWebSupport(service.installWebSupport);
+  Future<void> uninstallWebSupport() =>
+      _manageWebSupport(service.uninstallWebSupport);
+  Future<void> cancelWebSupportInstall() =>
+      _manageWebSupport(service.cancelWebSupportInstall);
+
+  Future<void> _manageWebSupport(Future<void> Function() action) async {
+    if (webSupportActionPending) return;
+    webSupportActionPending = true;
+    notifyListeners();
+    try {
+      await _run(() async {
+        await action();
+        await refreshWebSupport();
+      });
+    } finally {
+      webSupportActionPending = false;
+      notifyListeners();
+    }
+  }
+
   final _thumbnailCache = PreviewCache();
   final Map<String, WallpaperAssignmentRecord> _assignments = {};
 
@@ -132,6 +183,10 @@ class WayvidController extends ChangeNotifier {
   final Map<String, String> appliedByOutput = {};
 
   Set<String> get appliedWallpaperIds => appliedByOutput.values.toSet();
+
+  bool canApplyWallpaper(WallpaperDto wallpaper) =>
+      wallpaper.compatibility == 'ready' &&
+      (wallpaper.wallpaperType != 'web' || webSupport?.state == 'installed');
 
   bool isAppliedTo(String wallpaperId, String output) =>
       appliedByOutput[output] == wallpaperId;
@@ -190,6 +245,7 @@ class WayvidController extends ChangeNotifier {
         controller.error = exception.toString();
       }
     }
+    await controller.refreshWebSupport();
     await controller.refresh();
     if (settings.restoreLastWallpaper) {
       controller._assignments.addAll(await settingsStore.loadAssignments());
@@ -231,6 +287,8 @@ class WayvidController extends ChangeNotifier {
     });
   }
 
+  DateTime _nextWebStatusPoll = DateTime.fromMillisecondsSinceEpoch(0);
+
   Future<void> pollEvents() async {
     if (_pollingEvents) return;
     _pollingEvents = true;
@@ -248,7 +306,15 @@ class WayvidController extends ChangeNotifier {
           appliedByOutput.removeWhere((name, _) => !connected.contains(name));
           await _restoreOutputs(connected.difference(previous));
         }
+        if (event is ServiceEvent_WallpaperCleared) {
+          appliedByOutput.remove(event.output);
+        }
         if (event is ServiceEvent_Error) error = event.message;
+      }
+      if (webSupportBusy ||
+          (page == 'settings' && DateTime.now().isAfter(_nextWebStatusPoll))) {
+        _nextWebStatusPoll = DateTime.now().add(const Duration(seconds: 2));
+        await refreshWebSupport();
       }
       notifyListeners();
     } catch (_) {
@@ -289,6 +355,12 @@ class WayvidController extends ChangeNotifier {
   Future<void> apply(String wallpaperId, {String? output}) async {
     await _run(() async {
       final wallpaper = wallpapers.firstWhere((item) => item.id == wallpaperId);
+      if (wallpaper.wallpaperType == 'web' &&
+          webSupport?.state != 'installed') {
+        throw StateError(
+          'Install Web wallpaper support in Settings before applying this wallpaper.',
+        );
+      }
       if (wallpaper.compatibility != 'ready') {
         throw StateError(
           wallpaper.compatibilityReason ?? 'Wallpaper renderer unavailable',
@@ -474,6 +546,8 @@ class WayvidController extends ChangeNotifier {
     notifyListeners();
     try {
       await action();
+    } on StateError catch (exception) {
+      error = exception.message.toString();
     } on FrbException catch (exception) {
       error = exception.toString();
     } catch (exception) {
@@ -1148,23 +1222,29 @@ class _ContentState extends State<_Content> {
       headerBottom: isLibrary
           ? Padding(
               padding: const EdgeInsets.fromLTRB(28, 0, 28, 12),
-              child: SegmentedButton<String>(
-                segments: [
-                  ButtonSegment<String>(
-                    value: 'scene',
-                    label: Text(l10n.text('Scene')),
-                    icon: Icon(Icons.auto_awesome_motion_outlined),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'video',
-                    label: Text(l10n.text('Video')),
-                    icon: Icon(Icons.movie_outlined),
-                  ),
-                ],
-                selected: controller.wallpaperCategories,
-                multiSelectionEnabled: true,
-                emptySelectionAllowed: false,
-                onSelectionChanged: controller.setWallpaperCategories,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<String>(
+                  segments: [
+                    for (final type in [
+                      'scene',
+                      'video',
+                      'web',
+                      'image',
+                      'gif',
+                      'unsupported',
+                    ])
+                      ButtonSegment<String>(
+                        value: type,
+                        label: Text(l10n.text(_wallpaperTypeLabel(type))),
+                        icon: Icon(_wallpaperTypeIcon(type)),
+                      ),
+                  ],
+                  selected: controller.wallpaperCategories,
+                  multiSelectionEnabled: true,
+                  emptySelectionAllowed: false,
+                  onSelectionChanged: controller.setWallpaperCategories,
+                ),
               ),
             )
           : const SizedBox.shrink(),
@@ -1215,7 +1295,7 @@ class _Notice extends StatelessWidget {
       children: [
         Icon(icon),
         const SizedBox(width: 10),
-        Expanded(child: Text(text)),
+        Expanded(child: Text(WayvidLocalizations.of(context).text(text))),
       ],
     ),
   );
@@ -1292,7 +1372,9 @@ class _WallpaperCard extends StatelessWidget {
           _showWallpaperDetails(context, controller, wallpaper);
         }
       },
-      onDoubleTap: () => controller.apply(wallpaper.id),
+      onDoubleTap: controller.canApplyWallpaper(wallpaper)
+          ? () => controller.apply(wallpaper.id)
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1365,8 +1447,24 @@ class _WallpaperCard extends StatelessWidget {
   );
 }
 
-/// Small icon badge in the preview corner showing whether a wallpaper is a
-/// scene or a video, matching the icons used by the category filter.
+String _wallpaperTypeLabel(String type) => switch (type) {
+  'scene' => 'Scene',
+  'video' => 'Video',
+  'web' => 'Web',
+  'image' => 'Image',
+  'gif' => 'GIF',
+  _ => 'Unsupported',
+};
+IconData _wallpaperTypeIcon(String type) => switch (type) {
+  'scene' => Icons.auto_awesome_motion_outlined,
+  'video' => Icons.movie_outlined,
+  'web' => Icons.language,
+  'image' => Icons.image_outlined,
+  'gif' => Icons.gif_box_outlined,
+  _ => Icons.block,
+};
+
+/// Actual project/media type, matching the library filter.
 class _WallpaperCategoryBadge extends StatelessWidget {
   const _WallpaperCategoryBadge({required this.category});
   final String category;
@@ -1374,9 +1472,8 @@ class _WallpaperCategoryBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = WayvidLocalizations.of(context);
-    final isVideo = category == 'video';
     return Tooltip(
-      message: l10n.text(isVideo ? 'Video' : 'Scene'),
+      message: l10n.text(_wallpaperTypeLabel(category)),
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
@@ -1384,7 +1481,7 @@ class _WallpaperCategoryBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Icon(
-          isVideo ? Icons.movie_outlined : Icons.auto_awesome_motion_outlined,
+          _wallpaperTypeIcon(category),
           size: 16,
           color: Colors.white,
         ),
@@ -1487,10 +1584,36 @@ class _Details extends StatelessWidget {
                             label: Text(l10n.text('Unapply from all monitors')),
                           )
                         : FilledButton.icon(
-                            onPressed: () => controller.apply(wallpaper.id),
+                            onPressed: controller.canApplyWallpaper(wallpaper)
+                                ? () => controller.apply(wallpaper.id)
+                                : null,
                             icon: const Icon(Icons.wallpaper),
                             label: Text(l10n.text('Apply to all monitors')),
                           ),
+                    if (wallpaper.wallpaperType == 'web' &&
+                        controller.webSupport?.state != 'installed') ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.text(
+                          'Install Web wallpaper support in Settings before applying this wallpaper.',
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          controller.navigate('settings');
+                        },
+                        child: Text(l10n.text('Open settings')),
+                      ),
+                    ] else if (wallpaper.compatibility != 'ready') ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.text(
+                          wallpaper.compatibilityReason ??
+                              'Wallpaper renderer unavailable',
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     for (final monitor in controller.monitors)
                       Padding(
@@ -1506,10 +1629,13 @@ class _Details extends StatelessWidget {
                                 ),
                               )
                             : OutlinedButton(
-                                onPressed: () => controller.apply(
-                                  wallpaper.id,
-                                  output: monitor.name,
-                                ),
+                                onPressed:
+                                    controller.canApplyWallpaper(wallpaper)
+                                    ? () => controller.apply(
+                                        wallpaper.id,
+                                        output: monitor.name,
+                                      )
+                                    : null,
                                 child: Text(
                                   '${l10n.text('Apply to')} ${monitor.name}',
                                 ),
@@ -1788,6 +1914,8 @@ class _SettingsPage extends StatelessWidget {
                 controller.update(SettingsPatch(restoreLastWallpaper: value)),
           ),
         ),
+        const Divider(height: 36),
+        _WebSupportSettings(controller: controller),
       ],
     );
   }
@@ -1801,6 +1929,119 @@ String _variantLabel(String variant) => switch (variant) {
   'expressive' => 'Expressive',
   _ => 'Tonal spot',
 };
+
+class _WebSupportSettings extends StatelessWidget {
+  const _WebSupportSettings({required this.controller});
+  final WayvidController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WayvidLocalizations.of(context);
+    final component = controller.webSupport;
+    final state = component?.state ?? 'loading';
+    final installed = state == 'installed';
+    final busy = controller.webSupportBusy;
+    final description = switch (state) {
+      'installed' => 'Installed',
+      'downloading' => 'Downloading',
+      'verifying' => 'Verifying download',
+      'installing' => 'Installing',
+      'uninstalling' => 'Uninstalling',
+      'error' => 'Installation unavailable',
+      'loading' => 'Loading',
+      _ => 'Not installed',
+    };
+    final total = component?.totalBytes;
+    final downloaded = component?.downloadedBytes ?? 0;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.text('Web wallpaper support'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(l10n.text(description)),
+            Text(
+              l10n.text(
+                'Install Chromium components from the official source to play Web wallpapers.',
+              ),
+            ),
+            Text(
+              l10n.text(
+                'Uninstalling stops Web wallpapers and frees disk space. Your wallpaper files and saved properties are kept.',
+              ),
+            ),
+            if (component != null) ...[
+              const SizedBox(height: 8),
+              Text('${l10n.text('Version')}: ${component.version}'),
+              Text(
+                '${l10n.text('Disk usage')}: ${(component.diskBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+              ),
+              Text('${l10n.text('Download source')}: ${component.source}'),
+              if (!component.supported)
+                Text(
+                  l10n.text(
+                    'Web support is unavailable for this architecture.',
+                  ),
+                ),
+              if (component.error != null)
+                Text(
+                  component.error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+            if (busy) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                value: state == 'downloading' && total != null && total > 0
+                    ? (downloaded / total).clamp(0.0, 1.0)
+                    : null,
+              ),
+              if (state == 'downloading')
+                Text(
+                  '${(downloaded / (1024 * 1024)).toStringAsFixed(1)} MB'
+                  '${total == null ? '' : ' / ${(total / (1024 * 1024)).toStringAsFixed(1)} MB'}',
+                ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              children: [
+                if (!installed && !busy)
+                  FilledButton(
+                    onPressed: component?.supported == true
+                        ? controller.installWebSupport
+                        : null,
+                    child: Text(
+                      l10n.text(
+                        state == 'error' ? 'Retry installation' : 'Install',
+                      ),
+                    ),
+                  ),
+                if (busy && state != 'uninstalling')
+                  TextButton(
+                    onPressed: controller.webSupportActionPending
+                        ? null
+                        : controller.cancelWebSupportInstall,
+                    child: Text(l10n.text('Cancel')),
+                  ),
+                if (!busy && (installed || (component?.diskBytes ?? 0) > 0))
+                  OutlinedButton(
+                    onPressed: controller.uninstallWebSupport,
+                    child: Text(l10n.text('Uninstall')),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _PaletteSettings extends StatelessWidget {
   const _PaletteSettings({required this.controller});

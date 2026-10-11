@@ -635,6 +635,24 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             }
         }
 
+        EngineCommand::StopWeb(reply) => {
+            let result = (|| -> Result<()> {
+                let mut cleared = Vec::new();
+                for (name, session) in &mut state.sessions {
+                    if session.stop_web()? {
+                        cleared.push(name.clone());
+                    }
+                }
+                for output in cleared {
+                    state.remove_wallpaper(&output);
+                    let _ = state
+                        .events_tx
+                        .send(EngineEvent::WallpaperCleared { output });
+                }
+                Ok(())
+            })();
+            let _ = reply.send(result.map_err(|error| error.to_string()));
+        }
         EngineCommand::ClearWallpaper { output } => {
             debug!("ClearWallpaper: {:?}", output);
 

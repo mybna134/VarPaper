@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1913217904;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1368566935;
 
 // Section: executor
 
@@ -101,6 +101,66 @@ fn wire__crate__bridge__WayvidService_apply_wallpaper_impl(
                             api_output,
                         )
                         .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bridge__WayvidService_cancel_web_support_install_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_cancel_web_support_install",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = Result::<_, ()>::Ok({
+                            crate::bridge::WayvidService::cancel_web_support_install(
+                                &*api_that_guard,
+                            )
+                            .await;
+                        })?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -274,6 +334,63 @@ fn wire__crate__bridge__WayvidService_initialize_impl(
                     let output_ok = crate::bridge::WayvidService::initialize(&*api_that_guard)?;
                     Ok(output_ok)
                 })())
+            }
+        },
+    )
+}
+fn wire__crate__bridge__WayvidService_install_web_support_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_install_web_support",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::bridge::WayvidService::install_web_support(&*api_that_guard)
+                                .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
             }
         },
     )
@@ -884,6 +1001,63 @@ fn wire__crate__bridge__WayvidService_stop_engine_impl(
         },
     )
 }
+fn wire__crate__bridge__WayvidService_uninstall_web_support_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_uninstall_web_support",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok =
+                            crate::bridge::WayvidService::uninstall_web_support(&*api_that_guard)
+                                .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__bridge__WayvidService_update_engine_config_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -936,6 +1110,64 @@ fn wire__crate__bridge__WayvidService_update_engine_config_impl(
                             api_config,
                         )
                         .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bridge__WayvidService_web_support_status_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_web_support_status",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, ()>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = Result::<_, ()>::Ok(
+                            crate::bridge::WayvidService::web_support_status(&*api_that_guard)
+                                .await,
+                        )?;
                         Ok(output_ok)
                     })()
                     .await,
@@ -1341,6 +1573,30 @@ impl SseDecode for crate::bridge::WallpaperMetadataDto {
     }
 }
 
+impl SseDecode for crate::bridge::WebSupportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_state = <String>::sse_decode(deserializer);
+        let mut var_version = <String>::sse_decode(deserializer);
+        let mut var_diskBytes = <f64>::sse_decode(deserializer);
+        let mut var_downloadedBytes = <f64>::sse_decode(deserializer);
+        let mut var_totalBytes = <Option<f64>>::sse_decode(deserializer);
+        let mut var_error = <Option<String>>::sse_decode(deserializer);
+        let mut var_source = <String>::sse_decode(deserializer);
+        let mut var_supported = <bool>::sse_decode(deserializer);
+        return crate::bridge::WebSupportDto {
+            state: var_state,
+            version: var_version,
+            disk_bytes: var_diskBytes,
+            downloaded_bytes: var_downloadedBytes,
+            total_bytes: var_totalBytes,
+            error: var_error,
+            source: var_source,
+            supported: var_supported,
+        };
+    }
+}
+
 fn pde_ffi_dispatcher_primary_impl(
     func_id: i32,
     port: flutter_rust_bridge::for_generated::MessagePort,
@@ -1356,41 +1612,67 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        2 => wire__crate__bridge__WayvidService_clear_wallpaper_impl(
+        2 => wire__crate__bridge__WayvidService_cancel_web_support_install_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        3 => {
+        3 => wire__crate__bridge__WayvidService_clear_wallpaper_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        4 => {
             wire__crate__bridge__WayvidService_create_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        4 => wire__crate__bridge__WayvidService_initialize_impl(port, ptr, rust_vec_len, data_len),
-        5 => {
-            wire__crate__bridge__WayvidService_load_preview_impl(port, ptr, rust_vec_len, data_len)
-        }
-        6 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__bridge__WayvidService_poll_events_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
+        5 => wire__crate__bridge__WayvidService_initialize_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__bridge__WayvidService_install_web_support_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        11 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
-        12 => {
+        7 => {
+            wire__crate__bridge__WayvidService_load_preview_impl(port, ptr, rust_vec_len, data_len)
+        }
+        8 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
+        11 => {
+            wire__crate__bridge__WayvidService_poll_events_impl(port, ptr, rust_vec_len, data_len)
+        }
+        12 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        13 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
+        14 => {
             wire__crate__bridge__WayvidService_scan_folder_impl(port, ptr, rust_vec_len, data_len)
         }
-        13 => {
+        15 => {
             wire__crate__bridge__WayvidService_scan_workshop_impl(port, ptr, rust_vec_len, data_len)
         }
-        14 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
-        15 => {
+        16 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
+        17 => {
             wire__crate__bridge__WayvidService_stop_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        16 => wire__crate__bridge__WayvidService_update_engine_config_impl(
+        18 => wire__crate__bridge__WayvidService_uninstall_web_support_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        19 => wire__crate__bridge__WayvidService_update_engine_config_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        20 => wire__crate__bridge__WayvidService_web_support_status_impl(
             port,
             ptr,
             rust_vec_len,
@@ -1625,6 +1907,30 @@ impl flutter_rust_bridge::IntoIntoDart<crate::bridge::WallpaperMetadataDto>
     for crate::bridge::WallpaperMetadataDto
 {
     fn into_into_dart(self) -> crate::bridge::WallpaperMetadataDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::bridge::WebSupportDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.state.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
+            self.disk_bytes.into_into_dart().into_dart(),
+            self.downloaded_bytes.into_into_dart().into_dart(),
+            self.total_bytes.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
+            self.source.into_into_dart().into_dart(),
+            self.supported.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::bridge::WebSupportDto {}
+impl flutter_rust_bridge::IntoIntoDart<crate::bridge::WebSupportDto>
+    for crate::bridge::WebSupportDto
+{
+    fn into_into_dart(self) -> crate::bridge::WebSupportDto {
         self
     }
 }
@@ -1926,6 +2232,20 @@ impl SseEncode for crate::bridge::WallpaperMetadataDto {
         <Option<u32>>::sse_encode(self.resolution_height, serializer);
         <Option<u64>>::sse_encode(self.file_size, serializer);
         <Option<u64>>::sse_encode(self.workshop_id, serializer);
+    }
+}
+
+impl SseEncode for crate::bridge::WebSupportDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.state, serializer);
+        <String>::sse_encode(self.version, serializer);
+        <f64>::sse_encode(self.disk_bytes, serializer);
+        <f64>::sse_encode(self.downloaded_bytes, serializer);
+        <Option<f64>>::sse_encode(self.total_bytes, serializer);
+        <Option<String>>::sse_encode(self.error, serializer);
+        <String>::sse_encode(self.source, serializer);
+        <bool>::sse_encode(self.supported, serializer);
     }
 }
 

@@ -25,6 +25,7 @@ pub mod renderer;
 pub mod scene;
 pub mod types;
 pub mod wayland;
+pub mod web;
 
 // Re-exports - Engine API
 pub use engine::{

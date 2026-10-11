@@ -9,19 +9,23 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'bridge.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `wallpaper_to_dto`
+// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `validate_media_source`, `wallpaper_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ServiceInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>>
 abstract class WayvidService implements RustOpaqueInterface {
   Future<void> applyWallpaper({required String path, String? output});
+
+  Future<void> cancelWebSupportInstall();
 
   Future<void> clearWallpaper({String? output});
 
   Future<void> createEngine({required EngineConfigDto config});
 
   Future<ServiceInfo> initialize();
+
+  Future<void> installWebSupport();
 
   Future<PreviewDto> loadPreview({
     required String wallpaperId,
@@ -53,7 +57,11 @@ abstract class WayvidService implements RustOpaqueInterface {
 
   Future<void> stopEngine();
 
+  Future<void> uninstallWebSupport();
+
   Future<void> updateEngineConfig({required EngineConfigDto config});
+
+  Future<WebSupportDto> webSupportStatus();
 }
 
 class BridgeError implements FrbException {
@@ -372,4 +380,51 @@ class WallpaperMetadataDto {
           resolutionHeight == other.resolutionHeight &&
           fileSize == other.fileSize &&
           workshopId == other.workshopId;
+}
+
+class WebSupportDto {
+  final String state;
+  final String version;
+  final double diskBytes;
+  final double downloadedBytes;
+  final double? totalBytes;
+  final String? error;
+  final String source;
+  final bool supported;
+
+  const WebSupportDto({
+    required this.state,
+    required this.version,
+    required this.diskBytes,
+    required this.downloadedBytes,
+    this.totalBytes,
+    this.error,
+    required this.source,
+    required this.supported,
+  });
+
+  @override
+  int get hashCode =>
+      state.hashCode ^
+      version.hashCode ^
+      diskBytes.hashCode ^
+      downloadedBytes.hashCode ^
+      totalBytes.hashCode ^
+      error.hashCode ^
+      source.hashCode ^
+      supported.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebSupportDto &&
+          runtimeType == other.runtimeType &&
+          state == other.state &&
+          version == other.version &&
+          diskBytes == other.diskBytes &&
+          downloadedBytes == other.downloadedBytes &&
+          totalBytes == other.totalBytes &&
+          error == other.error &&
+          source == other.source &&
+          supported == other.supported;
 }

@@ -134,6 +134,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   WallpaperMetadataDto dco_decode_wallpaper_metadata_dto(dynamic raw);
 
   @protected
+  WebSupportDto dco_decode_web_support_dto(dynamic raw);
+
+  @protected
   WayvidService
   sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerWayvidService(
     SseDeserializer deserializer,
@@ -248,6 +251,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   WallpaperMetadataDto sse_decode_wallpaper_metadata_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  WebSupportDto sse_decode_web_support_dto(SseDeserializer deserializer);
 
   @protected
   void
@@ -380,6 +386,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     WallpaperMetadataDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_web_support_dto(WebSupportDto self, SseSerializer serializer);
 }
 
 // Section: wire_class
