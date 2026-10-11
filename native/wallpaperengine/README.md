@@ -9,8 +9,8 @@ pins dependency archives and SHA-256 checksums. Both sources and their license
 notices remain in this directory. These snapshots build without the reference
 checkout or network access.
 
-This component is in development. The application currently reports Scene/Web
-projects as requiring a renderer. Native fixture success is not evidence that
+This component is in development. The application currently reports Scene projects as requiring a renderer.
+Optional Web rendering is a separate component under `native/web`. Native fixture success is not evidence that
 desktop integration, audio capture, SceneScript or Web support is complete.
 
 System development dependencies: CMake 3.24+, C++20 compiler, Python 3, pkg-config,

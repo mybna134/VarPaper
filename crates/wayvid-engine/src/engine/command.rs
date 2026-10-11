@@ -26,6 +26,9 @@ pub enum EngineCommand {
         output: Option<String>,
     },
 
+    /// Stop Web sessions and acknowledge host shutdown before runtime deletion.
+    StopWeb(std::sync::mpsc::Sender<Result<(), String>>),
+
     /// Set volume for an output
     SetVolume {
         /// Target output

@@ -64,4 +64,38 @@ These fixtures currently cover the minimal Scene clear-color frame, Image to
 Scene replacement, invalid candidate rollback, native failure cleanup and
 thread ownership. Full SceneScript/audio visualization, Web, packaging and
 desktop qualification remain tracked in `add-all-wallpaper-types`; scanning
-still reports Scene/Web as requiring their completed renderer integration.
+still reports Scene as requiring its completed renderer integration. Web uses
+the optional browser host described below.
+
+## Optional Web runtime development
+
+Settings contains **Web wallpaper support** with explicit install, progress,
+cancel, retry and uninstall actions. Startup, scanning and applying a project
+never download Chromium. Missing components leave Web projects visible and
+link their disabled apply action to Settings. Installation is currently pinned
+to the official CEF Linux x86_64 minimal distribution; other architectures show
+an unavailable state. The base application does not bundle this runtime.
+
+The component manager stores libraries, resources, locales and the upstream
+license/credits under the application's local data directory at
+`varpaper/components/web/runtime`. It verifies the fixed archive SHA-256,
+rejects archive links and unsafe paths, limits sizes and commits installation
+after validation. Restart validates the installation record and file hashes.
+Uninstall removes the owned component directory and temporary files, preserving
+wallpaper projects and saved assignments. Web browser playback is now connected through the shared host, provided the
+bundle contains `libexec/varpaper-web-host`. Local HTML/CSS/JS, Canvas/WebGL,
+resize and pause/resume have passed the native fixtures. Project property
+callbacks and audio visualization are still pending; see
+[native Web component notes](../../../native/web/README.md).
+
+`scripts/build-linux.sh` compiles the helper using the pinned SDK (set `CEF_ROOT`
+to reuse an extracted SDK). The base bundle includes its manifest and wrapper
+license but excludes the optional CEF runtime. A direct Flutter build can select
+a prebuilt helper with `VARPAPER_WEB_HOST_BINARY`. Build-time SDK downloads do
+not install the user's runtime component.
+
+Run component unit tests with `cargo test -p wayvid_gui web_component --offline`.
+For the real pinned archive fixture, set `VARPAPER_TEST_CEF_ARCHIVE` to a locally
+downloaded official `.tar.bz2`. That fixture validates extraction, installation,
+restart and removal in a temporary directory and requires space for the full
+runtime; it does not install components into the user's application data.

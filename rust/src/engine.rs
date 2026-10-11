@@ -48,6 +48,17 @@ impl EngineController {
         Ok(())
     }
 
+    pub fn stop_web(&self) -> Result<(), String> {
+        if !self.is_running() {
+            return Ok(());
+        }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        self.send_command(EngineCommand::StopWeb(sender))?;
+        receiver
+            .recv_timeout(Duration::from_secs(30))
+            .map_err(|error| format!("Web shutdown acknowledgement failed: {error}"))?
+    }
+
     pub fn stop(&mut self) {
         if let Some(handle) = self.handle.take() {
             handle.request_shutdown();

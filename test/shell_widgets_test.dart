@@ -76,6 +76,135 @@ FakeStore _libraryStore() => FakeStore(
 );
 
 void main() {
+  testWidgets(
+    'Web support setting shows truthful installed state and uninstall action',
+    (tester) async {
+      final service = FakeService();
+      final controller = await _controller(FakeStore(), service);
+      controller.navigate('settings');
+      await _pumpShell(tester, controller);
+      await tester.scrollUntilVisible(find.text('Web wallpaper support'), 400);
+      await tester.pumpAndSettle();
+      expect(find.text('Not installed'), findsOneWidget);
+      await tester.tap(find.text('Install'));
+      await tester.pumpAndSettle();
+      expect(service.calls, contains('installWebSupport'));
+      expect(find.text('Not installed'), findsOneWidget);
+      service.webSupport = const WebSupportDto(
+        state: 'installed',
+        version: 'test',
+        diskBytes: 1048576,
+        downloadedBytes: 0,
+        source: 'https://cef-builds.spotifycdn.com/',
+        supported: true,
+      );
+      await controller.refreshWebSupport();
+      await tester.pumpAndSettle();
+      expect(find.text('Installed'), findsOneWidget);
+      expect(find.text('Disk usage: 1.0 MB'), findsOneWidget);
+      await tester.tap(find.text('Uninstall'));
+      await tester.pumpAndSettle();
+      expect(service.calls, contains('uninstallWebSupport'));
+      expect(find.text('Not installed'), findsOneWidget);
+      controller.dispose();
+    },
+  );
+
+  testWidgets('Web support setting is localized in Chinese', (tester) async {
+    final controller = await _controller(FakeStore(), FakeService());
+    controller.navigate('settings');
+    await _pumpShell(tester, controller, locale: const Locale('zh'));
+    await tester.scrollUntilVisible(find.text('Web 壁纸支持'), 400);
+    await tester.pumpAndSettle();
+    expect(find.text('未安装'), findsOneWidget);
+    expect(find.text('安装'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets(
+    'Web component progress, cancellation and retry use service state',
+    (tester) async {
+      final service = FakeService();
+      service.webSupport = const WebSupportDto(
+        state: 'downloading',
+        version: 'test',
+        diskBytes: 0,
+        downloadedBytes: 1048576,
+        totalBytes: 2097152,
+        source: 'https://cef-builds.spotifycdn.com/',
+        supported: true,
+      );
+      final controller = await _controller(FakeStore(), service);
+      controller.navigate('settings');
+      await _pumpShell(tester, controller);
+      await tester.scrollUntilVisible(find.text('Web wallpaper support'), 400);
+      await tester.pump();
+      expect(find.text('Downloading'), findsOneWidget);
+      expect(
+        tester
+            .widget<LinearProgressIndicator>(
+              find.byType(LinearProgressIndicator),
+            )
+            .value,
+        0.5,
+      );
+      expect(find.text('1.0 MB / 2.0 MB'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+      expect(service.calls, contains('cancelWebSupportInstall'));
+      service.webSupport = const WebSupportDto(
+        state: 'error',
+        version: 'test',
+        diskBytes: 0,
+        downloadedBytes: 0,
+        source: 'https://cef-builds.spotifycdn.com/',
+        supported: true,
+        error: 'Download interrupted',
+      );
+      await controller.refreshWebSupport();
+      await tester.pumpAndSettle();
+      expect(find.text('Download interrupted'), findsOneWidget);
+      await tester.tap(find.text('Retry installation'));
+      await tester.pumpAndSettle();
+      expect(service.calls, contains('installWebSupport'));
+      controller.dispose();
+    },
+  );
+
+  testWidgets(
+    'uninstalled Web stays visible and details link to settings without applying',
+    (tester) async {
+      final service = FakeService(
+        monitors: [monitor('A', primary: true)],
+        folders: {
+          '/w': [wallpaper('web', name: 'Clock page', category: 'web')],
+        },
+      );
+      final controller = await _controller(_libraryStore(), service);
+      await _pumpShell(tester, controller);
+      expect(find.text('Clock page'), findsOneWidget);
+      await tester.tap(find.text('Clock page'));
+      await tester.pump(kDoubleTapTimeout);
+      await tester.pumpAndSettle();
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Apply to all monitors'),
+      );
+      expect(button.onPressed, isNull);
+      expect(
+        find.text(
+          'Install Web wallpaper support in Settings before applying this wallpaper.',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Open settings'));
+      await tester.pumpAndSettle();
+      expect(controller.page, 'settings');
+      expect(service.calls, isNot(contains('installWebSupport')));
+      expect(controller.appliedByOutput, isEmpty);
+      controller.dispose();
+    },
+  );
+
   testWidgets('library search, filters and wallpaper details', (tester) async {
     final store = _libraryStore();
     final service = _libraryService();
@@ -101,7 +230,13 @@ void main() {
       // The category filter hides scenes.
       await tester.tap(find.text('Scene'));
       await tester.pumpAndSettle();
-      expect(controller.wallpaperCategories, {'video'});
+      expect(controller.wallpaperCategories, {
+        'video',
+        'web',
+        'image',
+        'gif',
+        'unsupported',
+      });
       expect(find.text('Beach'), findsNothing);
       await tester.tap(find.text('Scene'));
       await tester.pumpAndSettle();

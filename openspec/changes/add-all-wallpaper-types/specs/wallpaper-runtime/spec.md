@@ -7,10 +7,10 @@ Provide consistent application, controls, persistence, and desktop presentation 
 ## ADDED Requirements
 
 ### Requirement: Typed desktop wallpaper application
-The system SHALL select a renderer from the actual wallpaper type and present Video, Scene, Web, Image, and GIF on supported Wayland and native X11 desktops. Image SHALL remain displayed indefinitely and GIF SHALL animate and obey loop configuration. Type-specific options SHALL be identified and unsupported controls SHALL not silently claim an effect.
+The system SHALL select a renderer from the actual wallpaper type and present Video, Scene, Web, Image, and GIF on supported Wayland and native X11 desktops. Image SHALL remain displayed indefinitely and GIF SHALL animate and obey loop configuration. Web rendering SHALL require the optional installed Web support component. Type-specific options SHALL be identified and unsupported controls SHALL not silently claim an effect.
 
 #### Scenario: Mixed output types
-- **WHEN** one monitor displays Video and another displays Scene or Web
+- **WHEN** the required renderers/components are available and one monitor displays Video and another displays Scene or Web
 - **THEN** both SHALL render independently below application windows
 - **AND** applying to one monitor SHALL leave the other assignment unchanged
 
@@ -30,7 +30,7 @@ The system SHALL apply pause/resume, static-frame retention, mute/volume, suppor
 The system SHALL persist sufficient project/type/property information to restore each supported assignment. Existing path-only media assignments SHALL remain restorable. Success SHALL be reported and persisted only after renderer initialization and first-frame readiness.
 
 #### Scenario: Restart with project assignments
-- **WHEN** the application restarts with saved Scene/Web assignments and property overrides
+- **WHEN** the application restarts with saved Scene/Web assignments and property overrides and their required components are installed
 - **THEN** the correct projects SHALL be loaded with the saved properties on their target outputs
 
 #### Scenario: Failed replacement
@@ -52,9 +52,15 @@ The system SHALL offer accurate type labels and filters for the five supported t
 - **THEN** only Web items SHALL be shown and their details SHALL expose compatibility and property information
 
 ### Requirement: Packaged feature availability
-Official .deb, Flatpak, and Arch packages SHALL contain or declare all dependencies and auxiliary resources required for the five supported wallpaper types without relying on the developer's reference checkout.
+Official .deb, Flatpak, and Arch base packages SHALL include Scene dependencies and the Web host/helper integration, but SHALL NOT bundle Chromium/CEF runtime libraries or make them mandatory dependencies. Media and Scene SHALL work without the Web component or reference checkout. Web support SHALL be user-installed from the declared official source into application-private storage and uninstallable in each package environment.
 
-#### Scenario: Installed package smoke test
-- **WHEN** each package is installed in its supported test environment without a linux-wallpaperengine checkout
-- **THEN** all five type fixtures SHALL load and render on a supported desktop
+#### Scenario: Base package smoke test
+- **WHEN** each base package is installed without a linux-wallpaperengine checkout and without network access
+- **THEN** Video, Scene, Image, and GIF fixtures SHALL render on a supported desktop
+- **AND** Web projects SHALL remain discoverable but clearly require optional component installation without making a network request
+
+#### Scenario: Optional component smoke test
+- **WHEN** user installs Web support through settings in each supported package environment
+- **THEN** all five type fixtures SHALL render after validated installation
+- **AND** uninstall SHALL stop Web playback and reclaim component files while the other types remain usable
 - **AND** missing optional audio monitoring SHALL degrade visualization gracefully rather than prevent rendering

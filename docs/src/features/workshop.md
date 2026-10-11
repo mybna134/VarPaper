@@ -20,9 +20,11 @@ broken manifests and invalid packages produce loading diagnostics; a bad
 project does not abort discovery of other wallpapers. Paths that escape these
 roots, including symlink escapes, are rejected.
 
-Discovery is separate from playback support. Until the new Scene/Web renderers
-are integrated, valid Scene/Web projects report `requires_renderer`, rather
-than claiming successful playback. Application executable projects and unknown
+Discovery is separate from playback support. Scene projects currently report
+`requires_renderer`. Web projects require the
+optional **Web wallpaper support** setting component and a bundled browser host;
+when both are available, the service reports them ready. Missing components
+report `requires_renderer`, rather than claiming successful playback. Application executable projects and unknown
 types report `unsupported` and are never interpreted as video. A project uses
 its declared preview when available and a type fallback otherwise; Scene/Web
 entries are not sent to the video thumbnail extractor.
@@ -61,7 +63,7 @@ The workshop content is typically at:
 - Video wallpapers (.mp4, .webm, .mkv)
 
 **Not supported:**
-- Web/HTML wallpapers
+- Web project property/audio callbacks (still in development)
 - Scene wallpapers with effects
 - Interactive wallpapers
 

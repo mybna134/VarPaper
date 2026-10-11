@@ -7,10 +7,10 @@ Display local Wallpaper Engine Web projects as animated desktop backgrounds with
 ## ADDED Requirements
 
 ### Requirement: Browser wallpaper rendering
-The system SHALL render Web project HTML, CSS, JavaScript, Canvas, and WebGL content to the assigned desktop output. Relative local resources SHALL resolve within the project context, and output resizing/scaling SHALL update the browser viewport.
+When the optional Web support component is installed and compatible, the system SHALL render Web project HTML, CSS, JavaScript, Canvas, and WebGL content to the assigned desktop output. Relative local resources SHALL resolve within the project context, and output resizing/scaling SHALL update the browser viewport.
 
 #### Scenario: Local animated web wallpaper
-- **WHEN** user applies a Web fixture containing relative scripts/images, Canvas animation, and WebGL content
+- **WHEN** Web support is installed and user applies a Web fixture containing relative scripts/images, Canvas animation, and WebGL content
 - **THEN** its content SHALL render without a foreground browser window and animate on the selected output
 
 #### Scenario: Resize output
@@ -40,3 +40,35 @@ The system SHALL restrict local resource access to project/configured shared roo
 #### Scenario: External resource request
 - **WHEN** a page requests a remote URL or an unrelated local file
 - **THEN** the request SHALL be blocked and its reason SHALL be available for diagnosis
+
+### Requirement: Optional Web support installation
+The system SHALL provide a localized "Web wallpaper support" setting with installation status, version, disk usage, progress, cancellation, retry, and uninstall actions. Web support SHALL be absent by default. Neither startup, scanning, applying, nor restoring wallpapers SHALL automatically download its runtime. Only an explicit install action SHALL download the architecture-compatible pinned Chromium/CEF runtime from the official CEF distribution source, using HTTPS and a packaged SHA-256 manifest. Required libraries, snapshots, resources, locales, and license files SHALL be installed together. The base application SHALL run without loading or linking the optional runtime.
+
+#### Scenario: Default installation
+- **WHEN** the application is first installed without the Web component
+- **THEN** Web projects SHALL remain discoverable with previews and actual types
+- **AND** applying a Web project SHALL report that Web wallpaper support must be installed in settings without downloading anything or replacing the current wallpaper
+
+#### Scenario: Explicit component install
+- **WHEN** user installs Web wallpaper support in settings
+- **THEN** the pinned runtime SHALL download only from declared official HTTPS sources with progress feedback
+- **AND** Web support SHALL become available only after all required files and checksums are validated and atomically committed
+
+#### Scenario: Interrupted or invalid installation
+- **WHEN** download is cancelled, disconnected, fails checksum validation, exceeds archive limits, lacks disk space, or targets an unsupported architecture
+- **THEN** the setting SHALL show an actionable reason and allow a valid retry
+- **AND** partial files SHALL NOT enable Web playback or damage an existing validated component
+
+### Requirement: Web support uninstallation
+The system SHALL let users uninstall the optional Web component to reclaim disk space. It SHALL prevent new Web playback, stop active Web sessions and their host/subprocess/audio consumers before removing runtime files, and remove component download/staging/cache data. Other wallpaper types SHALL continue working. User wallpaper projects, shared assets, and saved project/property descriptions SHALL remain intact.
+
+#### Scenario: Uninstall during playback
+- **WHEN** user uninstalls Web support while a Web wallpaper is active
+- **THEN** its playback SHALL stop and component processes SHALL exit before deletion succeeds
+- **AND** media/Scene outputs and user wallpaper files SHALL remain intact
+- **AND** component disk usage SHALL be reclaimed and Web playback SHALL become unavailable
+
+#### Scenario: Restore after uninstall
+- **WHEN** the application restarts with saved Web assignments but no installed Web component
+- **THEN** assignments SHALL report the missing component without downloading it or erasing their saved properties
+- **AND** installing the component again SHALL permit restoration

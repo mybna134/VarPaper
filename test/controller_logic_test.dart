@@ -17,6 +17,99 @@ Future<WayvidController> _create(FakeStore store, FakeService service) async {
 }
 
 void main() {
+  test(
+    'Web support never installs during startup or applying a missing component',
+    () async {
+      final store = FakeStore(
+        settings: SettingsDto.defaults().apply(
+          const SettingsPatch(
+            libraryFolders: ['/web'],
+            restoreLastWallpaper: false,
+          ),
+        ),
+      );
+      final service = FakeService(
+        folders: {
+          '/web': [wallpaper('web', category: 'web')],
+        },
+      );
+      final controller = await _create(store, service);
+      expect(controller.webSupport?.state, 'not_installed');
+      expect(service.calls, isNot(contains('installWebSupport')));
+      await controller.apply('web');
+      expect(controller.error, contains('Install Web wallpaper support'));
+      expect(store.assignments, isEmpty);
+      expect(service.calls.any((call) => call.startsWith('apply:')), isFalse);
+      expect(service.calls, isNot(contains('installWebSupport')));
+      controller.dispose();
+    },
+  );
+
+  test('Web component actions preserve saved wallpaper assignments', () async {
+    final store = FakeStore();
+    final service = FakeService();
+    final controller = await _create(store, service);
+    store.assignments['A'] = WallpaperAssignmentRecord()
+      ..output = 'A'
+      ..sourcePath = '/project/web/project.json'
+      ..sourceId = 'web';
+    await controller.installWebSupport();
+    expect(service.calls, contains('installWebSupport'));
+    expect(
+      controller.webSupport?.state,
+      'not_installed',
+    ); // Actual service state, not a local toggle.
+    await controller.cancelWebSupportInstall();
+    expect(service.calls, contains('cancelWebSupportInstall'));
+    await controller.uninstallWebSupport();
+    expect(service.calls, contains('uninstallWebSupport'));
+    expect(controller.webSupport?.state, 'not_installed');
+    expect(store.assignments['A']?.sourceId, 'web');
+    expect(controller.webSupportActionPending, isFalse);
+    controller.dispose();
+  });
+
+  test('component refresh updates Web availability and shutdown events preserve saved assignment', () async {
+    final store = FakeStore(
+      settings: SettingsDto.defaults().apply(
+        const SettingsPatch(
+          libraryFolders: ['/web'],
+          restoreLastWallpaper: false,
+        ),
+      ),
+    );
+    final service = FakeService(
+      folders: {
+        '/web': [
+          wallpaper('web', category: 'web', compatibility: 'requires_renderer'),
+        ],
+      },
+    );
+    final controller = await _create(store, service);
+    expect(controller.canApplyWallpaper(controller.wallpapers.single), isFalse);
+    service.folders['/web'] = [wallpaper('web', category: 'web')];
+    service.webSupport = const WebSupportDto(
+      state: 'installed',
+      version: 'test',
+      diskBytes: 1,
+      downloadedBytes: 0,
+      source: 'official',
+      supported: true,
+    );
+    await controller.refreshWebSupport();
+    expect(controller.canApplyWallpaper(controller.wallpapers.single), isTrue);
+    store.assignments['A'] = WallpaperAssignmentRecord()
+      ..output = 'A'
+      ..sourceId = 'web'
+      ..sourcePath = '/project/web/project.json';
+    controller.appliedByOutput['A'] = 'web';
+    service.events.add(const ServiceEvent.wallpaperCleared(output: 'A'));
+    await controller.pollEvents();
+    expect(controller.appliedByOutput, isEmpty);
+    expect(store.assignments['A']?.sourceId, 'web');
+    controller.dispose();
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('starts the engine when it is not already running', () async {
@@ -171,6 +264,14 @@ void main() {
             ),
           ],
         },
+      );
+      service.webSupport = const WebSupportDto(
+        state: 'installed',
+        version: 'test',
+        diskBytes: 1,
+        downloadedBytes: 0,
+        source: 'https://cef-builds.spotifycdn.com/',
+        supported: true,
       );
       final controller = await _create(store, service);
       await controller.scanFolder('/w');

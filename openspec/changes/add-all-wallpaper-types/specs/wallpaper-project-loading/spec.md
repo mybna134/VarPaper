@@ -49,3 +49,8 @@ The system SHALL prefer a project's declared preview and SHALL use a type-specif
 #### Scenario: Missing web preview
 - **WHEN** a Web project has no valid preview image
 - **THEN** its card SHALL show a Web fallback without blocking the interface or repeatedly retrying video extraction
+
+#### Scenario: Web component absent
+- **WHEN** a valid Web project is scanned while the optional Web support component is absent
+- **THEN** its type, project metadata, and preview SHALL remain available
+- **AND** its application status SHALL explain that Web wallpaper support must be installed in settings rather than declaring the project invalid

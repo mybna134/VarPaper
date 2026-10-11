@@ -26,6 +26,16 @@ class _Store implements SettingsStore {
 }
 
 class _Service implements WayvidService {
+  @override
+  Future<WebSupportDto> webSupportStatus() async => const WebSupportDto(
+    state: 'not_installed',
+    version: 'test',
+    diskBytes: 0,
+    downloadedBytes: 0,
+    source: 'https://cef-builds.spotifycdn.com/',
+    supported: true,
+  );
+
   int engineUpdates = 0;
 
   @override

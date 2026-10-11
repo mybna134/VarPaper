@@ -438,6 +438,24 @@ fn handle_command(
                 }
             }
         }
+        EngineCommand::StopWeb(reply) => {
+            let result = (|| -> Result<()> {
+                let mut cleared = Vec::new();
+                for (name, wallpaper) in active.iter_mut() {
+                    if wallpaper.session.stop_web()? {
+                        cleared.push(name.clone());
+                    }
+                }
+                for output in cleared {
+                    if let Some(wallpaper) = active.remove(&output) {
+                        destroy_wallpaper(display, egl, wallpaper);
+                        let _ = events.send(EngineEvent::WallpaperCleared { output });
+                    }
+                }
+                Ok(())
+            })();
+            let _ = reply.send(result.map_err(|error| error.to_string()));
+        }
         EngineCommand::ClearWallpaper { output } => {
             let names: Vec<_> = output
                 .map(|name| vec![name])
@@ -618,6 +636,160 @@ mod tests {
         unsafe {
             xlib::XDestroyWindow(display.raw, window);
         }
+    }
+
+    #[test]
+    fn web_texture_orientation_first_frame_and_stop_preserve_media() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none()
+            || std::env::var_os("VARPAPER_WEB_HOST").is_none()
+        {
+            return;
+        }
+        let display = Display::open().unwrap();
+        let mut output = display.outputs().unwrap().remove(0);
+        output.width = 64;
+        output.height = 32;
+        let baseline = crate::egl::native_counts();
+        let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
+        let window = display.create_desktop_window(&output).unwrap();
+        let surface = std::rc::Rc::new(egl.create_x11_window(window, 64, 32).unwrap());
+        surface.make_current().unwrap();
+        egl.load_gl_functions();
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(
+            project.path().join("project.json"),
+            r#"{"type":"web","file":"index.html"}"#,
+        )
+        .unwrap();
+        std::fs::write(project.path().join("index.html"), "<body style='margin:0'><div style='height:50vh;background:rgb(200,40,10)'></div><div style='height:50vh;background:rgb(10,60,200)'></div>").unwrap();
+        let mut renderer = crate::renderer::create_renderer(
+            project.path(),
+            &Default::default(),
+            &output,
+            &egl,
+            surface.clone(),
+        )
+        .unwrap();
+        unsafe {
+            gl::ColorMask(gl::FALSE, gl::TRUE, gl::FALSE, gl::TRUE);
+            gl::Enable(gl::BLEND);
+            gl::Enable(gl::FRAMEBUFFER_SRGB);
+        }
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while !renderer.render(64, 32, 0).unwrap() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let mut top = [0_u8; 4];
+        let mut bottom = [0_u8; 4];
+        unsafe {
+            gl::ReadPixels(
+                32,
+                24,
+                1,
+                1,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                top.as_mut_ptr().cast(),
+            );
+            gl::ReadPixels(
+                32,
+                8,
+                1,
+                1,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                bottom.as_mut_ptr().cast(),
+            );
+        }
+        let mut mask = [0_u8; 4];
+        unsafe {
+            gl::GetBooleanv(gl::COLOR_WRITEMASK, mask.as_mut_ptr());
+            assert_eq!(gl::IsEnabled(gl::BLEND), gl::TRUE);
+            assert_eq!(gl::IsEnabled(gl::FRAMEBUFFER_SRGB), gl::TRUE);
+            gl::ColorMask(gl::TRUE, gl::TRUE, gl::TRUE, gl::TRUE);
+            gl::Disable(gl::BLEND);
+            gl::Disable(gl::FRAMEBUFFER_SRGB);
+        }
+        assert_eq!(mask, [gl::FALSE, gl::TRUE, gl::FALSE, gl::TRUE]);
+        assert_eq!(top, [200, 40, 10, 255]);
+        assert_eq!(bottom, [10, 60, 200, 255]);
+        renderer.pause().unwrap();
+        assert!(!renderer.render(64, 32, 0).unwrap());
+        renderer.resume().unwrap();
+        renderer.close().unwrap();
+        drop(renderer);
+        drop(surface);
+        let image = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packaging/varpaper.png");
+        let mut session =
+            WallpaperSession::new(image.clone(), output.clone(), Default::default()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while session.take_committed().is_none() {
+            assert!(Instant::now() < deadline);
+            session
+                .render_frame_to_x11_window(&egl, window, 64, 32)
+                .unwrap();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        session.load_new_wallpaper(project.path()).unwrap();
+        assert!(!session.stop_web().unwrap());
+        assert_eq!(session.wallpaper_path(), image.to_str());
+        session.load_new_wallpaper(project.path()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while session.take_committed().is_none() {
+            assert!(Instant::now() < deadline);
+            session
+                .render_frame_to_x11_window(&egl, window, 64, 32)
+                .unwrap();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(session.wallpaper_path(), project.path().to_str());
+        let mut media_output = output.clone();
+        media_output.name = "FixtureMedia".into();
+        let media_window = display.create_desktop_window(&media_output).unwrap();
+        let mut media =
+            WallpaperSession::new(image.clone(), media_output.clone(), Default::default()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while media.take_committed().is_none() {
+            assert!(Instant::now() < deadline);
+            media
+                .render_frame_to_x11_window(&egl, media_window, 64, 32)
+                .unwrap();
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let mut active = HashMap::from([
+            (output.name.clone(), ActiveWallpaper { window, session }),
+            (
+                media_output.name.clone(),
+                ActiveWallpaper {
+                    window: media_window,
+                    session: media,
+                },
+            ),
+        ]);
+        let (reply, done) = std::sync::mpsc::channel();
+        let (events, received) = std::sync::mpsc::channel();
+        handle_command(
+            EngineCommand::StopWeb(reply),
+            &mut Default::default(),
+            &display,
+            &egl,
+            &HashMap::new(),
+            &mut active,
+            &events,
+        );
+        done.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
+        assert_eq!(active.len(), 1);
+        assert_eq!(
+            active[&media_output.name].session.wallpaper_path(),
+            image.to_str()
+        );
+        assert!(
+            matches!(received.recv().unwrap(),EngineEvent::WallpaperCleared {output: name} if name == output.name)
+        );
+        destroy_wallpaper(&display, &egl, active.remove(&media_output.name).unwrap());
+        drop(egl);
+        assert_eq!(crate::egl::native_counts(), baseline);
     }
 
     #[test]

@@ -392,6 +392,31 @@ impl WallpaperSession {
         Ok(())
     }
 
+    pub(super) fn stop_web(&mut self) -> Result<bool> {
+        if self
+            .candidate
+            .as_ref()
+            .is_some_and(|(_, renderer, _)| renderer.is_web())
+        {
+            if let Some(window) = &self.egl_window {
+                window.make_current()?;
+            }
+            if let Some((_, renderer, _)) = self.candidate.as_mut() {
+                renderer.close()?;
+            }
+            drop(self.candidate.take());
+        }
+        if self
+            .player
+            .as_ref()
+            .is_some_and(|renderer| renderer.is_web())
+        {
+            self.release_resources()?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
     pub(super) fn take_failed_source(&mut self) -> Option<PathBuf> {
         self.failed_source
             .take()
