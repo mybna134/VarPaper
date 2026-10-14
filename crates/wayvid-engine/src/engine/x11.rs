@@ -557,6 +557,10 @@ fn apply_wallpaper(
 }
 
 #[cfg(test)]
+#[path = "x11_scene_fixture_tests.rs"]
+mod scene_fixture_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -645,6 +649,7 @@ mod tests {
         {
             return;
         }
+        let audio_baseline = crate::audio::live_counts();
         let display = Display::open().unwrap();
         let mut output = display.outputs().unwrap().remove(0);
         output.width = 64;
@@ -658,7 +663,7 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         std::fs::write(
             project.path().join("project.json"),
-            r#"{"type":"web","file":"index.html"}"#,
+            r#"{"type":"web","file":"index.html","general":{"properties":{"speed":{"type":"slider","value":0.4,"min":0,"max":1},"shade":{"type":"color","value":"1 0 0"},"choice":{"type":"combo","value":1,"options":[{"value":0},{"value":1}]}}}}"#,
         )
         .unwrap();
         std::fs::write(project.path().join("index.html"), "<body style='margin:0'><div style='height:50vh;background:rgb(200,40,10)'></div><div style='height:50vh;background:rgb(10,60,200)'></div>").unwrap();
@@ -670,6 +675,32 @@ mod tests {
             surface.clone(),
         )
         .unwrap();
+        assert!(renderer.capabilities().project_properties);
+        assert!(renderer.capabilities().audio_visualization);
+        renderer
+            .set_properties(&serde_json::json!({"speed":{"value":0.8}}))
+            .unwrap();
+        assert!(renderer
+            .set_properties(&serde_json::json!({"speed":{"value":2}}))
+            .is_err());
+        assert!(renderer
+            .set_properties(&serde_json::json!({"speed":{"value":true}}))
+            .is_err());
+        assert!(renderer
+            .set_properties(&serde_json::json!({"unknown":{"value":1}}))
+            .is_err());
+        renderer
+            .set_properties(&serde_json::json!({"shade":{"value":"0 1 0"},"choice":{"value":0}}))
+            .unwrap();
+        assert!(renderer
+            .set_properties(&serde_json::json!({"shade":{"value":"NaN 0 0"}}))
+            .is_err());
+        assert!(renderer
+            .set_properties(&serde_json::json!({"shade":{"value":"2 0 0"}}))
+            .is_err());
+        assert!(renderer
+            .set_properties(&serde_json::json!({"choice":{"value":3}}))
+            .is_err());
         unsafe {
             gl::ColorMask(gl::FALSE, gl::TRUE, gl::FALSE, gl::TRUE);
             gl::Enable(gl::BLEND);
@@ -790,13 +821,12 @@ mod tests {
         destroy_wallpaper(&display, &egl, active.remove(&media_output.name).unwrap());
         drop(egl);
         assert_eq!(crate::egl::native_counts(), baseline);
+        assert_eq!(crate::audio::live_counts(), audio_baseline);
     }
 
     #[test]
     fn candidate_scene_commits_after_frame_and_failed_replacement_keeps_source() {
-        if std::env::var_os("VARPAPER_TEST_X11").is_none()
-            || std::env::var_os("VARPAPER_SCENE_LIBRARY").is_none()
-        {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
             return;
         }
         let display = Display::open().unwrap();
@@ -832,6 +862,19 @@ mod tests {
             .unwrap();
         assert_eq!(session.take_committed().as_deref(), Some(project.path()));
         assert_eq!(session.surface_identity(), surface);
+        let mut other_output = output.clone();
+        other_output.name = "FixtureIndependentMedia".into();
+        let other_window = display.create_desktop_window(&other_output).unwrap();
+        let mut other =
+            WallpaperSession::new(image.clone(), other_output, Default::default()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while other.take_committed().is_none() {
+            assert!(Instant::now() < deadline);
+            other
+                .render_frame_to_x11_window(&egl, other_window, output.width, output.height)
+                .unwrap();
+            std::thread::sleep(Duration::from_millis(10));
+        }
         let broken = tempfile::TempDir::new().unwrap();
         std::fs::write(
             broken.path().join("project.json"),
@@ -840,14 +883,53 @@ mod tests {
         .unwrap();
         std::fs::write(broken.path().join("scene.json"), "{}").unwrap();
         assert!(session.load_new_wallpaper(broken.path()).is_err());
+        std::fs::write(broken.path().join("scene.json"), r#"{"camera":{"center":"0 0 0","eye":"0 0 1","up":"0 1 0"},"general":{"orthogonalprojection":{"width":64,"height":64}},"objects":[{"id":1,"name":"Invalid shader","image":"image.json","origin":"32 32 0","size":"64 64"}]}"#).unwrap();
+        std::fs::write(
+            broken.path().join("image.json"),
+            r#"{"material":"material.json","solidlayer":true,"width":64,"height":64}"#,
+        )
+        .unwrap();
+        std::fs::write(
+            broken.path().join("material.json"),
+            r#"{"passes":[{"shader":"invalid"}]}"#,
+        )
+        .unwrap();
+        std::fs::create_dir(broken.path().join("shaders")).unwrap();
+        std::fs::write(
+            broken.path().join("shaders/invalid.vert"),
+            "void main() { invalid GLSL; }\n",
+        )
+        .unwrap();
+        std::fs::write(
+            broken.path().join("shaders/invalid.frag"),
+            "void main() { gl_FragColor=vec4(1.0); }\n",
+        )
+        .unwrap();
+        assert!(session
+            .load_new_wallpaper(broken.path())
+            .unwrap_err()
+            .to_string()
+            .contains("shader compilation failed"));
         assert_eq!(session.wallpaper_path(), project.path().to_str());
         assert!(session.take_committed().is_none());
+        other
+            .render_frame_to_x11_window(&egl, other_window, output.width, output.height)
+            .unwrap();
+        assert_eq!(other.wallpaper_path(), image.to_str());
         session.pause();
         session.resume();
         session
             .render_frame_to_x11_window(&egl, window, output.width, output.height)
             .unwrap();
         destroy_wallpaper(&display, &egl, ActiveWallpaper { window, session });
+        destroy_wallpaper(
+            &display,
+            &egl,
+            ActiveWallpaper {
+                window: other_window,
+                session: other,
+            },
+        );
         drop(egl);
         assert_eq!(crate::egl::native_counts(), baseline);
     }

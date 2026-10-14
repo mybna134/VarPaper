@@ -1,16 +1,15 @@
 //! Common rendering controls and project-aware renderer selection.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
-use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
-use wayvid_library::project::{discover_project, load_manifest, ProjectResources};
+use wayvid_library::project::{discover_project, ProjectResources};
 use wayvid_library::{CompatibilityStatus, SourceType, SteamLibrary, WallpaperType};
 
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::{MpvPlayer, VideoConfig};
-use crate::scene::{SceneRenderer, SceneResources};
-use crate::types::{LayoutMode, OutputInfo};
+use crate::scene::runtime::RustSceneRenderer;
+use crate::types::OutputInfo;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererCapabilities {
@@ -26,6 +25,9 @@ pub trait WallpaperRenderer {
     fn resume(&mut self) -> Result<()>;
     fn set_volume(&mut self, volume: f32) -> Result<()>;
     fn update_config(&mut self, config: &VideoConfig) -> Result<()>;
+    fn set_properties(&mut self, _properties: &serde_json::Value) -> Result<()> {
+        bail!("This renderer does not support project properties")
+    }
     fn close(&mut self) -> Result<()> {
         Ok(())
     }
@@ -66,19 +68,8 @@ impl WallpaperRenderer for MpvPlayer {
     }
 }
 
-impl SceneResources for ProjectResources {
-    fn exists(&self, name: &str) -> Result<bool> {
-        ProjectResources::exists(self, name)
-    }
-    fn read(&self, name: &str) -> Result<Vec<u8>> {
-        ProjectResources::read(self, name)
-    }
-}
-
 struct Scene {
-    native: SceneRenderer,
-    previous: Instant,
-    time: f64,
+    renderer: RustSceneRenderer,
     paused: bool,
     presented: bool,
     config: VideoConfig,
@@ -88,70 +79,48 @@ impl WallpaperRenderer for Scene {
         if self.paused && self.presented {
             return Ok(false);
         }
-        let now = Instant::now();
-        let delta = if self.presented {
-            now.duration_since(self.previous).as_secs_f64().min(1.0)
-        } else {
-            0.0
-        };
-        self.previous = now;
-        self.time += delta;
-        self.native.render(
+        self.renderer.render(
             width.try_into()?,
             height.try_into()?,
             framebuffer.try_into()?,
-            self.time,
-            delta,
-            &[0.0; 64],
         )?;
         self.presented = true;
         Ok(true)
     }
     fn pause(&mut self) -> Result<()> {
-        self.native
+        self.renderer
             .set_audio(true, self.config.mute, self.config.volume as f32)?;
         self.paused = true;
         Ok(())
     }
     fn resume(&mut self) -> Result<()> {
-        self.native
+        self.renderer
             .set_audio(false, self.config.mute, self.config.volume as f32)?;
-        self.previous = Instant::now();
         self.paused = false;
         Ok(())
     }
     fn set_volume(&mut self, volume: f32) -> Result<()> {
         self.config.volume = f64::from(volume);
-        self.native.set_audio(self.paused, self.config.mute, volume)
+        self.renderer
+            .set_audio(self.paused, self.config.mute, volume)
     }
     fn update_config(&mut self, config: &VideoConfig) -> Result<()> {
-        self.native
+        self.renderer
             .set_audio(self.paused, config.mute, config.volume as f32)?;
         self.config = config.clone();
         Ok(())
     }
     fn close(&mut self) -> Result<()> {
-        self.native.close()
+        self.renderer.close()
     }
     fn capabilities(&self) -> RendererCapabilities {
-        // Shared audio input and live property controls are still being implemented.
+        // Current Scene delivery defers shared audio input and live property controls.
         RendererCapabilities {
             video_settings: false,
             project_properties: false,
             audio_visualization: false,
         }
     }
-}
-
-pub fn scene_library_path() -> Result<PathBuf> {
-    if let Some(path) = std::env::var_os("VARPAPER_SCENE_LIBRARY") {
-        return Ok(PathBuf::from(path));
-    }
-    let executable = std::env::current_exe()?;
-    let parent = executable
-        .parent()
-        .context("Missing executable directory")?;
-    Ok(parent.join("lib").join("libvarpaper_scene.so"))
 }
 
 /// A source is resolved before mpv is constructed. Project manifests are never
@@ -188,27 +157,17 @@ pub fn create_renderer(
         match item.wallpaper_type {
             WallpaperType::Scene => {
                 let project = item.project.context("Scene project source missing")?;
-                let mut metadata = load_manifest(&project.root)?;
-                metadata.title = Some(item.name);
-                let manifest = serde_json::to_string(&metadata)?;
-                let scaling = match config.layout {
-                    LayoutMode::Contain => 1,
-                    LayoutMode::Fill | LayoutMode::Cover => 2,
-                    LayoutMode::Stretch => 3,
-                    LayoutMode::Centre => 0,
-                };
-                let native = SceneRenderer::new(
-                    &scene_library_path()?,
-                    &manifest,
-                    Box::new(ProjectResources::new(&project)?),
+                let resources = ProjectResources::new(&project)?;
+                let renderer = RustSceneRenderer::new_with_properties(
+                    project.entry.as_deref().context("Scene entry missing")?,
+                    &resources,
                     context.clone(),
                     window,
-                    scaling,
+                    0,
+                    &project.properties,
                 )?;
                 let mut scene = Scene {
-                    native,
-                    previous: Instant::now(),
-                    time: 0.0,
+                    renderer,
                     paused: false,
                     presented: false,
                     config: config.clone(),
@@ -224,6 +183,7 @@ pub fn create_renderer(
                     output.width,
                     output.height,
                     config,
+                    &project.properties,
                 )?));
             }
             WallpaperType::Video | WallpaperType::Image | WallpaperType::Gif => {

@@ -17,14 +17,15 @@ The VarPaper distribution is licensed under GNU GPL version 3 only; see
 LICENSE. The retained upstream licenses and notices continue to apply to
 their respective material.
 
-The native Scene compatibility component under native/wallpaperengine adapts
-linux-wallpaperengine (Almamu), revision
-b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d. Its GPL version 3 license is preserved
-at native/wallpaperengine/upstream/LICENSE. The original application/CLI and
-desktop drivers are excluded; VarPaper provides the owning application context.
-Pinned third-party source snapshots and their checksums/repositories are listed
-in native/wallpaperengine/dependencies.json. Their original license and copyright
-texts are retained inside each source archive in native/wallpaperengine/vendor.
+The Rust Scene renderer studies linux-wallpaperengine (Almamu), revision
+b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d, for format and rendering semantics.
+Its former C++ Scene implementation and dedicated source archives have been
+removed. The reference GPL version 3 license is retained in LICENSE-Scene-reference.
+Rust dependencies and their licenses are recorded in Cargo manifests/lockfile.
+The optional Web helper uses the pinned nlohmann/json source archive in
+native/web/vendor; its repository, revision and SHA-256 are recorded in
+native/web/dependencies.json. The MIT notice is retained in native/web/JSON-LICENSE
+and installed alongside the Web helper license.
 
 The optional Web runtime installer downloads Chromium Embedded Framework (CEF)
 only after an explicit installation request in Settings. The pinned Linux x86_64

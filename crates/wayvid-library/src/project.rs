@@ -261,7 +261,8 @@ pub fn load_manifest(root: &Path) -> Result<WeProject> {
 }
 
 /// Discover a project while retaining invalid/unsupported items for diagnosis.
-/// Scene/Web remain `requires_renderer` until their renderers are integrated.
+/// Scene resource discovery permits Rust playback; detailed feature validation
+/// happens when creating the renderer. Web requires its optional runtime.
 pub fn discover_project(
     root: &Path,
     source_type: SourceType,
@@ -347,12 +348,7 @@ pub fn discover_project(
                 item.compatibility = CompatibilityStatus::Invalid;
                 item.compatibility_reason = Some(error.to_string());
             }
-            Ok(())
-                if matches!(
-                    item.wallpaper_type,
-                    WallpaperType::Scene | WallpaperType::Web
-                ) =>
-            {
+            Ok(()) if item.wallpaper_type == WallpaperType::Web => {
                 item.compatibility = CompatibilityStatus::RequiresRenderer;
                 item.compatibility_reason = Some(format!(
                     "{} renderer is not available yet",
@@ -420,7 +416,7 @@ mod tests {
         package(&dir.path().join("scene.pkg"), "scene.json", b"{}");
         let item = discover_project(dir.path(), SourceType::LocalDirectory, None, vec![]).unwrap();
         assert_eq!(item.wallpaper_type, WallpaperType::Scene);
-        assert_eq!(item.compatibility, CompatibilityStatus::RequiresRenderer);
+        assert_eq!(item.compatibility, CompatibilityStatus::Ready);
         let source = item.project.unwrap();
         assert_eq!(source.declared_type, "Scene");
         assert!(source.properties.get("color").is_some());

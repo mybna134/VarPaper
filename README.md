@@ -7,7 +7,7 @@
 Video wallpaper manager for Linux Wayland and X11 desktops
 
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev/)
 
 [![Latest Release](https://img.shields.io/github/v/release/mybna134/VarPaper?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/mybna134/VarPaper/releases/latest)
@@ -66,7 +66,7 @@ Add a video folder on the **Folders** page. Browse or search on **Library**, the
 
 The app saves settings and monitor assignments in an Isar database in the platform application support directory. Existing YAML settings are not migrated. Enable **Launch at login** and **Restore last wallpaper** in Settings if you want wallpapers restored automatically after logging in. **Minimize to tray** and **Start minimized** control the window separately.
 
-Wallpaper Engine Workshop content must already be installed locally through Steam. VarPaper discovers those folders and plays video projects; web and scene projects are not supported for playback.
+Wallpaper Engine Workshop content must already be installed locally through Steam. VarPaper plays video projects and the implemented Rust Scene subset (image layers, effects, animation, core sprite particles, text, sound and basic scripts). Advanced Scene particles, live system-audio visualization and full clock/script compatibility are deferred; unsupported required content reports an error. Web projects use the optional Web wallpaper component. See [Scene support](docs/src/dev/rust-scene.md).
 
 ## Build from source
 

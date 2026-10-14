@@ -1,5 +1,9 @@
 # Design
 
+## 2026-10-15 Scene 范围修订
+
+按用户要求，立即删除 WallpaperEngine C++，当前仅交付已有 Rust Scene 子集。高级粒子、完整脚本 API/预算验收、实时 Scene 系统音频可视化、可注入本地时钟与 GUI 属性编辑留待后续；详见 migrate-scene-renderer-to-rust/deferred.md。历史测试不代表当前 Rust 验收，后续条目保持未完成。Web 和媒体能力按各自任务推进。
+
 ## Context
 
 See proposal.md for motivation and the four capability deltas for acceptance contracts.
@@ -16,7 +20,7 @@ See proposal.md for motivation and the four capability deltas for acceptance con
 
 **Goals:**
 - 保持 Flutter 为配置和持久化唯一所有者，Rust 为渲染调度所有者，Wayland/X11 为 surface 所有者。
-- 通过参考实现移植原生 Scene 子系统，减少重新实现专有格式的风险，并保持生命周期可测。
+- Scene 业务逻辑统一使用 Rust，位于 `crates/wayvid-engine`，以参考实现研究格式/行为并用 fixture 保证兼容性；不复制、包装或继续维护上游 C++ Scene 子系统。
 - 用每项功能的可再分发 fixture 验证兼容性，明确音频频谱及时间功能，而非只检查“载入成功”。
 
 **Non-Goals:**
@@ -40,13 +44,17 @@ FRB 添加描述式应用接口并重生成绑定；旧路径应用接口在适�
 
 替代方案直接启动 linux-wallpaperengine CLI 会产生第二套显示器管理、控制协议和打包依赖，无法确保事务切换，因此不采用。
 
-### 3. 原生 Scene 兼容组件
+### 3. Rust engine 内的 Scene 实现
 
-将参考项目必要的解析器、资源定位器、渲染对象及 QuickJS 封装为仓库内的 C++ 组件，通过窄 C ABI 和 Rust RAII wrapper 集成；不导入上游 main/Steam 下载/桌面驱动。ABI 使用 opaque handles、显式 buffer 所有权、版本号及 error 返回；捕获 C++ 异常，禁止跨 FFI 展开。上游组件依赖 application context 的部分用 VarPaper adapter 提供属性、时间、输入、音频和资产信息。
+按用户 2026-10-12 的修订，Scene 的项目模型、纹理解码/缓存、材质/pass、shader 转换/编译、对象/效果/粒子、文字/声音控制及 SceneScript 宿主全部在 `crates/wayvid-engine` 内用 Rust 实现。参考修订仍为 `b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d`，用于只读研究和同 fixture 行为对照，不导入其 C++ 类或 application context。Scene 不再依赖自有 `libvarpaper_scene.so`、`vp_scene_*` ABI 或 `VARPAPER_SCENE_LIBRARY`。
 
-资源按项目 loose files、project package、显式 shared assets 定位；包目录、压缩长度、纹理尺寸均验证边界与资源预算。保留引用的必要 upstream 内建资产并声明出处；Wallpaper Engine 安装目录资产只定位使用，不将用户/Steam 专有内容打包。SceneScript 限制执行预算和内存，禁用任意宿主 I/O。参考对象/效果逐项写入 fixture 清单；未知 required 特性报错，不能静默丢弃后宣告成功。
+将当前 Rust C ABI wrapper 替换为 engine 内的 Scene 模块，以资源读取 trait、类型化场景数据、Rust renderer 接口连接现有 session/EGL。模块内部按解析、纹理、材质/pass、shader、对象、脚本和时钟职责分层；第三方 OpenGL、JavaScript VM、解码库可使用受控 Rust binding/FFI，但项目资源校验、属性绑定、音频接口、调度、错误诊断和生命周期策略均由 Rust 所有。VM 的底层实现可为 QuickJS，已有上游 C++ ScriptEngine/EngineObject 封装必须移除；不以 FFI 包装复制的 C++ 业务逻辑冒充 Rust 实现。
 
-替代方案从头用 Rust 重写整个渲染器会同时承担格式、shader、脚本语义等风险；本次选择受控移植，解析/测试接口保持可替换。
+资源按 loose files、project package、显式 shared assets 定位，复用已完成的 Rust 资源定位与预算检查。纹理缓存保存不可变解析资源，GPU 对象按 context 所有并在 current context 中释放；失败创建也必须回收。shader 转换与编译错误携带实际资产/pass，GL 状态在退出 render 时恢复。脚本状态、属性、时钟和音频缓冲区按赋值隔离；共享 Rust monitor/FFT 服务继续使用，频谱直接进入 Rust uniform 和脚本 binding，无 Scene C ABI 中转。
+
+已有 C++ 首帧/纹理/脚本/音频测试仅为历史研究证据，不能证明新 Rust 实现完成。将可再分发的生成资产、像素预期、格式错误、执行预算及资源计数测试迁移为 Rust 单元/集成测试；对象/效果按当前 Rust 子集收窄；最终桌面/安装包验收按实际执行追踪。完成移除时核对 `native/wallpaperengine`、CMake/Cargo/Flutter、构建脚本、CI、动态加载、来源清单及文档，避免留下隐式运行依赖；第三方依赖许可与参考来源按实际使用保留。
+
+替代方案受控移植上游 C++ 并提供 C ABI 已被用户否决。采用 Rust 增加格式和 shader 语义的实现成本，通过分层测试、参考同 fixture 对照及逐项验收控制风险。
 
 ### 4. 系统音频与时间是明确输入
 
@@ -74,11 +82,11 @@ Scene 将频谱映射到参考实现 shader uniforms、效果/粒子和已声明
 
 Isar 赋值新增可选描述版本、type、project manifest/root、property overrides，保留 sourcePath/sourceId 以兼容老记录和回滚。新字段为空按旧路径解析；只有已确认应用成功才保存。类型标签/过滤/预览/错误及属性编辑使用真实 type，category 不再把 Image/GIF 合并为 Video；明确呈现不能用于当前类型的设置。
 
-native component 用 CMake 构建，Cargo build integration 和 Flutter Linux 打包共用安装清单。固定上游修订、CEF SDK 发布及校验和；构建时可获取 SDK 编译 Web 宿主/subprocess，但基础发行包仅安装宿主/辅助程序、组件清单和必要 Scene 依赖，不安装 libcef/resources/locales，不将 CEF 设为强制运行依赖。Web 宿主仅在组件已安装时用应用私有目录中的完整运行清单启动，主应用不直接链接 libcef。维护 .deb、Flatpak 和 Arch 配方，分别测试默认离线媒体/Scene、用户点击后从官方源下载、应用私有目录加载、卸载后空间回收；Flatpak 的安装器网络权限不能使 Web 页面获得默认网络访问。构建/运行不依赖参考 checkout。来源与保留许可记录到现有 NOTICE；这是实施交付的一部分。
+Scene 使用 Cargo 构建并随 Rust engine 集成，移除独立 Scene CMake 动态库及 vendored C++ 编译链。CEF 宿主使用其 SDK 所需的构建集成，与 Flutter Linux 打包共用安装清单。固定参考研究修订、第三方依赖以及 CEF SDK 发布及校验和；构建时可获取 SDK 编译 Web 宿主/subprocess，但基础发行包仅安装宿主/辅助程序、组件清单和必要 Scene 依赖，不安装 libcef/resources/locales，不将 CEF 设为强制运行依赖。Web 宿主仅在组件已安装时用应用私有目录中的完整运行清单启动，主应用不直接链接 libcef。维护 .deb、Flatpak 和 Arch 配方，分别测试默认离线媒体/Scene、用户点击后从官方源下载、应用私有目录加载、卸载后空间回收；Flatpak 的安装器网络权限不能使 Web 页面获得默认网络访问。构建/运行不依赖参考 checkout。来源与保留许可记录到现有 NOTICE；这是实施交付的一部分。
 
 ## Risks / Trade-offs
 
-- [原生移植依赖广、context 耦合] → 先完成独立首帧 vertical slice 和 C ABI 构建，再扩展对象/效果；所有列明特性均验收后才完成整个变更。
+- [Rust 重新实现格式/shader/脚本语义的兼容风险] → 先完成 engine 内的最小 Scene 首帧，再迁移生成 fixture 并逐项对照参考；所有列明特性均验收后才完成整个变更。
 - [CEF 增加体积、内存与辅助进程] → 用户主动安装/卸载、完整清单与空间显示、延迟初始化、有界 paint 缓存、输出独立关闭、三种发行包的未安装/安装/卸载 smoke test。
 - [上游只覆盖官方功能子集] → 固定参考版本、功能 fixture 与明确 unsupported 诊断；不承诺全部 Workshop。
 - [暂停/脚本资源耗尽] → 验证实际停止脚本/音频、限制 script budget、回归失败初始化及恢复路径。
@@ -88,8 +96,11 @@ native component 用 CMake 构建，Cargo build integration 和 Flutter Linux �
 
 ## Migration Plan
 
-1. 固定参考源和构建依赖，完成类型/描述适配及原生首帧链路。
+1. 固定参考研究修订，将 Scene 业务逻辑与测试迁移到 Rust engine，移除已导入的 C++ Scene 源、动态库加载及构建/打包/CI 依赖；复用已完成的 Rust 类型、资源定位和音频服务。由新 Rust fixture 重新验收相关任务，历史 C++ 结果不计入当前完成状态。
 2. 完成 Scene 音频/时钟、可选 Web 组件安装/卸载及 Web 回调，接入统一会话和事件。
 3. 添加兼容 Isar 字段和 FRB 绑定、界面，再迁移旧赋值的恢复解析。
 4. 跑 fixture、Wayland/X11 mixed-output/lifecycle、三发行包验收和 CI quality；不得以只有扫描通过替代渲染验收。
 5. 回滚程序时旧媒体字段仍可读取，新 Scene/Web 赋值由旧版本忽略/报不支持；不删除原项目及用户资源。
+
+
+Scene 图层语义已由用户确认：使用项目显式 size，再应用 scale；父 visible=false 隐藏子树。缺省尺寸才使用纹理/model。参考固定提交的尺寸覆盖、父可见性不继承不是目标行为；截图对照按 migration design 的方向规范化、公共案例像素容差与明确差异记录执行。

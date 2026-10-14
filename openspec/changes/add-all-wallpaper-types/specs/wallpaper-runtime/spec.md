@@ -63,4 +63,4 @@ Official .deb, Flatpak, and Arch base packages SHALL include Scene dependencies 
 - **WHEN** user installs Web support through settings in each supported package environment
 - **THEN** all five type fixtures SHALL render after validated installation
 - **AND** uninstall SHALL stop Web playback and reclaim component files while the other types remain usable
-- **AND** missing optional audio monitoring SHALL degrade visualization gracefully rather than prevent rendering
+- **AND** missing optional audio monitoring SHALL degrade Web visualization gracefully rather than prevent rendering; live Scene visualization is deferred

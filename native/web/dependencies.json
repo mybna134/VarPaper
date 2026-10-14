@@ -1,0 +1,8 @@
+{
+  "json": {
+    "repository": "https://github.com/nlohmann/json.git",
+    "revision": "4424a0fcc1c7fa640b5c87d26776d99150dacd10",
+    "archive": "json.tar.gz",
+    "sha256": "aed69825e143af8a785027ec6e5adfa02c552779c3825ea991e246ab06164dfa"
+  }
+}

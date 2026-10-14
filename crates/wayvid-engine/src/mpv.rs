@@ -115,7 +115,7 @@ pub struct MpvPlayer {
 /// `LC_ALL` can override `LC_NUMERIC` in the process environment, so setting an
 /// environment variable is not sufficient here.  Keep this process-global
 /// initialization one-shot because `setlocale` changes process-global state.
-fn ensure_c_numeric_locale() -> Result<()> {
+pub(crate) fn ensure_c_numeric_locale() -> Result<()> {
     static C_NUMERIC_LOCALE: OnceLock<Result<(), String>> = OnceLock::new();
 
     C_NUMERIC_LOCALE

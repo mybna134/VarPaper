@@ -13,6 +13,10 @@ trap 'rm -rf "$stage"' EXIT
 
 [[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
+[[ ! -e "$bundle/lib/libvarpaper_scene.so" && ! -L "$bundle/lib/libvarpaper_scene.so" ]] || {
+  echo 'Stale C++ Scene library in bundle; rebuild Flutter from a clean output directory' >&2
+  exit 1
+}
 for command_name in dpkg-deb readelf; do
   command -v "$command_name" >/dev/null || { echo "$command_name is required" >&2; exit 1; }
 done

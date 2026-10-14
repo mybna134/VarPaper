@@ -107,6 +107,41 @@ class _Service implements WayvidService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _WebRestoreService extends _Service {
+  _WebRestoreService(this.componentState, this.failure) : super([_monitor]);
+
+  String componentState;
+  String? failure;
+  int installRequests = 0;
+  final attempts = <String>[];
+
+  @override
+  Future<WebSupportDto> webSupportStatus() async => WebSupportDto(
+    state: componentState,
+    version: 'test',
+    diskBytes: 0,
+    downloadedBytes: 0,
+    source: 'https://cef-builds.spotifycdn.com/',
+    supported: true,
+    error: failure,
+  );
+
+  @override
+  Future<void> installWebSupport() async {
+    installRequests++;
+    throw StateError('Restore must never install the component');
+  }
+
+  @override
+  Future<void> applyWallpaper({required String path, String? output}) async {
+    attempts.add(path);
+    if (path.endsWith('project.json') && failure != null) {
+      throw BridgeError(code: 'requires_renderer', message: failure!);
+    }
+    await super.applyWallpaper(path: path, output: output);
+  }
+}
+
 const _monitor = MonitorDto(
   name: 'HDMI-A-1',
   width: 1920,
@@ -238,4 +273,78 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+
+  for (final scenario in {
+    'missing': ('not_installed', 'Install Web wallpaper support in Settings'),
+    'damaged': ('error', 'Damaged Web runtime; reinstall support'),
+    'version': ('error', 'Web component version mismatch; reinstall support'),
+    'helper ABI': (
+      'installed',
+      'Web host version or ABI mismatch; reinstall the application',
+    ),
+    'uninstalled': (
+      'not_installed',
+      'Install Web wallpaper support in Settings',
+    ),
+  }.entries) {
+    test(
+      'Web restore after ${scenario.key} keeps assignments and never downloads',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'varpaper-web-restore-',
+        );
+        final project = File('${directory.path}/project.json');
+        await project.writeAsString('{"type":"web","file":"index.html"}');
+        final store = _Store();
+        await store.saveAssignment(
+          output: _monitor.name,
+          sourcePath: project.path,
+          sourceId: 'web-1',
+        );
+        final saved = store.assignments[_monitor.name];
+        final service = _WebRestoreService(
+          scenario.value.$1,
+          scenario.value.$2,
+        );
+        var controller = await WayvidController.create(
+          store,
+          serviceOverride: service,
+        );
+        try {
+          expect(controller.appliedByOutput, isEmpty);
+          expect(controller.error, contains(scenario.value.$2));
+          expect(service.installRequests, 0);
+          expect(service.applied, isEmpty);
+          expect(store.assignments[_monitor.name], same(saved));
+          expect(store.assignments[_monitor.name]?.sourcePath, project.path);
+
+          // Restart while unavailable must retry safely without erasing saved data.
+          await controller.shutdown();
+          controller = await WayvidController.create(
+            store,
+            serviceOverride: service,
+          );
+          expect(controller.appliedByOutput, isEmpty);
+          expect(service.attempts, [project.path, project.path]);
+          expect(store.assignments[_monitor.name], same(saved));
+
+          // After explicit repair/reinstallation, the same saved source can restore.
+          await controller.shutdown();
+          service.componentState = 'installed';
+          service.failure = null;
+          controller = await WayvidController.create(
+            store,
+            serviceOverride: service,
+          );
+          expect(controller.isAppliedTo('web-1', _monitor.name), isTrue);
+          expect(service.applied, [_monitor.name]);
+          expect(service.installRequests, 0);
+          expect(store.assignments[_monitor.name], same(saved));
+        } finally {
+          await controller.shutdown();
+          await directory.delete(recursive: true);
+        }
+      },
+    );
+  }
 }

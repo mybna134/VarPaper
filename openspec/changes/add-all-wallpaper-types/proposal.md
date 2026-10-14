@@ -1,5 +1,9 @@
 # Proposal
 
+## 2026-10-15 Scene 范围修订
+
+按用户要求，立即删除 WallpaperEngine C++，当前仅交付已有 Rust Scene 子集。高级粒子、完整脚本 API/预算验收、实时 Scene 系统音频可视化、可注入本地时钟与 GUI 属性编辑留待后续；详见 migrate-scene-renderer-to-rust/deferred.md。历史测试不代表当前 Rust 验收，后续条目保持未完成。Web 和媒体能力按各自任务推进。
+
 ## Why
 
 VarPaper 当前仅具备 mpv 媒体播放路径：Scene 虽能入库却无法正确渲染，Web 被扫描器跳过，Image/GIF 的界面分类也被合并为 Video。参考本机 linux-wallpaperengine 的 Video、Scene、Web 实现补齐类型支持，使用户能在同一壁纸库中应用不同类型的本地和 Workshop 壁纸。
@@ -8,10 +12,10 @@ VarPaper 当前仅具备 mpv 媒体播放路径：Scene 虽能入库却无法正
 
 - 完整保留 Video、Scene、Web、Image、GIF 类型，增加项目目录、入口文件、资源定位及可播放状态，禁止未知类型回退为 Video。
 - 支持已安装 Workshop 和用户添加目录中的 Wallpaper Engine 项目；保留现有媒体文件扫描和稳定身份。
-- 在现有 Wayland/X11 桌面输出上增加 Scene 渲染，覆盖参考实现的资源包、纹理、材质/效果、图像、粒子、文字、声音及 SceneScript 功能；明确支持系统音频频谱可视化、动画时间与本地日期/时钟，并通过兼容样例明确边界。
+- 在 `crates/wayvid-engine` 中用 Rust 实现 Scene 解析和渲染，参考项目仅用于格式与行为研究，不直接移植其 C++ 子系统。在现有 Wayland/X11 桌面输出上增加 Scene 渲染，覆盖参考实现的资源包、纹理、材质/效果、图像、粒子、文字、声音及 SceneScript 功能；明确支持系统音频频谱可视化、动画时间与本地日期/时钟，并通过兼容样例明确边界。
 - 使用基于 Chromium 的 CEF 离屏 Web 渲染，支持本地 HTML/CSS/JavaScript、Canvas/WebGL、相对资源、项目属性及音频接口；Web 支持作为可选组件，默认不安装。设置提供“Web 壁纸支持”安装/卸载入口，只有用户主动安装才从 CEF 官方分发源下载并校验运行库与必需资源，卸载释放磁盘空间。
 - 各类型统一应用、暂停/恢复、静音/音量、切换、清除、显示器缩放及重启恢复；界面提供准确类型、预览和错误原因。
-- 将 Scene 运行库与 Web 宿主/辅助进程纳入 .deb、Flatpak、Arch 打包、测试和来源声明；基础安装包不捆绑 Chromium/CEF 运行库。分别验证未安装 Web 组件及安装后的五类型行为。
+- 将 Rust engine 的 Scene 实现与 Web 宿主/辅助进程纳入 .deb、Flatpak、Arch 打包、测试和来源声明；基础安装包不捆绑 Chromium/CEF 运行库。分别验证未安装 Web 组件及安装后的五类型行为。
 - 按用户确认，Application 可执行程序壁纸不在本次范围内；明确显示不支持，不尝试运行。类型覆盖不等于对全部 Workshop 内容或 Windows 专有功能无条件兼容。
 
 ## Capabilities
@@ -33,5 +37,5 @@ VarPaper 当前仅具备 mpv 媒体播放路径：Scene 虽能入库却无法正
 - `crates/wayvid-engine/src/engine/{command,session,mod,x11}.rs`、`egl.rs`：可替换渲染会话、Scene/Web 渲染与输出集成。
 - `rust/src/{bridge,engine}.rs`、FRB 生成绑定：类型化源描述、状态和错误。
 - `lib/main.dart`、本地化、`lib/src/storage/settings_store.dart`：类型过滤、详情、属性编辑、赋值兼容及恢复。
-- 新增原生 Scene/CEF 适配组件和构建依赖；参考目录仅为研究来源，发布构建不依赖该绝对路径。
+- Scene 的模型、纹理缓存、材质/pass、shader 转换和 SceneScript 宿主由 Rust engine 实现；移除此前导入的 `native/wallpaperengine` C++ Scene 组件及其构建/动态库加载链路。第三方底层库通过受控 Rust binding/FFI 使用，参考目录仅为研究来源。CEF 的可选组件策略保持。
 - `linux/`、`packaging/`、`scripts/`、CI、测试、现有文档和 `NOTICE`：原生集成、分发、回归验证与出处。

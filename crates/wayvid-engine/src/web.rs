@@ -16,6 +16,8 @@ use std::time::{Duration, Instant};
 
 const MAX_JSON: usize = 65536;
 const MAX_FRAME: usize = 64 * 1024 * 1024;
+const IPC_VERSION: u64 = 2;
+const RUNTIME_MANIFEST: &str = include_str!("../../../native/web/runtime.json");
 thread_local! { static HOST: RefCell<Weak<RefCell<Host>>> = const { RefCell::new(Weak::new()) }; }
 
 pub fn runtime_path() -> Result<PathBuf> {
@@ -42,7 +44,46 @@ pub fn host_path() -> Result<PathBuf> {
 pub fn available() -> bool {
     runtime_path()
         .is_ok_and(|root| root.join("installed.json").is_file() && root.join("libcef.so").is_file())
-        && host_path().is_ok_and(|path| path.is_file())
+        && validated_host_path().is_ok()
+}
+pub fn validate_host_installation() -> Result<()> {
+    validated_host_path().map(|_| ())
+}
+fn validate_host(host: &Path, manifest: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    let executable = std::fs::metadata(host).context("Web host is missing")?;
+    ensure!(
+        executable.is_file() && executable.permissions().mode() & 0o111 != 0,
+        "Web host is not executable"
+    );
+    let file = std::fs::File::open(manifest).context("Web host manifest is missing")?;
+    let mut bytes = Vec::new();
+    file.take(MAX_JSON as u64 + 1).read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= MAX_JSON,
+        "Web host manifest exceeds size budget"
+    );
+    let actual: Value = serde_json::from_slice(&bytes).context("Invalid Web host manifest")?;
+    let expected: Value = serde_json::from_str(RUNTIME_MANIFEST)?;
+    ensure!(
+        expected["ipc_version"] == IPC_VERSION && actual == expected,
+        "Web host version or ABI mismatch; reinstall the application"
+    );
+    Ok(())
+}
+fn validated_host_path() -> Result<PathBuf> {
+    let host = host_path()?;
+    let parent = host.parent().context("Missing Web host directory")?;
+    let manifest = if std::env::var_os("VARPAPER_WEB_HOST").is_some() {
+        parent.join("runtime.json")
+    } else {
+        parent
+            .parent()
+            .context("Missing application directory")?
+            .join("data/runtime.json")
+    };
+    validate_host(&host, &manifest)?;
+    Ok(host)
 }
 struct Host {
     socket: UnixStream,
@@ -74,7 +115,7 @@ impl Host {
         socket.set_read_timeout(Some(Duration::from_secs(8)))?;
         socket.set_write_timeout(Some(Duration::from_secs(8)))?;
         let fd = child_socket.as_raw_fd();
-        let mut command = Command::new(host_path()?);
+        let mut command = Command::new(validated_host_path()?);
         command
             .arg(format!("--ipc-fd={fd}"))
             .env("VARPAPER_CEF_RUNTIME", &runtime)
@@ -147,7 +188,7 @@ impl Host {
             "Stale Web host response"
         );
         ensure!(
-            response["ipc_version"] == 1,
+            response["ipc_version"] == IPC_VERSION,
             "Web host IPC version mismatch"
         );
         let count = response["bytes"]
@@ -179,6 +220,8 @@ impl Drop for Host {
 }
 
 pub struct WebRenderer {
+    audio: Option<crate::audio::AudioConsumer>,
+    properties: Value,
     host: Rc<RefCell<Host>>,
     id: u64,
     generation: u64,
@@ -200,6 +243,7 @@ impl WebRenderer {
         width: i32,
         height: i32,
         config: &VideoConfig,
+        properties: &Value,
     ) -> Result<Self> {
         let host = Host::shared()?;
         let id = {
@@ -208,6 +252,8 @@ impl WebRenderer {
             host.next_id
         };
         let mut result = Self {
+            audio: Some(crate::audio::AudioConsumer::acquire()),
+            properties: properties.clone(),
             host,
             id,
             generation: id,
@@ -227,6 +273,7 @@ impl WebRenderer {
         command["entry"] = entry.into();
         command["width"] = width.into();
         command["height"] = height.into();
+        command["properties"] = properties.clone();
         result.host.borrow_mut().call(command)?;
         result.update_config(config)?;
         Ok(result)
@@ -407,6 +454,9 @@ impl WallpaperRenderer for WebRenderer {
         command["width"] = width.into();
         command["height"] = height.into();
         command["sequence"] = self.sequence.into();
+        if let Some(audio) = &self.audio {
+            command["spectrum"] = serde_json::to_value(audio.snapshot().spectrum.as_slice())?;
+        }
         let (response, pixels) = self.host.borrow_mut().call(command)?;
         ensure!(
             response["width"] == width && response["height"] == height,
@@ -433,6 +483,7 @@ impl WallpaperRenderer for WebRenderer {
         if !self.paused {
             self.host.borrow_mut().call(self.command("pause"))?;
             self.paused = true;
+            self.audio = None;
         }
         Ok(())
     }
@@ -440,6 +491,7 @@ impl WallpaperRenderer for WebRenderer {
         if self.paused {
             self.host.borrow_mut().call(self.command("resume"))?;
             self.paused = false;
+            self.audio = Some(crate::audio::AudioConsumer::acquire());
         }
         Ok(())
     }
@@ -457,6 +509,7 @@ impl WallpaperRenderer for WebRenderer {
         Ok(())
     }
     fn close(&mut self) -> Result<()> {
+        self.audio = None;
         if !self.closed {
             let result = if self.host.borrow().dead {
                 Ok((Value::Null, vec![]))
@@ -471,12 +524,86 @@ impl WallpaperRenderer for WebRenderer {
     fn capabilities(&self) -> RendererCapabilities {
         RendererCapabilities {
             video_settings: false,
-            project_properties: false,
-            audio_visualization: false,
+            project_properties: true,
+            audio_visualization: true,
         }
     }
     fn is_web(&self) -> bool {
         true
+    }
+    fn set_properties(&mut self, updates: &Value) -> Result<()> {
+        let updates = updates
+            .as_object()
+            .context("Properties must be an object")?;
+        for (name, update) in updates {
+            let declared = self
+                .properties
+                .get(name)
+                .context("Undeclared wallpaper property")?;
+            let value = update.get("value").context("Property value missing")?;
+            let original = declared
+                .get("value")
+                .context("Declared property value missing")?;
+            ensure!(
+                (original.is_boolean() && value.is_boolean())
+                    || (original.is_number() && value.is_number())
+                    || (original.is_string() && value.is_string()),
+                "Wallpaper property value has incorrect type"
+            );
+            if declared.get("type").and_then(Value::as_str) == Some("color") {
+                let components = value
+                    .as_str()
+                    .context("Color must be a string")?
+                    .split_whitespace()
+                    .map(str::parse::<f32>)
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                ensure!(
+                    components.len() == 3
+                        && components
+                            .iter()
+                            .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
+                    "Color requires three values in 0..1"
+                );
+            }
+            if let Some(options) = declared.get("options").and_then(Value::as_array) {
+                ensure!(
+                    options
+                        .iter()
+                        .any(
+                            |option| option.get("value").is_some_and(|allowed| allowed == value
+                                || (allowed.is_number()
+                                    && value.is_number()
+                                    && allowed.as_f64() == value.as_f64()))
+                        ),
+                    "Property choice is not declared"
+                );
+            }
+            if let Some(number) = value.as_f64() {
+                ensure!(
+                    number.is_finite(),
+                    "Wallpaper property value must be finite"
+                );
+                if let Some(min) = declared.get("min").and_then(Value::as_f64) {
+                    ensure!(number >= min, "Property below minimum");
+                }
+                if let Some(max) = declared.get("max").and_then(Value::as_f64) {
+                    ensure!(number <= max, "Property above maximum");
+                }
+            }
+            ensure!(
+                update.as_object().is_some_and(|obj| obj.len() == 1),
+                "Only property values may be updated"
+            );
+        }
+        let mut merged = self.properties.clone();
+        for (name, update) in updates {
+            merged[name]["value"] = update["value"].clone();
+        }
+        let mut command = self.command("properties");
+        command["properties"] = merged.clone();
+        self.host.borrow_mut().call(command)?;
+        self.properties = merged;
+        Ok(())
     }
 }
 impl Drop for WebRenderer {
@@ -493,5 +620,101 @@ impl Drop for WebRenderer {
                 gl::DeleteProgram(self.program);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn helper_metadata_rejects_missing_corrupt_and_incompatible_installations() {
+        let directory = tempfile::tempdir().unwrap();
+        let host = directory.path().join("varpaper-web-host");
+        let manifest = directory.path().join("runtime.json");
+        std::fs::write(&host, b"fixture").unwrap();
+        std::fs::set_permissions(&host, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(validate_host(&host, &manifest)
+            .unwrap_err()
+            .to_string()
+            .contains("missing"));
+        std::fs::write(&manifest, b"broken").unwrap();
+        assert!(validate_host(&host, &manifest)
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid"));
+        let mut incompatible: Value = serde_json::from_str(RUNTIME_MANIFEST).unwrap();
+        for key in ["ipc_version", "version", "architecture", "sha256"] {
+            let original = incompatible[key].clone();
+            incompatible[key] = json!("incompatible");
+            std::fs::write(&manifest, serde_json::to_vec(&incompatible).unwrap()).unwrap();
+            assert!(validate_host(&host, &manifest)
+                .unwrap_err()
+                .to_string()
+                .contains("mismatch"));
+            incompatible[key] = original;
+        }
+        std::fs::write(&manifest, vec![b' '; MAX_JSON + 1]).unwrap();
+        assert!(validate_host(&host, &manifest)
+            .unwrap_err()
+            .to_string()
+            .contains("budget"));
+        std::fs::write(&manifest, RUNTIME_MANIFEST).unwrap();
+        validate_host(&host, &manifest).unwrap();
+        std::fs::set_permissions(&host, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert!(validate_host(&host, &manifest)
+            .unwrap_err()
+            .to_string()
+            .contains("executable"));
+    }
+
+    #[test]
+    fn response_abi_mismatch_terminates_the_helper_without_consuming_pixels() {
+        let (socket, mut peer) = UnixStream::pair().unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        let child = unsafe {
+            Command::new("sleep")
+                .arg("10")
+                .pre_exec(|| {
+                    if libc::setsid() < 0 {
+                        return Err(std::io::Error::last_os_error());
+                    }
+                    Ok(())
+                })
+                .spawn()
+                .unwrap()
+        };
+        let thread = std::thread::spawn(move || {
+            let mut header = [0; 4];
+            peer.read_exact(&mut header).unwrap();
+            let mut bytes = vec![0; u32::from_le_bytes(header) as usize];
+            peer.read_exact(&mut bytes).unwrap();
+            let mut response: Value = serde_json::from_slice(&bytes).unwrap();
+            response["ipc_version"] = json!(IPC_VERSION - 1);
+            response["bytes"] = json!(4);
+            response["ok"] = json!(true);
+            let bytes = serde_json::to_vec(&response).unwrap();
+            peer.write_all(&(bytes.len() as u32).to_le_bytes()).unwrap();
+            peer.write_all(&bytes).unwrap();
+            // No pixels: validation must reject the protocol before reading them.
+        });
+        let mut host = Host {
+            socket,
+            child,
+            request: 0,
+            next_id: 0,
+            dead: false,
+        };
+        assert!(host
+            .call(json!({"id":0,"generation":0}))
+            .unwrap_err()
+            .to_string()
+            .contains("IPC version mismatch"));
+        assert!(host.dead);
+        assert!(host.child.try_wait().unwrap().is_some());
+        thread.join().unwrap();
     }
 }

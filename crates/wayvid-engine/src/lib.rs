@@ -17,6 +17,7 @@
 //!     └── OutputManager (output tracking)
 //! ```
 
+pub mod audio;
 pub mod egl;
 pub mod engine;
 pub mod frame_timing;

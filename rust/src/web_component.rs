@@ -236,42 +236,60 @@ impl WebComponent {
         remove_owned(&stage)?;
         fs::create_dir(&stage)?;
         let archive = stage.join("runtime.tar.bz2");
-        // Reject all redirects: the compiled URL already identifies the official artifact.
-        let (downloaded, total) = tokio::runtime::Runtime::new()?.block_on(async {
-            let client = reqwest::Client::builder().https_only(true)
-                .redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(15))
-                .read_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(600)).build()?;
-            let request = client.get(URL).send();
-            tokio::pin!(request);
-            let mut response = loop {
-                tokio::select! {
-                    result = &mut request => break result?.error_for_status()?,
-                    _ = tokio::time::sleep(Duration::from_millis(100)) => cancelled(&self.cancel)?,
-                }
-            };
-            if !response.status().is_success() { bail!("Official Chromium source returned HTTP {}", response.status()); }
-            let total = response.content_length();
-            if total.is_some_and(|v| v > MAX_DOWNLOAD) { bail!("Chromium download exceeds size budget"); }
-            let mut output = File::create(&archive)?;
-            let mut downloaded = 0_u64;
-            loop {
-                cancelled(&self.cancel)?;
-                tokio::select! {
-                    result = response.chunk() => {
-                        let Some(bytes) = result? else { break; };
-                        downloaded += bytes.len() as u64;
-                        if downloaded > MAX_DOWNLOAD { bail!("Chromium download exceeds size budget"); }
-                        output.write_all(&bytes).context("Cannot write Chromium download; check disk space")?;
-                        self.update("downloading", downloaded, total);
-                    }
-                    _ = tokio::time::sleep(Duration::from_millis(100)) => cancelled(&self.cancel)?,
-                }
-            }
-            output.sync_all()?;
-            if total.is_some_and(|v| v != downloaded) { bail!("Chromium download was truncated"); }
-            Ok::<_, anyhow::Error>((downloaded, total))
-        })?;
+        let client = official_client()?;
+        let mut output = File::create(&archive)?;
+        let (downloaded, total) =
+            tokio::runtime::Runtime::new()?.block_on(self.download(client, URL, &mut output))?;
+        output
+            .sync_all()
+            .context("Cannot save Chromium download; check disk space")?;
         self.install_archive(&stage, downloaded, total)
+    }
+    // Private transport seam for fault fixtures. Production always supplies the
+    // compiled official URL and HTTPS-only client; neither is a user setting.
+    async fn download(
+        &self,
+        client: reqwest::Client,
+        url: &str,
+        output: &mut impl Write,
+    ) -> Result<(u64, Option<u64>)> {
+        cancelled(&self.cancel)?;
+        let request = client.get(url).send();
+        tokio::pin!(request);
+        let mut response = loop {
+            tokio::select! {
+                result = &mut request => break result.context("Cannot reach official Chromium source")?.error_for_status()?,
+                _ = tokio::time::sleep(Duration::from_millis(100)) => cancelled(&self.cancel)?,
+            }
+        };
+        if !response.status().is_success() {
+            bail!(
+                "Official Chromium source returned HTTP {}",
+                response.status()
+            );
+        }
+        let total = response.content_length();
+        if total.is_some_and(|v| v > MAX_DOWNLOAD) {
+            bail!("Chromium download exceeds size budget");
+        }
+        let mut downloaded = 0_u64;
+        loop {
+            cancelled(&self.cancel)?;
+            tokio::select! {
+                result = response.chunk() => {
+                    let Some(bytes) = result.context("Chromium download disconnected or truncated")? else { break; };
+                    downloaded += bytes.len() as u64;
+                    if downloaded > MAX_DOWNLOAD { bail!("Chromium download exceeds size budget"); }
+                    output.write_all(&bytes).context("Cannot write Chromium download; check disk space")?;
+                    self.update("downloading", downloaded, total);
+                }
+                _ = tokio::time::sleep(Duration::from_millis(100)) => cancelled(&self.cancel)?,
+            }
+        }
+        if total.is_some_and(|v| v != downloaded) {
+            bail!("Chromium download was truncated");
+        }
+        Ok((downloaded, total))
     }
     fn install_archive(&self, stage: &Path, downloaded: u64, total: Option<u64>) -> Result<u64> {
         let archive = stage.join("runtime.tar.bz2");
@@ -289,12 +307,50 @@ impl WebComponent {
         marker.sync_all()?;
         cancelled(&self.cancel)?;
         let target = self.root.join("runtime");
-        if target.exists() {
-            remove_owned(&target)?;
-        }
-        fs::rename(runtime, target).context("Cannot commit Chromium runtime installation")?;
+        commit_runtime(&runtime, &target)?;
         Ok(bytes)
     }
+}
+fn commit_runtime(staged: &Path, target: &Path) -> Result<()> {
+    ensure_no_links(staged)?;
+    ensure_no_links(target)?;
+    if !target.exists() {
+        return fs::rename(staged, target).context("Cannot commit Chromium runtime installation");
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        extern "C" {
+            fn renameat2(
+                old_fd: i32,
+                old_path: *const std::ffi::c_char,
+                new_fd: i32,
+                new_path: *const std::ffi::c_char,
+                flags: u32,
+            ) -> i32;
+        }
+        let staged = std::ffi::CString::new(staged.as_os_str().as_bytes())?;
+        let target = std::ffi::CString::new(target.as_os_str().as_bytes())?;
+        // Atomic exchange preserves the installed directory on any failure.
+        // The old runtime moves into staging and is removed by worker cleanup.
+        if unsafe { renameat2(-100, staged.as_ptr(), -100, target.as_ptr(), 2) } != 0 {
+            return Err(std::io::Error::last_os_error())
+                .context("Cannot atomically replace Chromium runtime");
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "linux"))]
+    anyhow::bail!("Atomic Chromium runtime replacement is unsupported on this platform")
+}
+fn official_client() -> Result<reqwest::Client> {
+    // No redirect can change the pinned download origin.
+    Ok(reqwest::Client::builder()
+        .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
+        .connect_timeout(Duration::from_secs(15))
+        .read_timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(600))
+        .build()?)
 }
 fn dto(state: &str, bytes: u64, error: Option<String>) -> WebSupportDto {
     WebSupportDto {
@@ -504,6 +560,39 @@ fn inspect(root: &Path) -> Result<(bool, u64)> {
     }
     Ok((true, bytes))
 }
+#[cfg(test)]
+pub(crate) fn install_sdk_fixture(sdk: &Path, root: &Path) -> Result<()> {
+    fn link_tree(source: &Path, target: &Path) -> Result<()> {
+        fs::create_dir_all(target)?;
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            let destination = target.join(entry.file_name());
+            let kind = entry.file_type()?;
+            if kind.is_dir() {
+                link_tree(&entry.path(), &destination)?;
+            } else if kind.is_file() {
+                // The test never modifies linked SDK assets; removing a component
+                // unlinks only the fixture's own files.
+                fs::hard_link(entry.path(), destination)?;
+            } else {
+                bail!("SDK fixture contains non-regular assets");
+            }
+        }
+        Ok(())
+    }
+    let stage = root.join("staging");
+    let runtime = stage.join("runtime");
+    link_tree(&sdk.join("Release"), &runtime)?;
+    link_tree(&sdk.join("Resources"), &runtime)?;
+    for license in ["LICENSE.txt", "CREDITS.html"] {
+        fs::hard_link(sdk.join(license), runtime.join(license))?;
+    }
+    let installed = manifest(&runtime, &AtomicBool::new(false))?;
+    serde_json::to_writer(File::create(runtime.join("installed.json"))?, &installed)?;
+    commit_runtime(&runtime, &root.join("runtime"))?;
+    remove_owned(&stage)?;
+    Ok(())
+}
 fn disk_usage(root: &Path) -> Result<u64> {
     if !root.exists() {
         return Ok(0);
@@ -533,6 +622,199 @@ mod tests {
     use super::*;
     use bzip2::{write::BzEncoder, Compression};
     use std::io::Cursor;
+    fn response_fixture(
+        response: Vec<u8>,
+        delay: Duration,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let worker = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + Duration::from_secs(2);
+            loop {
+                if let Ok((mut connection, _)) = listener.accept() {
+                    connection
+                        .set_read_timeout(Some(Duration::from_secs(1)))
+                        .unwrap();
+                    let mut request = [0; 4096];
+                    let _ = connection.read(&mut request);
+                    std::thread::sleep(delay);
+                    let _ = connection.write_all(&response);
+                    break;
+                }
+                if std::time::Instant::now() >= deadline {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        });
+        (format!("http://{address}/fixture"), worker)
+    }
+    fn fixture_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .connect_timeout(Duration::from_millis(100))
+            .read_timeout(Duration::from_millis(500))
+            .timeout(Duration::from_secs(2))
+            .build()
+            .unwrap()
+    }
+    #[test]
+    fn official_transport_rejects_http_and_mock_redirects_never_follow() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = WebComponent::new(temp.path().join("component"));
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let mut sink = Vec::new();
+        let error = runtime
+            .block_on(manager.download(
+                official_client().unwrap(),
+                "http://127.0.0.1:9/fixture",
+                &mut sink,
+            ))
+            .unwrap_err();
+        assert!(format!("{error:#}").contains("URL scheme"));
+        let (url,worker)=response_fixture(b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/other\r\nContent-Length: 0\r\n\r\n".to_vec(),Duration::ZERO);
+        let error = runtime
+            .block_on(manager.download(fixture_client(), &url, &mut sink))
+            .unwrap_err();
+        worker.join().unwrap();
+        assert!(error.to_string().contains("HTTP 302"));
+        assert!(sink.is_empty());
+        assert!(!manager.root.exists());
+    }
+    #[test]
+    fn connection_loss_truncation_and_announced_size_budget_fail_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = WebComponent::new(temp.path().join("component"));
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let mut sink = Vec::new();
+        let unavailable = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/offline", unavailable.local_addr().unwrap());
+        drop(unavailable);
+        let error = runtime
+            .block_on(manager.download(fixture_client(), &url, &mut sink))
+            .unwrap_err();
+        assert!(error.to_string().contains("Cannot reach"));
+        for (reply, expected) in [
+            (
+                b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nshort".to_vec(),
+                "disconnected or truncated",
+            ),
+            (
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n",
+                    MAX_DOWNLOAD + 1
+                )
+                .into_bytes(),
+                "size budget",
+            ),
+        ] {
+            let (url, worker) = response_fixture(reply, Duration::ZERO);
+            let error = runtime
+                .block_on(manager.download(fixture_client(), &url, &mut sink))
+                .unwrap_err();
+            worker.join().unwrap();
+            assert!(error.to_string().contains(expected), "{error:#}");
+        }
+        assert!(!manager.playback_allowed());
+        assert!(!manager.root.exists());
+    }
+    #[test]
+    fn disk_full_write_failure_preserves_runtime_and_transport_can_retry() {
+        struct FullDisk;
+        impl Write for FullDisk {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::from_raw_os_error(28))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("component");
+        fs::create_dir(&root).unwrap();
+        let input = archive(temp.path(), resources());
+        extract(&input, &root.join("runtime"), &AtomicBool::new(false)).unwrap();
+        commit(&root.join("runtime"));
+        let manager = WebComponent::new(root.clone());
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let reply = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nbytes".to_vec();
+        let (url, worker) = response_fixture(reply.clone(), Duration::ZERO);
+        let error = runtime
+            .block_on(manager.download(fixture_client(), &url, &mut FullDisk))
+            .unwrap_err();
+        worker.join().unwrap();
+        assert!(format!("{error:#}").contains("disk space"));
+        assert!(inspect(&root).unwrap().0);
+        let (url, worker) = response_fixture(reply, Duration::ZERO);
+        let mut output = Vec::new();
+        assert_eq!(
+            runtime
+                .block_on(manager.download(fixture_client(), &url, &mut output))
+                .unwrap(),
+            (5, Some(5))
+        );
+        worker.join().unwrap();
+        assert_eq!(output, b"bytes");
+        assert!(inspect(&root).unwrap().0);
+    }
+    #[test]
+    fn cancel_while_waiting_for_headers_then_retry_without_partial_enablement() {
+        let temp = tempfile::tempdir().unwrap();
+        let manager = Arc::new(WebComponent::new(temp.path().join("component")));
+        let (url, worker) = response_fixture(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nbytes".to_vec(),
+            Duration::from_millis(250),
+        );
+        let cancel = manager.clone();
+        let cancelling = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(20));
+            cancel.cancel();
+        });
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let mut output = Vec::new();
+        let started = std::time::Instant::now();
+        let error = runtime
+            .block_on(manager.download(fixture_client(), &url, &mut output))
+            .unwrap_err();
+        assert!(error.to_string().contains("cancelled"));
+        assert!(started.elapsed() < Duration::from_millis(500));
+        cancelling.join().unwrap();
+        worker.join().unwrap();
+        assert!(output.is_empty() && !manager.playback_allowed() && !manager.root.exists());
+        manager.cancel.store(false, Ordering::Release);
+        let (url, worker) = response_fixture(
+            b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nbytes".to_vec(),
+            Duration::ZERO,
+        );
+        assert_eq!(
+            runtime
+                .block_on(manager.download(fixture_client(), &url, &mut output))
+                .unwrap(),
+            (5, Some(5))
+        );
+        worker.join().unwrap();
+        assert_eq!(output, b"bytes");
+        assert!(!manager.playback_allowed());
+    }
+    #[test]
+    fn failed_commit_preserves_installed_directory_and_exchange_is_atomic() {
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join("runtime");
+        fs::create_dir(&target).unwrap();
+        fs::write(target.join("keep"), b"installed").unwrap();
+        let staged = temp.path().join("stage-runtime");
+        assert!(commit_runtime(&staged, &target).is_err());
+        assert_eq!(fs::read(target.join("keep")).unwrap(), b"installed");
+        fs::create_dir(&staged).unwrap();
+        fs::write(staged.join("keep"), b"replacement").unwrap();
+        commit_runtime(&staged, &target).unwrap();
+        assert_eq!(fs::read(target.join("keep")).unwrap(), b"replacement");
+        assert_eq!(fs::read(staged.join("keep")).unwrap(), b"installed");
+        remove_owned(&staged).unwrap();
+        assert_eq!(fs::read(target.join("keep")).unwrap(), b"replacement");
+    }
 
     fn archive(root: &Path, files: Vec<(String, Vec<u8>)>) -> PathBuf {
         let path = root.join("fixture.tar.bz2");
@@ -593,7 +875,7 @@ mod tests {
         assert_eq!(manifest["url"], URL);
         assert_eq!(manifest["sha256"], ARCHIVE_SHA256);
         assert_eq!(manifest["distribution"], DISTRIBUTION);
-        assert_eq!(manifest["ipc_version"], 1);
+        assert_eq!(manifest["ipc_version"], 2);
     }
     #[test]
     fn default_status_does_not_create_or_download_anything() {

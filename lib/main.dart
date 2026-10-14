@@ -98,6 +98,9 @@ ThemeData themeFromSettings(GuiSettingsDto gui, Brightness brightness) {
   );
 }
 
+String _errorMessage(Object exception) =>
+    exception is BridgeError ? exception.message : exception.toString();
+
 class WayvidController extends ChangeNotifier {
   WayvidController._(
     this.service,
@@ -242,7 +245,7 @@ class WayvidController extends ChangeNotifier {
         await service.createEngine(config: settings.toEngineConfig());
         controller.engineRunning = true;
       } catch (exception) {
-        controller.error = exception.toString();
+        controller.error = _errorMessage(exception);
       }
     }
     await controller.refreshWebSupport();
@@ -346,7 +349,7 @@ class WayvidController extends ChangeNotifier {
             (matching.isEmpty ? null : matching.first.id);
         if (id != null) appliedByOutput[output] = id;
       } catch (exception) {
-        error = exception.toString();
+        error = _errorMessage(exception);
       }
     }
     notifyListeners();
@@ -549,7 +552,7 @@ class WayvidController extends ChangeNotifier {
     } on StateError catch (exception) {
       error = exception.message.toString();
     } on FrbException catch (exception) {
-      error = exception.toString();
+      error = _errorMessage(exception);
     } catch (exception) {
       error = exception.toString();
     }

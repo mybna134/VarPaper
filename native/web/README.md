@@ -7,7 +7,11 @@ executable handles CEF subprocesses. Its CEF DLL wrapper is built from the
 pinned official SDK; the upstream BSD notice is retained in `CEF-LICENSE`.
 
 `runtime.json` pins the SDK/runtime version, architecture, URL, SHA-256 and IPC
-version. Build with `scripts/build-web-host.sh`; `CEF_ROOT` can select an already
+version (currently IPC 2 for properties and audio). The application checks this
+manifest and executable permissions before declaring Web ready or launching a
+candidate, and checks the actual IPC version on every response. A mismatched
+helper requires reinstalling the application; the pinned CEF runtime is unchanged.
+Build with `scripts/build-web-host.sh`; `CEF_ROOT` can select an already
 extracted matching SDK. SDK downloads are build-time operations. Application
 startup never invokes this script. `scripts/build-linux.sh` builds and bundles
 only the helper, runtime manifest and wrapper license. It excludes libcef and
@@ -19,6 +23,14 @@ LICENSE.txt and CREDITS.html only after the Settings installation action. The
 helper starts with this component directory in its own `LD_LIBRARY_PATH`; the
 main application has no libcef dependency. Chromium sandboxing remains enabled.
 CEF initialization failures terminate the helper and become a wallpaper error.
+Development overrides using `VARPAPER_WEB_HOST` require `runtime.json` beside
+the helper; CMake copies the pinned manifest into its build directory.
+
+Installation replaces an existing runtime with an atomic Linux directory exchange;
+an unsuccessful commit preserves the existing runtime. Uninstall blocks new Web
+requests, cancels installation, waits for browser/process/audio teardown and then
+removes the owned runtime/cache/staging. Deletion errors remain retryable without
+removing projects or saved assignments. Startup and restore never download a runtime.
 
 IPC uses an inherited private Unix socket, 32-bit little-endian JSON lengths,
 request/browser/generation IDs and an IPC version. JSON is limited to 64 KiB,
@@ -46,10 +58,22 @@ prompts are denied instead of opening desktop windows.
 
 Pause closes the browser and retains the displayed frame. Resume creates a new
 browser at the same viewport, so timers and generated sound stop during pause,
-while temporary page state may reset. Mute uses CEF audio muting; volume updates
-currently cover HTML audio/video elements. Web Audio volume, project property
-callbacks and system-audio visualization are still pending and are not advertised
-as completed renderer capabilities.
+while temporary page state may reset. CEF audio packets feed a bounded per-browser
+SDL output (48 kHz stereo, at most 250 ms queued); mute and volume apply to both
+HTML media and Web Audio. Closing a browser closes its audio device and queue.
+
+`wallpaperPropertyListener.applyUserProperties` receives initial declared values
+after page load, and updated values through the renderer property interface.
+Boolean, numeric and string values retain their JSON types; updates must refer
+to declared properties, preserve types, obey numeric bounds and declared combo
+choices, and provide valid three-component colors. Resume reloads
+the latest values. The GUI property editor/persistence is still pending.
+
+`wallpaperRegisterAudioListener` is installed before page scripts run. It receives
+128 finite values in 0..1 (64 increasing-frequency left bands, then 64 right
+bands) from the shared system playback monitor. Silence/unavailable/stale capture
+supplies zeros. Wallpaper mute only controls generated sound. Pausing/closing
+releases this browser's monitor consumer; the last consumer joins the worker.
 
 Browser cache files live under the component's `browser-cache/<host-pid>`.
 The host owns a private process group and acts as a Linux child subreaper. After
@@ -71,10 +95,19 @@ xvfb-run -a env VARPAPER_TEST_CEF_SOFTWARE=1 \
 `VARPAPER_TEST_CEF_SOFTWARE` selects SwiftShader for test environments. The test
 covers local CSS/JS/images, Canvas/WebGL, two independent browsers, resize,
 pause/resume, resource/network/download/protocol/dialog restrictions,
-WebSocket/WebRTC and worker policy diagnostics, frame budgets
-and subprocess exit. Rust's `web_texture_orientation_first_frame_and_stop_preserve_media`
+WebSocket/WebRTC and worker policy diagnostics, frame budgets, typed initial/live
+properties, stereo spectrum/zero callbacks, HTML/Web Audio volume/mute, paused
+audio counters, renderer crash isolation and all descendant subprocess exits.
+Tests use SDL's dummy audio device and produce no sound. Rust's
+`web_texture_orientation_first_frame_and_stop_preserve_media`
 X11 fixture additionally checks real GL pixels, state restoration, candidate
-commit/rollback and stopping Web while another media output remains active.
+commit/rollback, property type/range/color/choice rejection, audio-consumer
+cleanup and stopping Web while another media output remains active.
 Pass `VARPAPER_TEST_X11=1`, `VARPAPER_WEB_HOST` and `VARPAPER_CEF_RUNTIME` when
 running that fixture under Xvfb. These tests do not replace real-desktop,
 Wayland, packaging or soak acceptance.
+
+The pinned nlohmann/json archive belongs to this Web helper and lives in
+`vendor/json.tar.gz`. `dependencies.json` records its source revision and hash;
+`JSON-LICENSE` preserves its MIT notice. It has no dependency on the removed
+WallpaperEngine Scene source directory.

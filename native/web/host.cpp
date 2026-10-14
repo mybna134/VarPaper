@@ -1,4 +1,5 @@
 // VarPaper's CEF owner. No desktop windows or GL contexts live in this process.
+#include "audio_output.h"
 #include "include/cef_app.h"
 #include "include/cef_browser.h"
 #include "include/cef_client.h"
@@ -60,7 +61,7 @@ uint32_t little(const std::array<unsigned char, 4> &b) {
 bool respond(int fd, Json response,
              const std::vector<unsigned char> &pixels = {}) {
   response["bytes"] = pixels.size();
-  response["ipc_version"] = 1;
+  response["ipc_version"] = VARPAPER_WEB_IPC_VERSION;
   auto data = response.dump();
   if (data.size() > kMaxJson || pixels.size() > kMaxFrame)
     return false;
@@ -308,7 +309,8 @@ class Page final : public CefClient,
                    public CefDisplayHandler,
                    public CefJSDialogHandler,
                    public CefDialogHandler,
-                   public CefPermissionHandler {
+                   public CefPermissionHandler,
+                   public CefAudioHandler {
 public:
   Page(fs::path root, std::string entry, int width, int height,
        uint64_t generation)
@@ -324,6 +326,40 @@ public:
   CefRefPtr<CefDialogHandler> GetDialogHandler() override { return this; }
   CefRefPtr<CefPermissionHandler> GetPermissionHandler() override {
     return this;
+  }
+  CefRefPtr<CefAudioHandler> GetAudioHandler() override { return this; }
+  bool GetAudioParameters(CefRefPtr<CefBrowser>,
+                          CefAudioParameters &params) override {
+    params.channel_layout = CEF_CHANNEL_LAYOUT_STEREO;
+    params.sample_rate = 48000;
+    params.frames_per_buffer = 480;
+    return true;
+  }
+  void OnAudioStreamStarted(CefRefPtr<CefBrowser>,
+                            const CefAudioParameters &params,
+                            int channels) override {
+    try {
+      if (channels != 2 || params.sample_rate != 48000)
+        throw std::runtime_error("Unsupported browser audio format");
+      sound.start();
+    } catch (const std::exception &error) {
+      state->fail(error.what());
+    }
+  }
+  void OnAudioStreamPacket(CefRefPtr<CefBrowser>, const float **data,
+                           int frames, int64_t) override {
+    try {
+      sound.packet(data, frames);
+    } catch (const std::exception &error) {
+      state->fail(error.what());
+    }
+  }
+  void OnAudioStreamStopped(CefRefPtr<CefBrowser>) override { sound.stop(); }
+  void OnAudioStreamError(CefRefPtr<CefBrowser>,
+                          const CefString &message) override {
+    sound.stop();
+    if (!closing.load())
+      state->fail("Browser audio error: " + message.ToString());
   }
   bool OnJSDialog(CefRefPtr<CefBrowser>, const CefString &, JSDialogType,
                   const CefString &, const CefString &,
@@ -403,8 +439,17 @@ public:
   bool OnProcessMessageReceived(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
                                 CefProcessId source,
                                 CefRefPtr<CefProcessMessage> message) override {
-    if (source != PID_RENDERER ||
-        message->GetName() != "varpaper-blocked-network")
+    if (source != PID_RENDERER)
+      return false;
+    if (message->GetName() == "varpaper-renderer-ready") {
+      renderer_client = message->GetArgumentList()->GetString(0).ToString();
+      return true;
+    }
+    if (message->GetName() == "varpaper-api-error") {
+      state->fail("Wallpaper API initialization failed");
+      return true;
+    }
+    if (message->GetName() != "varpaper-blocked-network")
       return false;
     state->fail(
         "External connection API blocked: " +
@@ -442,11 +487,12 @@ public:
   }
   void OnAfterCreated(CefRefPtr<CefBrowser> value) override {
     browser = value;
-    browser->GetHost()->SetAudioMuted(muted);
+    browser->GetHost()->SetAudioMuted(true);
     if (closing)
       browser->GetHost()->CloseBrowser(true);
   }
   void OnBeforeClose(CefRefPtr<CefBrowser>) override {
+    sound.stop();
     browser = nullptr;
     closed = true;
     loaded = false;
@@ -460,6 +506,7 @@ public:
       return;
     }
     loaded = true;
+    deliver_properties();
     value->GetHost()->Invalidate(PET_VIEW);
   }
   void OnLoadError(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
@@ -489,19 +536,38 @@ public:
   }
   void audio(bool mute, double volume) {
     muted = mute;
+    sound.configure(mute, float(volume));
     if (browser) {
-      browser->GetHost()->SetAudioMuted(mute);
-      browser->GetMainFrame()->ExecuteJavaScript(
-          "document.querySelectorAll('audio,video').forEach(e=>e.volume=" +
-              std::to_string(std::clamp(volume, 0.0, 1.0)) + ");",
-          kOrigin, 0);
+      browser->GetHost()->SetAudioMuted(true);
     }
   }
+  void deliver_properties() {
+    if (browser && loaded)
+      browser->GetMainFrame()->ExecuteJavaScript(
+          "window.wallpaperPropertyListener?.applyUserProperties?.(" +
+              properties.dump() + ");",
+          kOrigin, 0);
+  }
+  void spectrum(const Json &values) {
+    if (!values.is_array() || values.size() != 128)
+      throw std::runtime_error("Invalid audio spectrum length");
+    for (const auto &value : values)
+      if (!value.is_number() || !std::isfinite(value.get<double>()) ||
+          value.get<double>() < 0 || value.get<double>() > 1)
+        throw std::runtime_error("Invalid audio spectrum value");
+    if (browser && loaded)
+      browser->GetMainFrame()->ExecuteJavaScript(
+          "window.__varpaperAudio(" + values.dump() + ");", kOrigin, 0);
+  }
+  Json properties = Json::object();
+  AudioOutput sound;
   fs::path root;
   std::string entry;
   int width, height;
   uint64_t generation, sequence = 0;
-  bool closed = false, loaded = false, muted = true, closing = false;
+  bool closed = false, loaded = false, muted = true;
+  std::string renderer_client;
+  std::atomic<bool> closing{false};
   std::vector<unsigned char> pixels;
   std::shared_ptr<PageState> state = std::make_shared<PageState>();
   CefRefPtr<CefBrowser> browser;
@@ -535,7 +601,7 @@ public:
     return this;
   }
   void OnContextInitialized() override { ready = true; }
-  void OnContextCreated(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame>,
+  void OnContextCreated(CefRefPtr<CefBrowser>, CefRefPtr<CefFrame> frame,
                         CefRefPtr<CefV8Context> context) override {
     auto global = context->GetGlobal();
     CefRefPtr<BlockNetwork> handler = new BlockNetwork;
@@ -545,6 +611,30 @@ public:
                        static_cast<CefV8Value::PropertyAttribute>(
                            V8_PROPERTY_ATTRIBUTE_READONLY |
                            V8_PROPERTY_ATTRIBUTE_DONTDELETE));
+    }
+    if (frame->IsMain()) {
+      if (std::getenv("VARPAPER_TEST_CEF_SOFTWARE")) {
+        auto ready = CefProcessMessage::Create("varpaper-renderer-ready");
+        ready->GetArgumentList()->SetString(
+            0, CefCommandLine::GetGlobalCommandLine()->GetSwitchValue(
+                   "renderer-client-id"));
+        frame->SendProcessMessage(PID_BROWSER, ready);
+      }
+      CefRefPtr<CefV8Value> result;
+      CefRefPtr<CefV8Exception> error;
+      if (!context->Eval(R"JS((()=>{
+        let listener=null;
+        Object.defineProperty(window,'wallpaperRegisterAudioListener',{
+          value:fn=>{if(typeof fn!=='function')throw new TypeError('Audio listener must be a function');listener=fn;},
+          writable:false,configurable:false
+        });
+        Object.defineProperty(window,'__varpaperAudio',{
+          value:values=>{if(listener)listener(values);},writable:false,configurable:false
+        });
+      })())JS",
+                         kOrigin, 0, result, error))
+        frame->SendProcessMessage(
+            PID_BROWSER, CefProcessMessage::Create("varpaper-api-error"));
     }
   }
 
@@ -681,6 +771,9 @@ int main(int argc, char **argv) {
         if (w <= 0 || h <= 0 || uint64_t(w) * h * 4 > kMaxFrame)
           throw std::runtime_error("Viewport exceeds frame budget");
         CefRefPtr<Page> page = new Page(root, entry, w, h, generation);
+        page->properties = command.value("properties", Json::object());
+        if (!page->properties.is_object())
+          throw std::runtime_error("Invalid Web property object");
         page->open();
         pages[id] = page;
       } else {
@@ -692,6 +785,8 @@ int main(int argc, char **argv) {
         if (!failure.empty() && op != "close")
           throw std::runtime_error(failure);
         if (op == "frame") {
+          if (command.contains("spectrum"))
+            page->spectrum(command.at("spectrum"));
           int w = command.at("width"), h = command.at("height");
           if (w <= 0 || h <= 0 || uint64_t(w) * h * 4 > kMaxFrame)
             throw std::runtime_error("Viewport exceeds frame budget");
@@ -705,6 +800,11 @@ int main(int argc, char **argv) {
           response["width"] = w;
           response["height"] = h;
           response["sequence"] = page->sequence;
+          if (std::getenv("VARPAPER_TEST_CEF_SOFTWARE")) {
+            response["renderer_client"] = page->renderer_client;
+            response["audio_packets"] = page->sound.packets();
+            response["audio_peak"] = page->sound.peak();
+          }
           if (command.value("sequence", uint64_t(0)) != page->sequence)
             pixels = page->pixels;
         } else if (op == "pause") {
@@ -714,6 +814,12 @@ int main(int argc, char **argv) {
             page->open();
         } else if (op == "audio") {
           page->audio(command.at("mute"), command.at("volume"));
+        } else if (op == "properties") {
+          auto updates = command.at("properties");
+          if (!updates.is_object())
+            throw std::runtime_error("Invalid Web property object");
+          page->properties.update(updates);
+          page->deliver_properties();
         } else if (op == "close") {
           if (!page->closed)
             close_page(page);

@@ -7,7 +7,7 @@
 适用于 Linux Wayland 和 X11 桌面的动态视频壁纸管理器
 
 [![许可证](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Flutter](https://img.shields.io/badge/Flutter-3.47.4-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev/)
 
 [![最新版本](https://img.shields.io/github/v/release/mybna134/VarPaper?style=for-the-badge&label=Latest%20Release&logo=github)](https://github.com/mybna134/VarPaper/releases/latest)
@@ -66,7 +66,7 @@ Niri 出于安全原因会隐藏沙盒 Flatpak 应用的 `wlr-layer-shell` 协�
 
 应用会将设置和显示器壁纸分配保存在平台的应用支持目录中的 Isar 数据库里。旧版 YAML 设置不会自动迁移。如需登录后自动恢复壁纸，请在设置中启用 **登录时启动** 和 **恢复上次壁纸**。**最小化到托盘** 和 **启动时最小化** 分别控制窗口行为。
 
-Wallpaper Engine 创意工坊内容必须先通过 Steam 安装到本机。VarPaper 会查找这些文件夹并播放视频项目；目前不支持网页和场景项目。
+Wallpaper Engine 创意工坊内容必须先通过 Steam 安装到本机。VarPaper 支持视频项目和已实现的 Rust Scene 子集：图像图层、效果、动画、基础精灵粒子、文字、声音及基础脚本。高级粒子、系统音频可视化和完整时钟／脚本兼容留待后续实现；遇到未支持的必需功能会明确报错。网页项目使用可选的 Web 壁纸组件。详见 [Scene 支持范围](docs/src/dev/rust-scene.md)。
 
 ## 从源码构建
 

@@ -12,6 +12,10 @@ arch_cache="$root/build/arch-pacman-cache"
   exit 1
 }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
+[[ ! -e "$bundle/lib/libvarpaper_scene.so" && ! -L "$bundle/lib/libvarpaper_scene.so" ]] || {
+  echo 'Stale C++ Scene library in bundle; rebuild Flutter from a clean output directory' >&2
+  exit 1
+}
 command -v tar >/dev/null || { echo 'tar is required' >&2; exit 1; }
 command -v zstd >/dev/null || { echo 'zstd is required' >&2; exit 1; }
 

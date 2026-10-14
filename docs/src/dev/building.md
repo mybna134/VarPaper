@@ -4,7 +4,7 @@ The Linux release build creates one Flutter bundle with the Rust playback engine
 
 ## Requirements
 
-- Flutter 3.47.4 and a stable Rust toolchain
+- Flutter 3.47.4 and Rust 1.88 or newer
 - GTK 3, libmpv, Wayland, EGL, and Ayatana AppIndicator development packages
 - `dpkg-deb`, `flatpak-builder`, and the GNOME 50 Flatpak runtime and SDK
 - Docker for the Arch package build on non-Arch hosts, or `makepkg` on Arch Linux
@@ -35,37 +35,53 @@ flutter test
 dpkg-deb --info dist/*.deb
 ```
 
-## Native Scene development
+## Rust Scene migration development
 
-The in-development Scene component uses pinned repository snapshots from
-linux-wallpaperengine. Its standalone build and first-frame fixtures need no
-reference checkout. Install CMake 3.24+, a C++20 compiler, Python 3, pkg-config,
-GLEW, GLFW3, SDL2, LZ4, FreeType, FFmpeg development libraries and libmpv.
+Scene business logic runs directly in `crates/wayvid-engine/src/scene/` under
+`migrate-scene-renderer-to-rust`. `model` parses bounded JSON, `resources`
+reuses the library's project-scoped loose/package/shared resource access,
+`texture` decodes bounded TEX payloads, and `runtime`/`gpu` own the render
+context, surface, texture and framebuffer. The renderer holds its EGL surface
+until GPU cleanup finishes; creation, resize, frames and release run with that
+surface current on its owning thread. Failed replacement allocations leave the
+previous target usable. These Rust fixtures do not load a Scene dynamic library.
+The application factory still uses the previous adapter while the remaining
+Rust object, effect and script functionality is being implemented.
+
+With the system dependencies listed above and Xvfb/xauth installed:
 
 ```bash
-python3 native/wallpaperengine/verify_sources.py
-cmake -S native/wallpaperengine -B build/native-scene -DCMAKE_BUILD_TYPE=Release
-cmake --build build/native-scene --target varpaper_scene_test -j4
-xvfb-run -a ctest --test-dir build/native-scene --output-on-failure
-xvfb-run -a env VARPAPER_TEST_X11=1 XDG_SESSION_TYPE=x11 SDL_AUDIODRIVER=dummy \
-  VARPAPER_SCENE_LIBRARY="$PWD/build/native-scene/libvarpaper_scene.so" \
-  cargo test -p wayvid-engine -- --test-threads=1
+cargo +1.88.0 check --workspace --all-targets --locked --offline
+cargo +1.88.0 test -p wayvid-engine scene::texture::tests --locked --offline
+env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 VARPAPER_TEST_X11=1 \
+  xvfb-run -a cargo test -p wayvid-engine \
+  scene::runtime::tests::rust_scene_first_frame_state_and_failed_allocation_cleanup \
+  -- --exact --nocapture
+env -u WAYLAND_DISPLAY XDG_SESSION_TYPE=x11 VARPAPER_TEST_X11=1 \
+  VARPAPER_EXPECT_SCENE_GL_UNAVAILABLE=1 MESA_GL_VERSION_OVERRIDE=3.0 \
+  xvfb-run -a cargo test -p wayvid-engine \
+  scene::runtime::tests::rust_scene_first_frame_state_and_failed_allocation_cleanup \
+  -- --exact --nocapture
 ```
 
-The Rust Scene owner retains its native library, project-scoped resource
-callbacks and EGL surface. Creation, frames and destruction run on the render
-thread with that surface current. Native exceptions return caller-owned error
-messages. Read buffers transfer temporarily and are released exactly once.
-Only versioned C ABI symbols are exported, keeping QuickJS symbols separate
-from libmpv's JavaScript engine. See `native/wallpaperengine/scene.h` and the
-component README for callback and cleanup contracts.
+`--offline` requires that locked dependencies and the 1.88 toolchain were
+previously downloaded. The private Xvfb test checks clear-color pixels, GL state
+restoration, caller unpack buffers, allocation failure and twenty create/release
+cycles against GPU/EGL baselines. The second GL command verifies rejection
+when OpenGL 3.3 is unavailable. The fixtures generate assets without Workshop
+files. Run `scripts/check-rust-scene.sh` for the generated resource, texture, shader
+and actual GL checks; see [Rust Scene checks](rust-scene.md) and the migration's
+`validation.md` for executed checks; these results
+do not yet establish full Rust Scene compatibility.
 
-These fixtures currently cover the minimal Scene clear-color frame, Image to
-Scene replacement, invalid candidate rollback, native failure cleanup and
-thread ownership. Full SceneScript/audio visualization, Web, packaging and
-desktop qualification remain tracked in `add-all-wallpaper-types`; scanning
-still reports Scene as requiring its completed renderer integration. Web uses
-the optional browser host described below.
+## Rust Scene application integration
+
+The renderer factory directly creates `RustSceneRenderer` in the engine.
+Scene has no separate library, C ABI, CMake target or library-path setting.
+Use `cargo check --workspace --all-targets --locked` to compile it and
+`scripts/check-rust-scene.sh` to run the generated fixture suite.
+See [Rust Scene checks](rust-scene.md) for the supported subset and deferred
+features. Unsupported required content fails with an asset diagnostic.
 
 ## Optional Web runtime development
 
@@ -84,8 +100,9 @@ after validation. Restart validates the installation record and file hashes.
 Uninstall removes the owned component directory and temporary files, preserving
 wallpaper projects and saved assignments. Web browser playback is now connected through the shared host, provided the
 bundle contains `libexec/varpaper-web-host`. Local HTML/CSS/JS, Canvas/WebGL,
-resize and pause/resume have passed the native fixtures. Project property
-callbacks and audio visualization are still pending; see
+resize, pause/resume, typed project callbacks and audio callbacks have passed the
+native fixtures. The GUI property editor/persistence and full Scene audio/script
+compatibility remain pending; see
 [native Web component notes](../../../native/web/README.md).
 
 `scripts/build-linux.sh` compiles the helper using the pinned SDK (set `CEF_ROOT`
@@ -94,8 +111,9 @@ license but excludes the optional CEF runtime. A direct Flutter build can select
 a prebuilt helper with `VARPAPER_WEB_HOST_BINARY`. Build-time SDK downloads do
 not install the user's runtime component.
 
-Run component unit tests with `cargo test -p wayvid_gui web_component --offline`.
-For the real pinned archive fixture, set `VARPAPER_TEST_CEF_ARCHIVE` to a locally
-downloaded official `.tar.bz2`. That fixture validates extraction, installation,
-restart and removal in a temporary directory and requires space for the full
-runtime; it does not install components into the user's application data.
+Scene is built as part of Cargo and linked into the application. Web still
+requires CMake, a C++ compiler and SDL2; its pinned JSON dependency and MIT
+notice are in `native/web`. `scripts/check-native.sh` runs the Rust Scene
+fixtures and the optional CEF fixtures in private Xvfb sessions. Build packages
+from a fresh Flutter output directory so historical Scene libraries cannot be
+carried into the bundle.

@@ -20,8 +20,9 @@ broken manifests and invalid packages produce loading diagnostics; a bad
 project does not abort discovery of other wallpapers. Paths that escape these
 roots, including symlink escapes, are rejected.
 
-Discovery is separate from playback support. Scene projects currently report
-`requires_renderer`. Web projects require the
+Discovery is separate from playback support. Scene projects use the built-in Rust renderer. Resource discovery permits
+applying a project; unsupported required features are diagnosed during renderer
+creation. Web projects require the
 optional **Web wallpaper support** setting component and a bundled browser host;
 when both are available, the service reports them ready. Missing components
 report `requires_renderer`, rather than claiming successful playback. Application executable projects and unknown
@@ -61,10 +62,23 @@ The workshop content is typically at:
 
 **Supported:**
 - Video wallpapers (.mp4, .webm, .mkv)
+- Image and GIF media
+- Local Web HTML/CSS/JS, Canvas/WebGL after installing **Web wallpaper support**
+- Web initial project properties and system-playback audio listener callbacks
+- Rust Scene image layers, multipass effects, animated textures, core sprite
+  particles, text, once/loop sound and basic SceneScript hooks
+
+Web pages run offline in the shared Chromium host. External requests, downloads,
+host-file access and dialogs are blocked with a diagnostic. Pause closes the
+page and keeps its last frame; resume rebuilds the page and may reset temporary
+JavaScript state. Audio volume/mute covers HTML media and Web Audio. If a Web
+assignment fails, its error is shown and it can be reapplied to retry; a failed
+candidate preserves the current wallpaper.
 
 **Not supported:**
-- Web project property/audio callbacks (still in development)
-- Scene wallpapers with effects
+- Editing/persisting project property overrides in the GUI (still in development)
+- Advanced Scene particles, system-audio visualization and injected clock bindings
+- Full Wallpaper Engine SceneScript compatibility and alternate Scene layout modes
 - Interactive wallpapers
 
 Look for "Video" tag in Workshop.

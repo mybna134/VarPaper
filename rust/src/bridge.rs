@@ -254,10 +254,13 @@ impl WayvidService {
                 dto.compatibility = "ready".into();
                 dto.compatibility_reason = None;
             } else if !self.web_component.playback_allowed() {
-                dto.compatibility_reason = Some(
-                    "Install Web wallpaper support in Settings before applying this wallpaper."
-                        .into(),
-                );
+                dto.compatibility_reason =
+                    Some(self.web_component.status().error.unwrap_or_else(|| {
+                        "Install Web wallpaper support in Settings before applying this wallpaper."
+                            .into()
+                    }));
+            } else if let Err(error) = wayvid_engine::web::validate_host_installation() {
+                dto.compatibility_reason = Some(error.to_string());
             }
         }
         dto
@@ -526,6 +529,10 @@ fn validate_source(path: &Path, web_installed: bool) -> Result<PathBuf, BridgeEr
                 "Install Web wallpaper support in Settings before applying this wallpaper.",
             ));
         }
+        if web {
+            wayvid_engine::web::validate_host_installation()
+                .map_err(|error| BridgeError::message("requires_renderer", error.to_string()))?;
+        }
         if item.compatibility != wayvid_library::CompatibilityStatus::Ready
             && !(web
                 && web_installed
@@ -684,6 +691,10 @@ fn preview_cache_path(id: &str) -> PathBuf {
         .join("previews")
         .join(format!("{:x}.webp", hasher.finish()))
 }
+
+#[cfg(test)]
+#[path = "web_lifecycle_tests.rs"]
+mod web_lifecycle_tests;
 
 #[cfg(test)]
 mod tests {

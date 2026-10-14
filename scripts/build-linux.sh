@@ -7,7 +7,8 @@ cd "$root"
 version="${VARPAPER_VERSION:-$("$root/scripts/build-version.sh")}"
 [[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid build version: $version" >&2; exit 1; }
 
-# Only the helper is bundled. The CEF SDK/runtime files stay outside the bundle.
+
+# Only the Web helper is bundled. CEF SDK/runtime files stay outside the bundle.
 if [[ "$(uname -m)" == x86_64 ]]; then
   "$root/scripts/build-web-host.sh"
   export VARPAPER_WEB_HOST_BINARY="$root/build/native-web/varpaper-web-host"
