@@ -30,7 +30,7 @@ VarPaper is a Flutter desktop app with a Rust rendering engine and mpv media pla
 - Pause, resume, or change wallpapers from the system tray.
 - Configure playback, appearance, autostart, and battery pause in the app.
 
-Playback uses mpv with automatic hardware decoding when available. On Wayland, the compositor must support `wlr-layer-shell`; Wayland sessions use layer-shell even when XWayland is present. Native X11 sessions use RandR for monitor discovery and desktop-type wallpaper windows; their stacking behavior depends on the window manager and desktop icon manager.
+Media playback uses mpv with automatic hardware decoding when available. On Wayland, the compositor must support `wlr-layer-shell`; Wayland sessions use layer-shell even when XWayland is present. Native X11 sessions use RandR for monitor discovery and desktop-type wallpaper windows; their stacking behavior depends on the window manager and desktop icon manager.
 
 ## Install
 
@@ -64,7 +64,7 @@ Niri filters the `wlr-layer-shell` protocol from sandboxed Flatpak apps for secu
 
 Add a media or project folder on the **Folders** page. Browse or search on **Library**, then double-click a wallpaper to apply it to all monitors. The wallpaper details let you apply it to a specific monitor. Use **Monitors** to inspect current assignments and **Settings** to control startup, playback, and power options.
 
-The app saves settings and monitor assignments in an Isar database in the platform application support directory. Existing YAML settings are not migrated. Enable **Launch at login** and **Restore last wallpaper** in Settings if you want wallpapers restored automatically after logging in. **Minimize to tray** and **Start minimized** control the window separately.
+The app saves settings and monitor assignments in an Isar database in the platform application support directory. Only the current source-description format is restored; old path-only wallpaper assignments are not read or migrated and must be reapplied. Existing YAML settings are not migrated. Enable **Launch at login** and **Restore last wallpaper** in Settings if you want wallpapers restored automatically after logging in. **Minimize to tray** and **Start minimized** control the window separately.
 
 Wallpaper Engine Workshop content must already be installed locally through Steam. VarPaper plays video projects and the implemented Rust Scene subset (image layers, effects, animation, core sprite particles, text, sound and basic scripts). Advanced Scene particles, live system-audio visualization and full clock/script compatibility are deferred; unsupported required content reports an error. Web projects use the optional Web wallpaper component. See [Scene support](docs/src/dev/rust-scene.md).
 

@@ -20,7 +20,8 @@ subset and stretch layout.
 
 Enable **Restore last wallpaper** in Settings. Assignments are stored by output
 name in Isar, including versioned project context and supplied Web property
-overrides. Old path-only media records are not read or migrated; reapply wallpapers to save the current format. Reconnecting a display
+overrides. Old path-only media records are not read or migrated; reapply
+wallpapers to save the current format. Reconnecting a display
 with a different name may require assigning its wallpaper again.
 
 Output discovery and rendering react to desktop output events. Physical hotplug,

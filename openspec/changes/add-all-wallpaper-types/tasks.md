@@ -61,7 +61,7 @@
 - [x] 6.4 扩展 FRB 描述式应用/属性/错误接口并重生成 Rust/Dart bindings，保留旧路径解析适配；以 bridge tests 验证各类型描述、旧项目入口和失败事件。
 - [x] 6.5 为 Isar 赋值使用新版版本/type/project/property/sourcePath/sourceId 描述与独立集合，不读取或迁移旧记录；更新 settings_store/controller_restore tests 的新版媒体与 Scene/Web 恢复、失败候选不覆盖存储。
 - [ ] 6.6 更新五类型过滤/标签/详情/预览、属性编辑及兼容错误的中英文本；用 widget/l10n tests 验证 Web/Image/GIF 不再归为 Video、错误可见及输出选择。
-- [ ] 6.7 更新现有 README 中仅视频和不支持 Scene/Web 的说明及 docs/使用页；逐项对照五类型操作、音频可视化和时钟行为。
+- [x] 6.7 更新现有 README 中仅视频和不支持 Scene/Web 的说明及 docs/使用页；逐项对照五类型操作、音频可视化和时钟行为。
 
 - [x] 6.8 在设置添加中英“Web 壁纸支持”组件管理，提供状态、版本、空间占用、安装/进度/取消/重试/卸载；widget/controller tests 验证状态来源真实、组件缺失时的 Web 安装入口和卸载播放提示。
 

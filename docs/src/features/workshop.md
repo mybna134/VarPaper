@@ -61,6 +61,7 @@ The workshop content is typically at:
 ## Compatibility
 
 **Supported:**
+
 - Video wallpapers (.mp4, .webm, .mkv)
 - Image and GIF media
 - Local Web HTML/CSS/JS, Canvas/WebGL after installing **Web wallpaper support**
@@ -76,28 +77,32 @@ assignment fails, its error is shown and it can be reapplied to retry; a failed
 candidate preserves the current wallpaper.
 
 **Not supported:**
+
 - GUI project property editing and Scene property overrides (deferred)
-- Advanced Scene particles, system-audio visualization and injected clock bindings
+- Advanced Scene particles, live Scene system-audio visualization and injected clock bindings
 - Full Wallpaper Engine SceneScript compatibility and alternate Scene layout modes
 - Interactive wallpapers
 
 Saved assignments retain versioned project descriptions and Web overrides supplied
 through the service API. The GUI currently uses declared initial properties and
-has no property editor. Old path-only assignments are not read or migrated; reapply wallpapers to save the current format.
+has no property editor. Old path-only assignments are not read or migrated;
+reapply wallpapers to save the current format.
 A missing Web component or failed replacement preserves the saved assignment;
 install/repair the component and retry with **Restore last wallpaper** enabled.
 
 For the supported script, audio and time contracts and their fixtures, see
-[Rust Scene checks](../dev/rust-scene.md#script-properties-audio-and-time-contracts).
+[Rust Scene checks](../dev/rust-scene.md).
 
 ## Troubleshooting
 
 **Project cannot be applied:**
+
 - Check the compatibility reason in wallpaper details and any application error.
 - Keep `project.json`, its entry and resources together; do not import only a preview.
 - Install or repair **Web wallpaper support** for Web projects.
 - For Scene, check the named missing asset or unsupported feature against the Rust support table.
 
 **Workshop folder not found:**
+
 - Ensure Steam and Wallpaper Engine are installed
 - Workshop content downloads to: `~/.steam/steam/steamapps/workshop/content/431960/`
