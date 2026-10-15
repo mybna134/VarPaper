@@ -132,3 +132,11 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - 示例参数对应现有断言：Scene opacity 0.2/0.8 → 0.21/0.81；builder gain 0.25 与 opacity 0.8 → 0.2；Web speed 0.4→0.8、caption initial→updated、64×0.25 左/64×0.75 右与零输入；共享 PCM 375/6000 Hz。
 - 实时 Scene 系统音频、可注入本地时钟、完整脚本/API 矩阵、GUI 属性编辑与 Scene 覆盖仍 deferred。采集诊断只声明 AudioSnapshot 字段，不虚构 GUI 状态。运行时属性更新不自动持久化。
 - 修正 Web README 的属性持久化旧表述，并连接 Workshop 兼容说明。此 Task 只修改文档，未运行测试；源码参数核对不代表重新执行 fixture。完成后暂停等待用户提交，未提交或 push。
+
+
+## 2026-10-15：公共控制路由修正（6.3 部分，未勾选）
+
+- WallpaperSession 分离 manual/power 暂停原因，恢复一个原因不解除另一个。Wayland/X11 在渲染前同步电池策略，关闭 pause_on_battery 后解除电池原因；X11 初次渲染前读取供电状态。
+- Flutter 托盘切换仅选择 canApplyWallpaper 的项目，不再选中 unsupported 或组件不可用项目。设置增加中英说明：循环适用于 Video/GIF，图片持续显示，Scene/Web 由各自内容控制动画。
+- `cargo check --workspace --all-targets --locked --offline` 在实现改动后通过。现有 Flutter tray/controller 回归 18 项通过；此范围不包含混合类型的 battery/native renderer 验收。
+- 尚未完成 6.3 要求的混合类型/电池策略回归及两后端实际暂停验证，任务继续未勾选。暂停等待用户提交；未提交或 push。

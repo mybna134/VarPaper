@@ -300,24 +300,8 @@ fn run_engine_thread(
         if state.last_battery_check.elapsed() >= battery_check_interval {
             state.on_battery = check_battery_status();
             state.last_battery_check = std::time::Instant::now();
-
-            // Handle pause on battery
-            if state.config.pause_on_battery {
-                if state.on_battery && !state.power_paused {
-                    info!("On battery power, pausing playback for power saving");
-                    for session in state.sessions.values_mut() {
-                        session.pause();
-                    }
-                    state.power_paused = true;
-                } else if !state.on_battery && state.power_paused {
-                    info!("On AC power, resuming playback");
-                    for session in state.sessions.values_mut() {
-                        session.resume();
-                    }
-                    state.power_paused = false;
-                }
-            }
         }
+        state.power_paused = state.config.pause_on_battery && state.on_battery;
 
         // Calculate frame duration based on power state
         let frame_duration = if state.power_paused {
@@ -336,10 +320,9 @@ fn run_engine_thread(
             .context("Event loop dispatch failed")?;
 
         // Paused sessions can still prepare a candidate's first static frame.
-        if state.power_paused {
-            for session in state.sessions.values_mut() {
-                session.pause();
-            }
+        state.power_paused = state.config.pause_on_battery && state.on_battery;
+        for session in state.sessions.values_mut() {
+            session.set_power_paused(state.power_paused);
         }
         render_all_surfaces(&mut state);
     }

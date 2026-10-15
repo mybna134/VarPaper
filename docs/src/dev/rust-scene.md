@@ -141,3 +141,108 @@ effect/particle response and full script audio matrix remain pending. Vec2/Vec3/
 property builder value adapters are small JavaScript helpers; host lifecycle
 and scheduling remain Rust code. These checks do not yet qualify the full
 script API matrix.
+
+## Script, properties, audio and time contracts
+
+These contracts describe the current Rust subset. Internal fixture APIs do not
+establish live desktop Scene audio support or full Wallpaper Engine compatibility.
+
+| Interface | Current contract | Fixture source |
+| --- | --- | --- |
+| Scene `init(value)` / `update(value)` | Exported functions on a property's script module. A returned value replaces that property; `undefined` keeps it. Initialization and state are assignment-local. | `script.rs`: `rust_modules_hooks_properties_assignment_isolation_and_error_cleanup` |
+| Scene project and layer properties | `engine.userProperties` receives the object supplied to the renderer; script seeds use `scriptproperties`. `thisLayer` and `thisScene.getLayer(nameOrId)` expose supported layers. Applied fields are `origin`, `scale`, `angles`, `size`, `visible`, `color`, `alpha`, `brightness`, `text`, `pointsize`, validated by Rust. | `script.rs`: `rust_script_property_builder_seeds_and_init_project_properties`, `rust_timer_cancel_reentry_vectors_and_registration_budget`; GL script/text fixture above |
+| Scene animation time | `engine.time`, `thisScene.time` and `thisScene.currentTime` are elapsed animation seconds; `engine.frametime` and `thisScene.dt` are delta seconds. `thisScene.fps` derives from delta (60 when delta is zero). Pause freezes animation; resume establishes a new baseline. Delta is capped at 0.25 seconds. | `clock.rs`: `injected_steps_pause_without_frames_resume_and_bad_input`; animated texture GL fixture above |
+| Scene timers | `engine.setTimeout` / `engine.setInterval` and their global aliases accept callback and optional delay in milliseconds, 0..86400000. They return a cancellation function. Intervals are at least 1 ms. Up to 1024 timers; callbacks registered during a timer callback wait for a later tick. | `script.rs`: `rust_timer_cancel_reentry_vectors_and_registration_budget` |
+| Scene audio buffers (internal) | `engine.registerAudioBuffers(16/32/64)` returns stable `Float32Array` fields `left`, `right`, `average`; at most 128 registrations. Explicit snapshots update the arrays. Missing fresh renderer input is silence; these bindings do not start a playback monitor. | `script.rs`: `rust_audio_buffer_registration_is_typed_stable_and_bounded` |
+| Scene audio uniforms (internal) | `g_AudioSpectrum16Left/Right`, `g_AudioSpectrum32Left/Right`, `g_AudioSpectrum64Left/Right` and VarPaper RMS extensions `g_AudioLevelLeft/Right`. No fresh snapshot means zero; NaN/Infinity inputs are sanitized. | `runtime_tests.rs`: `rust_scene_audio_shader_channels_silence_and_cleanup` |
+| Web properties | `wallpaperPropertyListener.applyUserProperties(properties)` gets initial and updated `{name: {value: ...}}` values with boolean/number/string types retained. Resume reloads current properties. | `native/web/test_host.py`: generated `callbacks.html` and property updates |
+| Web audio | `wallpaperRegisterAudioListener(callback)` receives 128 finite values in 0..1: 64 increasing-frequency left bands, then 64 right bands. Wallpaper mute affects generated sound, independently of this input. | `native/web/test_host.py`: `callback_frame`; `audio.rs`: `known_stereo_tones_preserve_frequency_channel_order_and_level` |
+
+### Example parameters from fixtures
+
+The Scene unit fixture supplies `{"opacity":0.2}` to the script host and attaches
+this script to a layer's `alpha` property:
+
+```javascript
+let ticks = 0;
+export function init(value) { return 0.5; }
+export function update(value) {
+    ticks++;
+    return engine.userProperties.opacity + ticks * 0.01;
+}
+```
+
+Its first update produces `0.21`. A separate assignment supplied with
+`{"opacity":0.8}` produces `0.81`. This demonstrates VM input and isolation;
+it does not add a GUI Scene property editor or property-override support.
+Builder seed fixture parameters are `gain: 0.25`, declared slider default `0.5`
+and project opacity `0.8`; the seeded value wins and produces alpha `0.2`.
+The timer fixture cancels a zero-delay timer, schedules alpha `0.5` after 100 ms
+and schedules alpha `0.25` on a subsequent tick.
+
+The Web fixture supplies:
+
+```json
+{
+  "enabled": {"value": true},
+  "speed": {"value": 0.4},
+  "caption": {"value": "initial"}
+}
+```
+
+It checks callback types, updates `speed` to `0.8` and `caption` to `"updated"`,
+and checks delivery again after pause/resume. Its audio input uses 64 values of
+`0.25` followed by 64 values of `0.75`, then 128 zeros. Arrays of length 127 or
+negative spectrum values are rejected by the host fixture.
+
+Web property overrides must name declared properties and contain only `value`.
+Numeric values obey declared bounds; choices must match declared options;
+colors are strings of three finite components in 0..1, such as `"0 1 0"`.
+The update limit is 64 KiB. `properties.rs` tests accepted values and rejection
+of unknown names, type changes, extra fields, invalid colors, range/choice
+violations and oversized updates. See [described assignments](building.md#described-assignments-and-project-properties)
+for the FRB entry points and persistence boundary. A renderer property update
+alone does not write the Flutter assignment database.
+
+### Capture failures and wall-clock boundary
+
+Web uses the shared PulseAudio playback monitor, including PipeWire's PulseAudio
+interface. It never falls back to a microphone. The service analyzes 48 kHz
+stereo PCM in 2048-sample windows. Disconnection or monitor changes reset the
+analysis, supply zeros and retry; input older than 250 ms also supplies zeros.
+Capture diagnostics remain in `AudioSnapshot.diagnostic`; they are not a GUI
+capture-status widget. Rendering continues without capture. Pausing/closing Web
+releases its consumer, and the last consumer synchronously releases the worker.
+
+The fixture `simulated_disconnect_output_switch_and_recovery_reset_inputs`
+checks monitor changes and recovery; `stale_capture_supplies_zero_without_losing_diagnostic`
+checks stale input and retained diagnostics. `consumers_share_one_service_and_last_drop_joins_worker`
+checks shared ownership. The generated tone fixture uses left 375 Hz/right
+6000 Hz and checks frequency/channel order. These shared-service results do not
+qualify live Scene visualization: desktop Scene assignments do not acquire that
+monitor. Scene once/loop sound playback is separate and follows pause/mute/volume.
+
+Animation time is not calendar time. Injectable local time, timezone transitions,
+resume-first-frame date refresh and full Scene `Date`/clock compatibility remain
+deferred. Ordinary JavaScript VM facilities do not establish that integration.
+The existing clock fixture injects monotonic timestamps only. GUI project
+property editing, Scene overrides, advanced particles and full script/audio API
+qualification remain deferred even where internal helpers exist.
+
+### Reproduce the documented fixtures
+
+- `scripts/check-rust-scene.sh`: Scene CPU/script checks and actual GL pixels,
+  including internal audio snapshots, scripts and animation pause/resume.
+- `cargo test -p wayvid-engine audio::tests --locked --offline`: shared capture
+  analysis and lifecycle fixtures. The actual-monitor test requires explicit
+  `VARPAPER_TEST_PULSE=1` and an available playback monitor; without the variable
+  it returns early and is not evidence of real capture.
+- `scripts/check-native.sh`: Scene checks plus pinned CEF host/browser callbacks
+  in private Xvfb. Requires the native build dependencies and CEF SDK/runtime
+  described in [Web development](building.md#optional-web-runtime-development).
+- `python3 scripts/fixtures/scene_audio_monitor.py --sound`: isolated real Scene
+  sound playback; it does not test live Scene system-audio visualization.
+
+The examples and fixture names above were checked against their source. This
+documentation update does not constitute a fresh fixture run; executed results
+are recorded in the change's `validation.md`.

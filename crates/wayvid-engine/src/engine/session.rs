@@ -50,6 +50,8 @@ pub struct WallpaperSession {
     egl_context: Option<EglContext>,
     /// Current playback state
     state: PlaybackState,
+    manually_paused: bool,
+    power_paused: bool,
     /// Current volume (0.0 - 1.0)
     volume: f32,
     /// Whether resources are initialized
@@ -106,6 +108,8 @@ impl WallpaperSession {
             egl_window: None,
             egl_context: None,
             state: PlaybackState::Stopped,
+            manually_paused: false,
+            power_paused: false,
             volume: 0.0,
             initialized: false,
             gl_loaded: false,
@@ -337,20 +341,32 @@ impl WallpaperSession {
         Ok(())
     }
 
-    /// Pause playback
+    /// Change the manual pause reason without overriding power policy.
     pub fn pause(&mut self) {
-        if self.state != PlaybackState::Paused {
+        self.manually_paused = true;
+        self.sync_pause();
+    }
+
+    pub fn resume(&mut self) {
+        self.manually_paused = false;
+        self.sync_pause();
+    }
+
+    /// Battery and tray pause reasons are independent for every renderer.
+    pub fn set_power_paused(&mut self, paused: bool) {
+        self.power_paused = paused;
+        self.sync_pause();
+    }
+
+    fn sync_pause(&mut self) {
+        let paused = self.manually_paused || self.power_paused;
+        if paused && self.state != PlaybackState::Paused {
             debug!("Pausing session for {}", self.output_info.name);
             if let Some(player) = &mut self.player {
                 let _ = player.pause();
             }
             self.state = PlaybackState::Paused;
-        }
-    }
-
-    /// Resume playback
-    pub fn resume(&mut self) {
-        if self.state == PlaybackState::Paused {
+        } else if !paused && self.state == PlaybackState::Paused {
             debug!("Resuming session for {}", self.output_info.name);
             if let Some(player) = &mut self.player {
                 let _ = player.resume();

@@ -241,7 +241,7 @@ pub(super) fn run(
         outputs.len()
     );
     let mut last_battery = Instant::now();
-    let mut power_paused = false;
+    let mut on_battery = check_battery_status();
     while !shutdown.load(Ordering::Relaxed) {
         while let Ok(command) = commands.try_recv() {
             if matches!(command, EngineCommand::Shutdown) {
@@ -277,23 +277,12 @@ pub(super) fn run(
         }
         if last_battery.elapsed() >= Duration::from_secs(10) {
             last_battery = Instant::now();
-            let on_battery = config.pause_on_battery && check_battery_status();
-            if on_battery != power_paused {
-                for wallpaper in active.values_mut() {
-                    if on_battery {
-                        wallpaper.session.pause();
-                    } else {
-                        wallpaper.session.resume();
-                    }
-                }
-                power_paused = on_battery;
-            }
+            on_battery = check_battery_status();
         }
+        let power_paused = config.pause_on_battery && on_battery;
         {
             for (name, wallpaper) in &mut active {
-                if power_paused {
-                    wallpaper.session.pause();
-                }
+                wallpaper.session.set_power_paused(power_paused);
                 if let Some(output) = outputs.get(name) {
                     if let Err(error) = wallpaper.session.render_frame_to_x11_window(
                         &egl,

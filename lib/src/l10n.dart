@@ -99,6 +99,8 @@ class WayvidLocalizations {
     'Playback': '播放',
     'Volume': '音量',
     'Loop mode': '循环播放',
+    'Loop mode applies to Video and GIF. Images stay displayed; Scene and Web control their own animation.':
+        '循环播放适用于视频和 GIF。图片持续显示；Scene 和网页控制各自的动画。',
     'Power': '电源',
     'Pause on battery': '电池供电时暂停',
     'Pause on fullscreen applications': '全屏应用运行时暂停',

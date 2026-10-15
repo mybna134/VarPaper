@@ -91,7 +91,7 @@ A missing Web component or failed replacement preserves the saved assignment;
 install/repair the component and retry with **Restore last wallpaper** enabled.
 
 For the supported script, audio and time contracts and their fixtures, see
-[Rust Scene checks](../dev/rust-scene.md).
+[script, properties, audio and time contracts](../dev/rust-scene.md#script-properties-audio-and-time-contracts).
 
 ## Troubleshooting
 

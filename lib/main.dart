@@ -440,7 +440,9 @@ class WayvidController extends ChangeNotifier {
 
   Future<void> cycleWallpaper(int direction) async {
     if (wallpapers.isEmpty || monitors.isEmpty) return;
-    final ordered = [...wallpapers]..sort((a, b) => a.name.compareTo(b.name));
+    final ordered = wallpapers.where(canApplyWallpaper).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    if (ordered.isEmpty) return;
     final current = monitors
         .map((monitor) => appliedByOutput[monitor.name])
         .toSet();
@@ -1873,6 +1875,11 @@ class _SettingsPage extends StatelessWidget {
             label: '${(playback.volume * 100).round()}%',
             onChanged: (value) =>
                 controller.update(SettingsPatch(volume: value)),
+          ),
+        ),
+        Text(
+          l10n.text(
+            'Loop mode applies to Video and GIF. Images stay displayed; Scene and Web control their own animation.',
           ),
         ),
         _SettingsRow(

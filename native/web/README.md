@@ -67,7 +67,11 @@ after page load, and updated values through the renderer property interface.
 Boolean, numeric and string values retain their JSON types; updates must refer
 to declared properties, preserve types, obey numeric bounds and declared combo
 choices, and provide valid three-component colors. Resume reloads
-the latest values. The GUI property editor/persistence is still pending.
+the latest values. Confirmed assignments can persist initial Web property
+overrides through the Flutter store. Calling the runtime property-update API
+does not itself save an assignment; the GUI property editor remains pending.
+See [property and audio contracts](../../docs/src/dev/rust-scene.md#script-properties-audio-and-time-contracts)
+for callback parameters, validation, capture failure and time boundaries.
 
 `wallpaperRegisterAudioListener` is installed before page scripts run. It receives
 128 finite values in 0..1 (64 increasing-frequency left bands, then 64 right
