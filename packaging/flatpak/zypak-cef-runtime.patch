@@ -1,0 +1,18 @@
+--- a/src/base/launcher.cc
++++ b/src/base/launcher.cc
+@@ -101,6 +101,15 @@
+ 
+   std::vector<std::string> exposed_paths;
+ 
++  // CEF is an optional component outside /app. Expose only its validated
++  // runtime directory, read-only, and let the child loader resolve libcef.
++  std::string cef_runtime;
++  if (auto cef = Env::Get(Env::kZypakSettingCefLibraryPath); cef && !cef->empty()) {
++    cef_runtime = std::filesystem::path(cef->ToOwned()).parent_path().string();
++    exposed_paths.push_back(cef_runtime);
++    env["LD_LIBRARY_PATH"] = cef_runtime;
++  }
++
+   if (auto preload = Env::Get(Env::kZypakSettingLdPreload)) {
+     env[Env::kZypakSettingLdPreload] = *preload;
+ 

@@ -142,7 +142,17 @@ impl Host {
         socket.set_read_timeout(Some(Duration::from_secs(8)))?;
         socket.set_write_timeout(Some(Duration::from_secs(8)))?;
         let fd = child_socket.as_raw_fd();
-        let mut command = Command::new(validated_host_path()?);
+        let host = validated_host_path()?;
+        // Flatpak blocks Chromium's nested namespace/setuid sandbox. Zypak
+        // launches its children through the Flatpak portal instead.
+        let mut command = if Path::new("/.flatpak-info").is_file() {
+            let mut command = Command::new("/app/bin/zypak-wrapper");
+            command.arg(host);
+            command.env("ZYPAK_CEF_LIBRARY_PATH", runtime.join("libcef.so"));
+            command
+        } else {
+            Command::new(host)
+        };
         command
             .arg(format!("--ipc-fd={fd}"))
             .env("VARPAPER_CEF_RUNTIME", &runtime)

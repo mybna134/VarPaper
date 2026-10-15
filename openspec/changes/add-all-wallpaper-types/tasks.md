@@ -67,11 +67,11 @@
 
 ## 7. 安装包依赖与构建
 
-- [ ] 7.1 将 Rust Scene 与 Web 宿主/helper 产物清单接入 Cargo/Flutter Linux 构建与 scripts/build-linux.sh，移除 Scene CMake、独立库、upstream snapshot 和构建脚本依赖；干净构建检查无 libvarpaper_scene.so、参考绝对路径或运行时未解析库。
-- [ ] 7.2 更新 .deb 依赖与文件安装，仅包含 Web 宿主/helper/固定组件清单及 Scene 所需库，不捆绑或强制依赖 libcef/resources/locales；构建包并检查动态链接、辅助进程和资源路径完整。
-- [ ] 7.3 更新 Flatpak modules/manifest、原生依赖及可选 Chromium 组件运行配置，基础 bundle 不包含 CEF 运行库；构建 bundle 并在 sandbox 内验证 browser 启动、本地资源可读和退出回收。
-- [ ] 7.4 更新 Arch 配方与运行依赖（CEF 不作为强制依赖或基础包文件）；构建并检查安装清单/运行库，更新现有构建文档与 NOTICE 后核对固定版本及出处。
-- [ ] 7.5 将 Rust Scene 解析/GL/script/audio fixture 和原生 Web 检查接入 CI quality，移除 C++ Scene C ABI/库存构建检查并保持既有门禁；从干净 checkout 核对新检查实际执行且无需 Scene 动态库。
+- [x] 7.1 将 Rust Scene 与 Web 宿主/helper 产物清单接入 Cargo/Flutter Linux 构建与 scripts/build-linux.sh，移除 Scene CMake、独立库、upstream snapshot 和构建脚本依赖；干净构建检查无 libvarpaper_scene.so、参考绝对路径或运行时未解析库。
+- [x] 7.2 更新 .deb 依赖与文件安装，仅包含 Web 宿主/helper/固定组件清单及 Scene 所需库，不捆绑或强制依赖 libcef/resources/locales；构建包并检查动态链接、辅助进程和资源路径完整。
+- [x] 7.3 更新 Flatpak modules/manifest、原生依赖及可选 Chromium 组件运行配置，基础 bundle 不包含 CEF 运行库；构建 bundle 并在 sandbox 内验证 browser 启动、本地资源可读和退出回收。
+- [x] 7.4 更新 Arch 配方与运行依赖（CEF 不作为强制依赖或基础包文件）；构建并检查安装清单/运行库，更新现有构建文档与 NOTICE 后核对固定版本及出处。
+- [x] 7.5 将 Rust Scene 解析/GL/script/audio fixture 和原生 Web 检查接入 CI quality，移除 C++ Scene C ABI/库存构建检查并保持既有门禁；从干净 checkout 核对新检查实际执行且无需 Scene 动态库。
 
 ## 8. 综合验收
 

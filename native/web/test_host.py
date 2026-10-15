@@ -21,7 +21,7 @@ def exact(stream, size):
         result.extend(part)
     return result
 
-def descendants(root):
+def descendants(root, host):
     parents={}
     for proc in Path('/proc').iterdir():
         if not proc.name.isdecimal(): continue
@@ -29,6 +29,16 @@ def descendants(root):
             parents[int(proc.name)]=int((proc/'stat').read_text().rpartition(')')[2].split()[1])
         except (PermissionError,FileNotFoundError,ProcessLookupError): pass
     owned={root}
+    if Path('/.flatpak-info').is_file():
+        # Portal-spawned Chromium children are not OS descendants of the host.
+        # The private Flatpak PID namespace contains this fixture only.
+        for pid in parents:
+            try:
+                args = (Path('/proc') / str(pid) / 'cmdline').read_bytes().split(b'\0')
+                if args[0] == os.fsencode(host):
+                    owned.add(pid)
+            except (PermissionError, FileNotFoundError, ProcessLookupError):
+                pass
     while True:
         children={pid for pid,parent in parents.items() if parent in owned}
         if children.issubset(owned): return owned-{root}
@@ -39,7 +49,11 @@ def run(host, runtime):
     parent, child = socket.socketpair()
     parent.settimeout(12)
     env = dict(os.environ, LD_LIBRARY_PATH=str(runtime), VARPAPER_CEF_RUNTIME=str(runtime), SDL_AUDIODRIVER='dummy')
-    process = subprocess.Popen([str(host), f'--ipc-fd={child.fileno()}'], env=env, pass_fds=[child.fileno()], start_new_session=True)
+    command = [str(host), f'--ipc-fd={child.fileno()}']
+    if Path('/.flatpak-info').is_file():
+        env['ZYPAK_CEF_LIBRARY_PATH'] = str(runtime / 'libcef.so')
+        command.insert(0, '/app/bin/zypak-wrapper')
+    process = subprocess.Popen(command, env=env, pass_fds=[child.fileno()], start_new_session=True)
     child.close()
     request = 0
     def call(op, ident=0, **values):
@@ -213,12 +227,12 @@ def run(host, runtime):
             media_audio=audio_result(lambda r:r['audio_peak']>.05,19)
             assert abs(media_audio['audio_peak']-.2)<.015, media_audio
             ok('close',19)
-            before_crash_browser=descendants(process.pid)
+            before_crash_browser=descendants(process.pid, host)
             ok('create',17,root=str(root),entry='blue.html',width=32,height=24)
             crash,_=frame(17)
             survivor,_=frame(2)
             assert crash['renderer_client'] and crash['renderer_client']!=survivor['renderer_client'], (crash,survivor)
-            fresh=descendants(process.pid)-before_crash_browser
+            fresh=descendants(process.pid, host)-before_crash_browser
             targets=set()
             for pid in fresh:
                 arguments=(Path('/proc')/str(pid)/'cmdline').read_bytes().split(b'\0')
@@ -240,7 +254,7 @@ def run(host, runtime):
             frame(2)
             ok('close',17)
             ok('close',2)
-            owned_children=descendants(process.pid)
+            owned_children=descendants(process.pid, host)
             ok('shutdown')
         process.wait(timeout=10)
         assert process.returncode == 0, process.returncode

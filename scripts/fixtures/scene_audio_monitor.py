@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Rust Scene sound playback test on a private, silent PipeWire graph.
-Requires PipeWire/Pulse tools, WirePlumber 0.5+ (policy profile), D-Bus and Xvfb.
+"""Rust Scene sound playback test on a private, silent audio graph.
+Requires Xvfb and Pulse tools; defaults to PipeWire/WirePlumber 0.5+ and D-Bus.
+Use --backend pulseaudio for CI with a minimal PulseAudio null-sink server.
 Never loads hardware monitors or connects to the user's desktop audio server.
 """
 import argparse
@@ -30,7 +31,8 @@ context.modules = [
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sound",action="store_true",help="Run the supported Rust Scene sound fixture (also the default)")
-    parser.parse_args()
+    parser.add_argument("--backend", choices=("pipewire", "pulseaudio"), default="pipewire")
+    args = parser.parse_args()
     processes = []
     logs = []
     with tempfile.TemporaryDirectory(prefix="varpaper-audio-check-") as directory:
@@ -49,6 +51,7 @@ def main():
             GIO_USE_VFS="local",
             GSETTINGS_BACKEND="memory",
             VARPAPER_TEST_SCENE_SOUND="1",
+            LIBGL_ALWAYS_SOFTWARE="1",
         )
         for name in ("DBUS_SESSION_BUS_ADDRESS", "WAYLAND_DISPLAY", "PIPEWIRE_CONFIG_DIR", "PIPEWIRE_CONFIG_PREFIX", "WIREPLUMBER_CONFIG_DIR"):
             env.pop(name, None)
@@ -66,15 +69,24 @@ def main():
             return subprocess.run(["pactl", *args], env=env, capture_output=True, text=True, timeout=5)
 
         try:
-            spawn("pipewire", ["pipewire", "-c", str(config)])
-            deadline = time.monotonic() + 5
-            while not (root / "pipewire-0").exists():
-                if time.monotonic() > deadline:
-                    raise RuntimeError("Private PipeWire socket did not start")
-                time.sleep(0.05)
-            # policy provides stream linking, without ALSA/BlueZ/camera monitors.
-            spawn("policy", ["dbus-run-session", "--", "wireplumber", "-p", "policy"])
-            spawn("pulse", ["pipewire-pulse"])
+            if args.backend == "pipewire":
+                spawn("pipewire", ["pipewire", "-c", str(config)])
+                deadline = time.monotonic() + 5
+                while not (root / "pipewire-0").exists():
+                    if time.monotonic() > deadline:
+                        raise RuntimeError("Private PipeWire socket did not start")
+                    time.sleep(0.05)
+                # policy provides stream linking, without ALSA/BlueZ/camera monitors.
+                spawn("policy", ["dbus-run-session", "--", "wireplumber", "-p", "policy"])
+                spawn("pulse", ["pipewire-pulse"])
+            else:
+                # -n avoids default.pa and hardware discovery; the only sink is
+                # explicitly created below. Never autospawn a desktop server.
+                spawn("pulse", ["pulseaudio", "-n", "--daemonize=no",
+                                "--exit-idle-time=-1", "--use-pid-file=no",
+                                "--disallow-exit", "--disable-shm",
+                                "--load=module-native-protocol-unix socket=" + directory + "/native auth-anonymous=1"])
+            services = list(processes)
             deadline = time.monotonic() + 8
             while pulse("info").returncode:
                 if time.monotonic() > deadline:
@@ -100,7 +112,7 @@ def main():
             test = spawn("test", ["xvfb-run", "-a", "cargo", "test", "-p", "wayvid-engine", fixture, "--locked", "--", "--exact", "--nocapture"])
             deadline = time.monotonic() + 180
             while test.poll() is None:
-                if any(p.poll() is not None for p in processes[:3]):
+                if any(p.poll() is not None for p in services):
                     raise RuntimeError("Private audio service exited early")
                 if time.monotonic() > deadline:
                     raise RuntimeError("Scene audio fixture timed out")

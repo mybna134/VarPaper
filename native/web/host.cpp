@@ -613,13 +613,13 @@ public:
                            V8_PROPERTY_ATTRIBUTE_DONTDELETE));
     }
     if (frame->IsMain()) {
-      if (std::getenv("VARPAPER_TEST_CEF_SOFTWARE")) {
-        auto ready = CefProcessMessage::Create("varpaper-renderer-ready");
-        ready->GetArgumentList()->SetString(
-            0, CefCommandLine::GetGlobalCommandLine()->GetSwitchValue(
-                   "renderer-client-id"));
-        frame->SendProcessMessage(PID_BROWSER, ready);
-      }
+      // A portal-spawned renderer has a fresh environment. Report its CEF
+      // identity independently of host-only test environment variables.
+      auto ready = CefProcessMessage::Create("varpaper-renderer-ready");
+      ready->GetArgumentList()->SetString(
+          0, CefCommandLine::GetGlobalCommandLine()->GetSwitchValue(
+                 "renderer-client-id"));
+      frame->SendProcessMessage(PID_BROWSER, ready);
       CefRefPtr<CefV8Value> result;
       CefRefPtr<CefV8Exception> error;
       if (!context->Eval(R"JS((()=>{

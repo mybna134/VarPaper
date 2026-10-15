@@ -5,7 +5,8 @@ The Linux release build creates one Flutter bundle with the Rust playback engine
 ## Requirements
 
 - Flutter 3.47.4 and Rust 1.88 or newer
-- GTK 3, libmpv, Wayland, EGL, and Ayatana AppIndicator development packages
+- GTK 3, libmpv, Wayland, EGL, Fontconfig, SDL2, and Ayatana AppIndicator development packages
+- CMake 3.24 or newer, a C++20 compiler, Python 3 and curl for the pinned Web helper build
 - `dpkg-deb`, `flatpak-builder`, and the GNOME 50 Flatpak runtime and SDK
 - Docker for the Arch package build on non-Arch hosts, or `makepkg` on Arch Linux
 - `zstd` for building the compressed Arch package
@@ -26,6 +27,110 @@ VARPAPER_SKIP_BUILD=1 ./scripts/build-packages.sh
 ```
 
 This mode still checks the Flatpak bundle's runtime library dependencies and the Arch package's shared-library dependencies. It fails when host libraries require a newer glibc than the GNOME 50 runtime provides or when the bundle has unresolved libraries in Arch.
+
+## Debian package
+
+To build only the `.deb` from an existing release bundle:
+
+```bash
+packaging/deb/build.sh 20261015.g12345678
+```
+
+`VARPAPER_BUNDLE_DIR` selects the input bundle and `VARPAPER_OUTPUT_DIR` selects
+its output directory. The builder checks both the staged and extracted payloads
+with `scripts/check-linux-bundle.py`. The package installs the Web host (also
+its subprocess executable) under `/usr/lib/varpaper/libexec`, its pinned
+`data/runtime.json` and licenses, and the Rust engine containing Scene support.
+It excludes the unused JNI library, which would otherwise require a JVM.
+
+System dependencies include the media/graphics libraries, DejaVu fallback font,
+PulseAudio client, OpenSSL and the shared system libraries needed by the optional
+Web component. No CEF package is required and no Chromium runtime, resources or
+locales are bundled. Flutter's own `data/icudtl.dat` remains required. The builder
+derives the minimum glibc version from the packaged ELF files; build on the
+oldest supported Debian/Ubuntu baseline for releases. Repackaging an Arch build
+does not establish compatibility with older Debian/Ubuntu versions.
+
+## Flatpak package
+
+`packaging/flatpak/build.sh VERSION` requires GNOME Platform and SDK 50. All
+input ELF files must fit the runtime's glibc ABI; the builder rejects newer
+binaries before compiling its modules. Build Rust against a compatible distro
+or the GNOME SDK rather than repackaging a newer host binary.
+
+The manifest builds libass/libplacebo/mpv against the GNOME runtime.
+VarPaper owns Wayland/X11 surfaces and supplies mpv with an EGL render context;
+mpv does not create its own X11 windows. GNOME supplies SDL2, PulseAudio, OpenSSL, graphics
+libraries and the DejaVu font used by Rust Scene. The builder validates the
+complete application bundle and supplemental libraries inside the SDK sandbox.
+`--library-dir /app/lib` tells the shared bundle checker where Flatpak's
+additional libraries live.
+
+The base package includes Zypak v2025.09 to start CEF children through the
+Flatpak portal. Rust wraps only the Web helper, sets its component library path,
+and leaves Chromium sandboxing enabled. A local Zypak patch exposes the installed
+component directory read-only to sandboxed children and supplies their library
+search path. CEF binaries/resources/locales are
+excluded from the base package; the normal component installer uses the
+Flatpak application's private `XDG_DATA_HOME`. Network permission permits the
+explicit component download; Web page requests remain blocked by the host's
+request policy. Builder downloads and module caches are retained under `build/flatpak-state`.
+Browser execution checks must use an installed Flatpak, since
+Zypak's portal integration does not work from `flatpak-builder --run`.
+
+With the package installed, an existing complete pinned runtime in a temporary
+subdirectory of the application's private data, and Xvfb available, run the
+native Web fixture in the installed GNOME runtime:
+
+```bash
+# Set this to the temporary copy, not the live component used by another session.
+runtime="$HOME/.var/app/io.github.mybna134.varpaper/data/web-fixture/runtime"
+xvfb-run -a flatpak run --user --unshare=network --socket=x11 \
+  --env=LIBGL_ALWAYS_SOFTWARE=1 --env=SDL_AUDIODRIVER=dummy \
+  --env=VARPAPER_TEST_CEF_SOFTWARE=1 \
+  --env=VK_ICD_FILENAMES="$runtime/vk_swiftshader_icd.json" \
+  --command=python3 io.github.mybna134.varpaper \
+  "$PWD/native/web/test_host.py" \
+  --host /app/lib/varpaper/libexec/varpaper-web-host --runtime "$runtime"
+```
+
+This uses an existing runtime copy and does not exercise the Settings installer.
+The fixture checks page/resource rendering, controls, renderer failure and
+process cleanup, including children launched through the Flatpak portal.
+
+## Arch package
+
+Build from a release bundle in an isolated rolling Arch container:
+
+```bash
+VARPAPER_ARCH_USE_DOCKER=1 packaging/arch/build.sh 20261015.g12345678
+```
+
+`VARPAPER_BUNDLE_DIR` and `VARPAPER_OUTPUT_DIR` select the input and output.
+The Docker build updates Arch and installs the recipe's runtime/build dependency
+lists. On Arch, omitting the Docker override runs `makepkg --syncdeps` locally,
+which may install dependencies on the host. Package downloads are cached under
+`build/arch-pacman-cache`.
+
+The recipe includes OpenSSL, CA certificates, PulseAudio, graphics/media libraries,
+DejaVu fonts and the system libraries used by the optional CEF runtime (NSS/NSPR,
+ALSA, CUPS, Mesa and X11). CEF itself is neither a pacman dependency nor a package
+file; users install the pinned component through Settings. The helper, pinned
+manifest and Scene/CEF/JSON notices are installed under `/usr/lib/varpaper`.
+The application icon is installed both there and in the system icon theme.
+
+Python is a build dependency for the shared bundle checker. It checks required
+artifacts, manifest identity, forbidden CEF/old Scene files and all ELF links in
+makepkg's staging tree and again after archive extraction inside Arch. The outer
+builder also checks the extracted archive on the build host. Only the helper's
+missing `libcef.so` is permitted; inherited `LD_LIBRARY_PATH` cannot hide missing
+base dependencies. `--manifest` lets this checker run in the container against
+the pinned source manifest without mounting the source checkout.
+
+Arch packages target the current rolling system. A successful package build does
+not establish compatibility with older Arch snapshots or Debian/Flatpak ABIs.
+Use the package Scene fixture below and `native/web/test_host.py` with an existing
+pinned runtime for execution checks in private Xvfb sessions.
 
 ## Checks
 
@@ -132,16 +237,46 @@ confirmed assignments. The GUI property editor and full Scene audio/script
 compatibility remain pending; see
 [native Web component notes](../../../native/web/README.md).
 
-`scripts/build-linux.sh` compiles the helper using the pinned SDK (set `CEF_ROOT`
-to reuse an extracted SDK). The base bundle includes its manifest and wrapper
-license but excludes the optional CEF runtime. A direct Flutter build can select
-a prebuilt helper with `VARPAPER_WEB_HOST_BINARY`. Build-time SDK downloads do
-not install the user's runtime component.
+`flutter build linux`, `flutter run -d linux` and `scripts/build-linux.sh` use the
+same CMake rules to compile the helper on Linux x86_64 using the pinned SDK
+(set `CEF_ROOT` to reuse an extracted SDK). `native/web/bundle.cmake` lists the
+helper, runtime manifest and licenses installed in the base bundle; Chromium
+libraries, resources and locales are excluded. The helper is built under the
+Flutter build directory, while a standalone `scripts/build-web-host.sh` build
+uses `build/native-web` (override with `VARPAPER_WEB_BUILD_DIR`).
+
+To use a prebuilt helper, set `VARPAPER_WEB_HOST_BINARY` to its absolute path
+before a clean Flutter build. Its adjacent `runtime.json` must match the pinned
+SDK/IPC manifest; missing or mismatched manifests fail configuration. Other
+architectures retain media/Scene support without a Web helper. Build-time SDK
+downloads do not install the user's runtime component.
+
+`scripts/build-linux.sh` checks the resulting bundle's artifact inventory and
+native links. To check a direct Flutter build and also verify the optional
+helper against an already installed, flattened CEF runtime:
+
+```bash
+python3 scripts/check-linux-bundle.py build/linux/x64/release/bundle
+python3 scripts/check-linux-bundle.py build/linux/x64/release/bundle \
+  --web-runtime /path/to/runtime
+```
+
+The main application must resolve its libraries without CEF. Without
+`--web-runtime`, only the helper's intentional missing `libcef.so` is allowed;
+with it, all helper dependencies must also resolve. The check rejects old Scene
+libraries, embedded reference checkout paths, bundled CEF runtime files and
+helper RPATHs. It does not launch the GUI or install a component.
 
 Scene is built as part of Cargo and linked into the application. Web still
 requires CMake, a C++ compiler and SDL2; its pinned JSON dependency and MIT
 notice are in `native/web`. `scripts/check-native.sh` runs the Rust Scene
-fixtures and the optional CEF fixtures in private Xvfb sessions. Build packages
+parser/GL/script fixtures, private PulseAudio sound fixture, CEF host and native
+workspace lifecycle fixtures in private Xvfb sessions. CI installs PulseAudio
+and its `pactl` utility; the fixture starts a minimal private null-sink server
+without loading hardware devices. Other fixtures use an absent private Pulse
+socket and temporary data/config/state directories. For the existing isolated
+PipeWire fixture, set `VARPAPER_TEST_AUDIO_BACKEND=pipewire` (WirePlumber 0.5+
+required). Native gate details are in [scripts](../../../scripts/README.md). Build packages
 from a fresh Flutter output directory so historical Scene libraries cannot be
 carried into the bundle.
 

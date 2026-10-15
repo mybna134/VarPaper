@@ -12,10 +12,6 @@ arch_cache="$root/build/arch-pacman-cache"
   exit 1
 }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
-[[ ! -e "$bundle/lib/libvarpaper_scene.so" && ! -L "$bundle/lib/libvarpaper_scene.so" ]] || {
-  echo 'Stale C++ Scene library in bundle; rebuild Flutter from a clean output directory' >&2
-  exit 1
-}
 command -v tar >/dev/null || { echo 'tar is required' >&2; exit 1; }
 command -v zstd >/dev/null || { echo 'zstd is required' >&2; exit 1; }
 
@@ -29,6 +25,7 @@ trap 'rm -rf "$stage"' EXIT
 cp "$root/packaging/arch/PKGBUILD.in" "$stage/PKGBUILD"
 sed -i "s/@VERSION@/$version/g" "$stage/PKGBUILD"
 cp "$root/packaging/arch/build-in-container.sh" "$stage/"
+cp "$root/scripts/check-linux-bundle.py" "$root/native/web/runtime.json" "$stage/"
 cp "$root/packaging/varpaper.desktop" "$root/packaging/varpaper.png" \
   "$root/LICENSE" "$root/NOTICE" "$root/LICENSE-APACHE" "$root/LICENSE-MIT" "$stage/"
 tar --zstd -C "$bundle" -cf "$stage/varpaper-bundle.tar.zst" .
@@ -59,4 +56,8 @@ fi
 
 package="$output/varpaper-$version-1-x86_64.pkg.tar.zst"
 [[ -s "$package" ]] || { echo "Arch package was not created: $package" >&2; exit 1; }
+# Check the archived payload as well as makepkg's staging tree.
+mkdir "$stage/archive-check"
+tar --zstd -xf "$package" -C "$stage/archive-check"
+python3 "$root/scripts/check-linux-bundle.py" "$stage/archive-check/usr/lib/varpaper"
 echo "$package"

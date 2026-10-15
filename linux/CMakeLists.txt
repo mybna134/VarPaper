@@ -144,15 +144,34 @@ endif()
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE-Scene-reference"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses" COMPONENT Runtime)
 
-# Chromium stays optional: bundle the helper without its CEF runtime dependency.
-# scripts/build-linux.sh supplies a helper compiled against the pinned SDK.
-if(DEFINED ENV{VARPAPER_WEB_HOST_BINARY})
-  install(PROGRAMS "$ENV{VARPAPER_WEB_HOST_BINARY}"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/libexec" COMPONENT Runtime)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../native/web/JSON-LICENSE"
-    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses" COMPONENT Runtime)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../native/web/CEF-LICENSE"
-    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}/licenses" COMPONENT Runtime)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../native/web/runtime.json"
-    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}" COMPONENT Runtime)
+# Both flutter build/run and scripts/build-linux.sh use the same inventory.
+# Scene is compiled by Cargo into libwayvid_gui.so; only Web has a helper.
+include("${CMAKE_CURRENT_SOURCE_DIR}/../native/web/bundle.cmake")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+  if(DEFINED ENV{VARPAPER_WEB_HOST_BINARY} AND NOT "$ENV{VARPAPER_WEB_HOST_BINARY}" STREQUAL "")
+    set(VARPAPER_WEB_HOST_BINARY "$ENV{VARPAPER_WEB_HOST_BINARY}")
+    if(NOT IS_ABSOLUTE "${VARPAPER_WEB_HOST_BINARY}" OR
+       NOT EXISTS "${VARPAPER_WEB_HOST_BINARY}")
+      message(FATAL_ERROR "VARPAPER_WEB_HOST_BINARY must name an existing absolute helper path")
+    endif()
+    get_filename_component(WEB_HOST_DIR "${VARPAPER_WEB_HOST_BINARY}" DIRECTORY)
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E compare_files
+      "${WEB_HOST_DIR}/runtime.json" "${VARPAPER_WEB_MANIFEST}"
+      RESULT_VARIABLE WEB_MANIFEST_RESULT)
+    if(NOT WEB_MANIFEST_RESULT EQUAL 0)
+      message(FATAL_ERROR "Prebuilt Web helper runtime.json is missing or does not match the pinned SDK/IPC manifest")
+    endif()
+  else()
+    set(WEB_HOST_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/web-host")
+    set(VARPAPER_WEB_HOST_BINARY "${WEB_HOST_BUILD_DIR}/${VARPAPER_WEB_HOST_NAME}")
+    add_custom_target(varpaper_web_host ALL
+      COMMAND "${CMAKE_COMMAND}" -E env "VARPAPER_WEB_BUILD_DIR=${WEB_HOST_BUILD_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/build-web-host.sh"
+      BYPRODUCTS "${VARPAPER_WEB_HOST_BINARY}" "${WEB_HOST_BUILD_DIR}/runtime.json"
+      VERBATIM)
+    add_dependencies(${BINARY_NAME} varpaper_web_host)
+  endif()
+  varpaper_install_web_host("${VARPAPER_WEB_HOST_BINARY}")
+else()
+  message(STATUS "Optional Web helper is unavailable for ${CMAKE_SYSTEM_PROCESSOR}")
 endif()

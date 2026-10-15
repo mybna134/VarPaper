@@ -13,18 +13,14 @@ app_id=io.github.mybna134.varpaper
 
 [[ "$version" =~ ^[0-9]{8}\.g[0-9a-f]{8}$ ]] || { echo "Invalid version: $version" >&2; exit 1; }
 [[ -x "$bundle/wayvid-gui" ]] || { echo "Flutter release bundle missing: $bundle" >&2; exit 1; }
-[[ ! -e "$bundle/lib/libvarpaper_scene.so" && ! -L "$bundle/lib/libvarpaper_scene.so" ]] || {
-  echo 'Stale C++ Scene library in bundle; rebuild Flutter from a clean output directory' >&2
-  exit 1
-}
-for command_name in flatpak-builder flatpak ldd readelf; do
+for command_name in flatpak-builder flatpak ldd readelf python3; do
   command -v "$command_name" >/dev/null || { echo "$command_name is required" >&2; exit 1; }
 done
 flatpak info org.gnome.Platform//50 >/dev/null
 flatpak info org.gnome.Sdk//50 >/dev/null
 
 # Reject a host bundle newer than the runtime before downloading/building media.
-required_glibc="$(readelf --version-info "$bundle/lib/libwayvid_gui.so" \
+required_glibc="$(readelf --version-info "$bundle/wayvid-gui" "$bundle"/lib/*.so "$bundle/libexec/varpaper-web-host" \
   | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | cut -d_ -f2 | sort -Vu | tail -n 1)"
 runtime_glibc="$(flatpak run --command=getconf org.gnome.Platform//50 GNU_LIBC_VERSION)"
 runtime_glibc="${runtime_glibc##* }"
@@ -43,6 +39,7 @@ cp -a "$bundle/." "$stage/bundle/"
 # The transitive jni package registers a Linux FFI plugin, but VarPaper does
 # not call JNI on Linux. Scanning that unused library would pull in a JVM.
 rm -f "$stage/bundle/lib/libdartjni.so"
+python3 "$root/scripts/check-linux-bundle.py" "$stage/bundle"
 install -Dm644 "$root/packaging/varpaper.png" \
   "$stage/bundle/packaging/varpaper.png"
 install -Dm644 "$root/packaging/varpaper.png" "$stage/$app_id.png"
@@ -65,7 +62,11 @@ while IFS= read -r soname; do
 done < <(flatpak run --command=sh org.gnome.Platform//50 -c \
   'find /usr/lib -name "lib*.so*" -printf "%f\n"')
 while IFS= read -r -d '' elf; do
-  [[ "$elf" != "$stage/bundle/lib/libwayvid_gui.so" ]] || continue
+  # These link against libraries built below or supplied by the Platform.
+  # Never traverse a host CEF dependency closure into the base package.
+  case "$elf" in
+    "$stage/bundle/lib/libwayvid_gui.so"|"$stage/bundle/libexec/varpaper-web-host") continue ;;
+  esac
   while read -r soname arrow path _; do
     if [[ "$soname" == /* && -f "$soname" ]]; then
       path="$soname"
@@ -84,30 +85,35 @@ while IFS= read -r -d '' elf; do
 done < <(find "$stage/bundle" -type f \( -name 'wayvid-gui' -o -name 'varpaper-web-host' -o -name '*.so' -o -name '*.so.*' \) -print0)
 
 cp "$root/packaging/flatpak/manifest.json" "$work/manifest.json"
+cp "$root/packaging/flatpak/zypak-cef-runtime.patch" "$work/"
 (
   cd "$work"
-  # Keep Flatpak Builder's state in the disposable work directory. This also
-  # lets --run use its default state path on older CI versions that reject
-  # --state-dir when running a command.
-  flatpak-builder --force-clean --repo=repo --default-branch=stable \
+  # Reuse downloads/build cache across package rebuilds. The local symlink also
+  # lets older --run versions use the default state path without --state-dir.
+  install -d "$root/build/flatpak-state"
+  ln -s "$root/build/flatpak-state" .flatpak-builder
+  flatpak-builder --force-clean --disable-updates --repo=repo --default-branch=stable \
     build-dir manifest.json
-  flatpak-builder --run build-dir manifest.json sh -c '
-    for elf in /app/lib/varpaper/wayvid-gui /app/lib/varpaper/lib/libwayvid_gui.so /app/lib/libmpv.so.2 /app/lib/varpaper/libexec/varpaper-web-host; do
+  flatpak-builder --run build-dir manifest.json python3 \
+    "$root/scripts/check-linux-bundle.py" /app/lib/varpaper --library-dir /app/lib
+  flatpak-builder --run build-dir manifest.json sh -eu -c '
+    test -x /app/bin/zypak-wrapper
+    test -r /app/share/licenses/zypak/LICENSE
+    test -r /usr/share/fonts/dejavu/DejaVuSans.ttf
+    test -r /usr/lib/x86_64-linux-gnu/libpulse.so.0
+    for elf in /app/bin/zypak-helper /app/bin/zypak-sandbox /app/lib/*.so*; do
       [ -f "$elf" ] || continue
       result="$(LD_LIBRARY_PATH=/app/lib:/app/lib/varpaper/lib ldd "$elf" 2>&1)" || {
-        printf "%s\n" "$result" | grep -E "not found|version" >&2 || true
+        printf "%s\n" "$result" >&2
         exit 1
       }
-      if [ "$elf" = /app/lib/varpaper/libexec/varpaper-web-host ]; then
-        result="$(printf "%s\n" "$result" | sed "/libcef\\.so => not found/d")"
-      fi
       if printf "%s\n" "$result" | grep -q "not found"; then
-        printf "%s\n" "$result" | grep "not found" >&2
+        printf "%s\n" "$result" >&2
         exit 1
       fi
     done
     readelf -d /app/lib/libmpv.so.2 | grep -q "libavcodec.so.61"
-    if find /app/lib -maxdepth 1 \( -name "libav*.so*" -o -name "libjvm.so*" -o -name "libGL.so*" -o -name "libEGL.so*" \) | grep -q .; then
+    if find /app/lib -maxdepth 1 \( -name "libav*.so*" -o -name "libjvm.so*" -o -name "libGL.so*" -o -name "libEGL.so*" -o -name "libcef.so*" \) | grep -q .; then
       echo "Unexpected runtime library bundled in /app/lib" >&2
       exit 1
     fi

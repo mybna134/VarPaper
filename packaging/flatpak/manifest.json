@@ -17,6 +17,24 @@
   ],
   "modules": [
     {
+      "name": "zypak",
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/refi64/zypak.git",
+          "tag": "v2025.09",
+          "commit": "693a71c5ffa80ec9c9ce2ae03b1ccc493c698e53"
+        },
+        {
+          "type": "patch",
+          "path": "zypak-cef-runtime.patch"
+        }
+      ],
+      "post-install": [
+        "install -Dm644 LICENSE /app/share/licenses/zypak/LICENSE"
+      ]
+    },
+    {
       "name": "libass",
       "config-opts": ["--disable-static", "--enable-fontconfig", "--enable-harfbuzz"],
       "sources": [

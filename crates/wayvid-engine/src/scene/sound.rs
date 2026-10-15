@@ -114,15 +114,24 @@ impl Stream {
     #[cfg(test)]
     pub fn property(&self, name: &str) -> Result<String> {
         let name = CString::new(name)?;
-        let value = unsafe { libmpv_sys::mpv_get_property_string(self.handle, name.as_ptr()) };
-        ensure!(!value.is_null(), "Scene sound property unavailable");
-        let result = unsafe { std::ffi::CStr::from_ptr(value) }
-            .to_string_lossy()
-            .into_owned();
-        unsafe {
-            libmpv_sys::mpv_free(value.cast());
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let value = unsafe { libmpv_sys::mpv_get_property_string(self.handle, name.as_ptr()) };
+            if !value.is_null() {
+                let result = unsafe { std::ffi::CStr::from_ptr(value) }
+                    .to_string_lossy()
+                    .into_owned();
+                unsafe {
+                    libmpv_sys::mpv_free(value.cast());
+                }
+                return Ok(result);
+            }
+            ensure!(
+                Instant::now() < deadline,
+                "Scene sound property unavailable"
+            );
+            std::thread::sleep(Duration::from_millis(10));
         }
-        Ok(result)
     }
 }
 impl Drop for Stream {

@@ -48,7 +48,10 @@ jobs:
             libfontconfig1-dev fonts-dejavu-core \
             libx11-dev libxrandr-dev libxfixes-dev \
             libsdl2-dev \
-            libpulse0 xvfb xauth curl python3 ffmpeg
+            libpulse0 pulseaudio pulseaudio-utils dbus \
+            libnss3 libnspr4 libasound2t64 libcups2t64 \
+            libgbm1 libxcomposite1 libxdamage1 \
+            xvfb xauth curl python3 ffmpeg
       
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -77,9 +80,21 @@ jobs:
       - name: Validate package scripts and Flatpak manifest
         run: |
           bash -n scripts/build-version.sh scripts/check-rust-scene.sh scripts/check-scene-package.sh scripts/check-wayland.sh scripts/build-web-host.sh scripts/check-native.sh scripts/build-linux.sh scripts/build-packages.sh packaging/deb/build.sh packaging/flatpak/build.sh packaging/arch/build.sh packaging/arch/build-in-container.sh
+          bash -n packaging/arch/PKGBUILD.in
           python3 -m json.tool packaging/flatpak/manifest.json > /dev/null
+          python3 -m json.tool native/web/runtime.json > /dev/null
+          python3 -m json.tool native/web/dependencies.json > /dev/null
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          for source in [Path('scripts/check-linux-bundle.py'), Path('native/web/test_host.py'), *Path('scripts/fixtures').glob('*.py')]:
+              ast.parse(source.read_text(), filename=str(source))
+          PY
 
-      - name: Validate pinned assets and real Scene/Web native fixtures
+      - name: Validate pinned assets and real Rust Scene/audio/Web native fixtures
+        env:
+          VARPAPER_TEST_AUDIO_BACKEND: pulseaudio
+          LIBGL_ALWAYS_SOFTWARE: '1'
         run: scripts/check-native.sh
 
       - uses: subosito/flutter-action@v2

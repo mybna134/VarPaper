@@ -185,3 +185,62 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - 新增 close 错误回归覆盖候选失败、当前失败、两者失败与幂等 cleanup。首次全量回归发现原有模拟 Host 测试手动构造对象未计入新计数器，已补计数并重跑。
 - 修复后 Xvfb/真实 CEF 全量原生回归：88 项全部通过（184.48 秒），包括原有 100 次跨媒体/Scene/Web 切换、失败初始化、clear 和 shutdown 检查。`openspec validate add-all-wallpaper-types --strict` 通过。
 - 完整 CI quality 与 Task 8.x 桌面/安装包验收另行执行。本 Task 完成后暂停供用户提交；未提交或 push。
+
+## 2026-10-15：Linux 构建与原生产物清单（7.1）
+
+- `native/web/bundle.cmake` 为 Flutter Linux 与独立 Web CMake 安装提供共同清单：`libexec/varpaper-web-host`、`data/runtime.json`、JSON/CEF 许可证。宿主兼任 CEF subprocess，不新增第二个 helper。Rust Scene 已随 Cargo 编入 `libwayvid_gui.so`，核对构建路径未恢复旧 Scene CMake、独立库、snapshot 或参考 checkout 依赖。
+- 直接 `flutter build linux` / `flutter run -d linux` 与 `scripts/build-linux.sh` 共用 CMake 的 Web 构建目标，不再依赖脚本预先导出 helper 路径。Flutter 的 helper 产物位于其构建目录；独立脚本默认仍输出 `build/native-web`，可用 `VARPAPER_WEB_BUILD_DIR` 指定隔离目录。预构建 helper 的相邻 SDK/IPC manifest 必须匹配；缺失、不匹配、匹配三种 CMake 配置结果均已验证。
+- 新增 `scripts/check-linux-bundle.py`，`build-linux.sh` 构建后自动调用。检查必需产物、manifest、ELF、动态链接、旧 Scene 库/参考绝对路径、意外捆绑的 CEF 运行文件及 helper RPATH。主程序不使用 CEF 搜索路径；仅 helper 可在未装组件时缺少 `libcef.so`。传入 `--web-runtime` 时 helper 的全部依赖也必须解析。保留 Flutter 必需的 `data/icudtl.dat`；首次检查错误地将它归为 CEF 文件，修正后重跑通过。
+- 在 `/tmp/varpaper-build-clean-9lzgccel/source` 导出当前源码（不复制 `.git`、build、target、参考 checkout 或旧产物），离线解析已缓存的 pub/Cargo 依赖，从头完成 Linux release 的 Cargo/Flutter/Web helper 编译。CEF SDK 使用已有固定版本目录，仅作为 Web 编译输入；首次 Flutter 构建补齐了 Flutter SDK 自身的 Linux 引擎缓存，不下载或安装用户 CEF 组件。
+- `scripts/build-linux.sh` 与随后直接 `flutter build linux --release --no-pub` 均成功。基础 bundle 的 12 个 ELF 无旧 Scene 独立库或参考路径，主程序库全部解析；提供已有 `/tmp/varpaper-controls-runtime` 后 helper 链接检查也全部通过。独立 Web 的 `Runtime` component 安装恰好产生清单中的 4 个文件，不含 Chromium 运行库。
+- 反例检查拒绝额外 `libcef.so`、版本化旧 Scene 库、CEF locale、额外 ICU 文件、错误 manifest 和遗漏 helper；共 6 项按预期失败。更新构建说明、Web README 与脚本索引。
+- 对干净 bundle 的实际 `libwayvid_gui.so` 执行 `scene_package_smoke_test.dart`：1 项通过（Scene 首帧、错误资产、暂停/恢复、清除），在私有 Xvfb 和空组件 data 目录下运行。使用该 bundle 的 helper 和已有 CEF runtime 执行 `native/web/test_host.py`：本地资源、Canvas/WebGL、多 browser、resize、暂停/恢复、隔离及全部子进程退出通过。
+- shell 语法、Python 语法和 `git diff --check` 通过。未执行三种安装包构建或完整 CI quality；它们分别属于 7.2–7.5/8.x。本 Task 完成后暂停供用户提交；未暂存、提交或 push。
+
+
+## 2026-10-15：Debian 安装包（7.2）
+
+- `.deb` builder 复用 Linux bundle checker，分别校验打包暂存目录和实际归档解包后的目录。amd64 必须带 `libexec/varpaper-web-host`、固定 `data/runtime.json` 与 Web/Scene 许可证；宿主同时作为 CEF subprocess。主程序不能链接 CEF，基础包拒绝 CEF 库/resources/locales、旧 Scene 独立库和参考绝对路径。保留 Flutter 自身必需的 ICU 文件。
+- 补充 OpenSSL、CA 证书、Fontconfig、DejaVu fallback、PulseAudio、C++/GCC runtime 以及已固定 CEF 所需系统共享库依赖；不要求安装 CEF/Chromium 软件包。运行库仍只能由设置中的显式安装获取。沿用 Flatpak/Arch 的现有处理，在复制后移除 Linux 未使用的 `libdartjni.so`，避免它的构建机 JVM 绝对 RUNPATH 和额外 Java 依赖；不修改输入 bundle。
+- 复用 7.1 的干净 release bundle，执行 `VARPAPER_BUNDLE_DIR=/tmp/varpaper-build-clean-9lzgccel/source/build/linux/x64/release/bundle VARPAPER_OUTPUT_DIR=/tmp/varpaper-deb-7.2 packaging/deb/build.sh 20261015.g12345678` 成功。产物为 `/tmp/varpaper-deb-7.2/varpaper_20261015.g12345678_amd64.deb`，版本为验证用标记；未作为发布包上传。暂存与解包后的 11 个 ELF 全部通过 checker；默认仅 helper 允许缺少 `libcef.so`，提供已有 `/tmp/varpaper-controls-runtime` 后 helper 全部链接也解析成功。
+- 核对归档 control 的依赖、launcher 可执行权限、desktop/icon、manifest 内容及三份 Web/Scene 许可路径；确认不存在 JNI 和 CEF 强制包依赖。五个反例（缺少 helper、缺少 manifest、捆绑 libcef、版本化旧 Scene 库、CEF locale）全部在生成归档前被拒绝。
+- `VARPAPER_TEST_FLUTTER=/tmp/varpaper-flutter-ci/bin/flutter scripts/check-scene-package.sh /tmp/varpaper-deb-7.2/varpaper_20261015.g12345678_amd64.deb`：1 项通过。私有 Xvfb、空组件 data 目录下，实际包内 Rust 库完成 Scene 首帧、错误资产拒绝、暂停/恢复和清除。
+- 对解包后的实际 helper 在私有 Xvfb、软件 GL、dummy audio 下运行 `native/web/test_host.py`，使用已有固定 CEF runtime：本地资源、Canvas/WebGL、独立 browser、resize、暂停/恢复、隔离和全部 subprocess 退出通过；不下载或安装组件。Fontconfig warning 不影响结果。
+- `bash -n packaging/deb/build.sh` 与 `git diff --check` 通过。当前验证产物由 Arch 主机构建，control 自动记录 `libc6 (>= 2.44)`；未宣称旧 Debian/Ubuntu 安装兼容性，正式发布需在支持的最低版本基线上构建。完整发行版安装、用户组件安装/卸载和 quality 验收仍属于 8.x。本 Task 完成后暂停供用户提交；未暂存、提交或 push。
+
+
+## 2026-10-15：Flatpak 安装包与 Web 沙箱（7.3）
+
+- Flatpak manifest 增加 Zypak v2025.09（`693a71c5ffa80ec9c9ce2ae03b1ccc493c698e53`）及 BSD notice 安装，来源为 https://github.com/refi64/zypak；按其 CEF 使用说明，仅在 Flatpak 中将 Web helper 通过 `/app/bin/zypak-wrapper` 启动，传入实际组件的 `ZYPAK_CEF_LIBRARY_PATH`。GUI 不加载 Zypak/CEF；不增加 CEF runtime module 或基础包运行文件。NOTICE 记录来源与本地补丁。
+- Chromium 原生嵌套 namespace/setuid sandbox 在 Flatpak 中不可用，首轮真实预检因此失败。Zypak 改用 Flatpak portal 的子沙箱，保留 sandbox 与无网络子进程策略。`zypak-cef-runtime.patch` 只读暴露已安装组件目录并传递子进程 loader 路径；调试发现 Zypak 的 EnvMap 值为 string_view，已将路径字符串保留至同步 Spawn 调用结束，修复临时字符串引用失效造成的 libcef 加载失败。未通过关闭 sandbox 绕过启动问题。
+- portal 子进程不会继承测试环境变量；helper 现在主动报告 renderer client identity，fixture 不再依赖 renderer 中的主机测试变量。扩展既有 `test_host.py`，在 Flatpak 中使用 Zypak，并纳入 portal 启动、非 OS 后代的 CEF 子进程进行 crash/cleanup 检查；保留原生路径。
+- builder 在复制后移除未使用 JNI，校验完整 base bundle；不遍历 Web helper 的主机 CEF 依赖闭包，避免组件运行文件混入 `/app/lib`。在 SDK 内检查全部 11 个应用 ELF、补充共享库和两个 Zypak 程序的链接，验证 mpv 使用 Platform FFmpeg ABI、Scene fallback 字体、PulseAudio、helper/manifest/licenses，拒绝额外 CEF、主机 FFmpeg/JVM/GL。共同 checker 新增显式 `--library-dir /app/lib`，不继承主机 CEF 搜索路径。
+- GNOME Platform/SDK 50 提供 SDL2、PulseAudio、OpenSSL、图形库和 `/usr/share/fonts/dejavu/DejaVuSans.ttf`。曾尝试启用 mpv 自带 X11 后端而因缺少 xpresent 失败，已恢复原配置：引擎拥有 Wayland/X11 surface 与 EGL context，mpv 使用其 render API，不创建 X11 窗口。保留既有固定 libass/libplacebo/mpv modules，不复制主机 mpv/FFmpeg。
+- 干净 7.1 bundle 的 Arch Rust 库要求 glibc 2.44，GNOME 50 只有 2.42；在已安装 GNOME SDK 中以缓存 Cargo 依赖离线重新编译当前 `wayvid_gui` release（编译时链接已有 GNOME mpv），替换验证输入的 Rust 库。使用固定本地 CEF SDK 重新构建当前 helper，不依赖参考 checkout。builder 的 ABI 预检覆盖主程序、全部 bundle 库与 helper；构建缓存保存在 `build/flatpak-state`，固定来源使用 `--disable-updates`，新增来源仍按 manifest 下载。
+- 完整执行 `VARPAPER_BUNDLE_DIR=$PWD/build/flatpak-7.3-bundle VARPAPER_OUTPUT_DIR=/tmp/varpaper-flatpak-7.3 packaging/flatpak/build.sh 20261015.g12345678` 成功。最终 `/tmp/varpaper-flatpak-7.3/varpaper_20261015.g12345678_x86_64.flatpak` 为 21,297,928 bytes，版本为验证标记。最终完整构建日志 `/tmp/varpaper-flatpak-7.3-final-build.log`；构建/SDK 内链接检查全部通过。
+- 安装该最终 bundle 到临时用户级 app installation，在实际 GNOME Platform（未使用 --devel/SDK）内关闭网络，确认 Rust engine/mpv 可加载、进程 maps 不含 libcef、整个 `/app` 不含 libcef，且 helper/manifest/Zypak 存在。
+- 私有 Xvfb、Mesa/SwiftShader、dummy audio、`flatpak run --unshare=network` 下，对实际 `/app/lib/varpaper/libexec/varpaper-web-host` 运行完整既有 Web fixture，通过本地 HTML/CSS/JS/image、Canvas/WebGL、独立 browser、resize、初始/修改属性、音频/静音/音量、暂停/恢复、远程/逃逸请求拒绝、renderer crash 隔离及全部子进程退出。组件使用应用私有 data 下的独立完整副本，不执行下载；最终日志 `/tmp/varpaper-flatpak-7.3-web-verified.log`。Zypak 的 waitpid group warning 未影响断言或退出结果。原生 X11 当前 helper 同一 fixture 也通过（`/tmp/varpaper-7.3-web-native-final.log`）。
+- `scripts/check-scene-package.sh` 对最终 Flatpak 解包后的实际 Rust 库执行既有 Scene fixture：1 项通过，覆盖首帧、坏资源拒绝、暂停/恢复、清除。该项在主机私有 Xvfb 中运行，区别于上述真实 Flatpak browser 验收，日志 `/tmp/varpaper-flatpak-7.3-scene.log`。
+- 验证后卸载本轮用户级 app，删除唯一的临时 CEF runtime/browser-cache 副本；保留原有 app data，未触碰用户桌面/音频。`flatpak ps` 确认无本轮 app/CEF 实例，临时 origin 随卸载清理。验证包和构建缓存保留便于复查。
+- shell/Python/JSON 语法、Rust fmt、共同 checker 的既有 .deb 链接回归和 `git diff --check` 通过。设置内完整组件安装/卸载、真实桌面五类型和完整 quality 仍属 8.x；此处未宣称完成它们。本 Task 完成后暂停供用户提交，未暂存、提交或 push。
+
+
+## 2026-10-15：Arch 安装包（7.4）
+
+- 更新 PKGBUILD 的壁纸类型描述，显式补充 OpenSSL、CA 证书、PulseAudio、GCC/glibc 以及固定 CEF 使用的 NSS/NSPR、ALSA、CUPS、Mesa、X11 系统库。CEF/Chromium 不作为 pacman 依赖或基础包文件。Python 仅用于构建校验。容器安装依赖和归档 metadata 断言均读取生成的 PKGBUILD，避免维护重复清单。
+- recipe 复用共同 Linux bundle checker：要求 Rust engine、Web helper（兼任 subprocess）、固定 manifest 和 Scene/CEF/JSON 许可，拒绝捆绑 CEF/旧 Scene 库/参考绝对路径，检查全部 ELF。新增显式 `--manifest` 参数供隔离容器使用源清单，不依赖源 checkout 路径或继承的 LD_LIBRARY_PATH。补齐应用内图标路径，保留系统 desktop/icon 与所有根许可/NOTICE。
+- Docker 内执行当前滚动 Arch 的 pacman 更新及 makepkg，检查 staging 与归档解包 payload，外层 builder 再检查解包结果。第一次归档构建及容器校验已成功，但外层与容器使用同一个 extracted 目录导致 mkdir 失败；将外层改为 archive-check 后完整重跑成功。未修改执行中的构建脚本。
+- 完整命令：`VARPAPER_ARCH_USE_DOCKER=1 VARPAPER_BUNDLE_DIR=$PWD/build/flatpak-7.3-bundle VARPAPER_OUTPUT_DIR=/tmp/varpaper-arch-7.4 packaging/arch/build.sh 20261015.g12345678`。复用 7.1 干净 Flutter bundle、7.3 在 GNOME SDK 重编的当前 Rust library 和当前 helper；在 Arch 上全部动态库解析成功。最终产物 `/tmp/varpaper-arch-7.4/varpaper-20261015.g12345678-1-x86_64.pkg.tar.zst`，14,238,151 bytes，版本仅为验证标记。日志 `/tmp/varpaper-arch-7.4-build.log`。
+- staging、容器内归档及主机解包的 11 个 ELF 全部通过检查；未安装组件时只允许 helper 缺少 libcef.so。额外提供已有 `/tmp/varpaper-controls-runtime` 后 helper 全部链接也成功。核对 .PKGINFO 的全部依赖、helper/manifest/三份许可、launcher、应用图标及根许可安装清单；归档 NOTICE 与当前源文件一致。
+- 最终归档执行 `scripts/check-scene-package.sh`：1 项通过，实际包内 Rust library 在私有 Xvfb、空组件 data、软件 GL/dummy audio 下完成 Scene 首帧、坏资产拒绝、暂停/恢复、清除。日志 `/tmp/varpaper-arch-7.4-scene.log`。
+- 对实际归档 helper 执行 `native/web/test_host.py`，使用已有固定 CEF runtime，私有 Xvfb/软件 GL/dummy audio：本地资源、Canvas/WebGL、独立 browser、resize、属性/音频、暂停/恢复、renderer crash、隔离和全部子进程退出通过。日志 `/tmp/varpaper-arch-7.4-web.log`。未下载 CEF 或连接用户桌面/音频；不将这些 host fixture 当作完整发行版安装验收。
+- 更新现有构建文档和 NOTICE，核对 CEF manifest 的版本、SHA-256、官方 HTTPS 出处及 JSON 固定 revision。shell/Python 语法、git diff 检查和 OpenSpec strict validation 通过。Arch 容器自动清理，包与下载缓存保留；未在主机安装依赖。设置内组件安装/卸载、真实桌面及完整 quality 保持 8.x 未完成。本 Task 完成后暂停供用户提交，未暂存、提交或 push。
+
+
+## 2026-10-15：CI 原生质量门禁（7.5）
+
+- `quality` 已将 native gate 前置到 Flutter 检查前，并安装 PulseAudio/pactl、D-Bus、CEF helper 运行所需的 NSS/NSPR/ALSA/CUPS/GBM/X11 库及 Xvfb。新增 Python AST、JSON manifest 和 Arch recipe 语法检查。
+- `scripts/check-native.sh` 现在固定软件 GL、临时 data/config/state、私有不存在的 Pulse socket，先执行 Rust Scene 解析/脚本/GL fixture，再执行私有音频 fixture、CEF helper fixture 和 workspace X11/生命周期测试。workspace 输出必须包含 X11 Scene fixture 与 Web install/uninstall/restart fixture，失败不会被“无测试执行”吞掉。
+- `scripts/fixtures/scene_audio_monitor.py` 增加 `--backend pulseaudio|pipewire`。CI 使用无默认配置、无硬件发现的 PulseAudio daemon，仅创建 `module-null-sink`；检查 Scene sound PCM、mute/volume、pause/resume 和 cleanup。现有 PipeWire/WirePlumber fixture 保留用于本地环境。mpv 属性读取增加有限异步等待，避免加载事件和属性查询竞态。
+- 本地 `VARPAPER_TEST_AUDIO_BACKEND=pipewire scripts/check-native.sh` 的 Rust Scene、12 项 GL、私有音频、CEF helper 和 workspace engine 88 项均通过；首次完整 workspace 在共享 target 下因并行构建导致已生成测试二进制被移除，改用独立 `CARGO_TARGET_DIR=/tmp/varpaper-target-7.5 cargo test --workspace --locked -- --test-threads=1` 后所有 workspace crate/doc tests 通过。CI 单 job 不共享此并行状态。系统未安装 pulseaudio，因此本机未声称 CI PulseAudio backend 已执行；独立的虚拟 PulseAudio 运行曾验证 Scene sound fixture 1 项通过。
+- `cargo clippy --workspace --all-targets -- -D warnings`（独立 target）和 `cargo fmt --all -- --check` 通过；shell/Python/JSON、`git diff --check` 通过。干净源码副本 `/tmp/varpaper-ci-clean-7.5-lnni13tw/source` 不含 `native/wallpaperengine`，构建不读取参考 checkout 或 Scene 动态库。Task 7.1–7.5 完成；8.x 桌面、soak、三包安装和完整 coverage 仍未完成。本 Task 完成后暂停供用户提交，未暂存、提交或 push。

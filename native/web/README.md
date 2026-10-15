@@ -13,15 +13,26 @@ candidate, and checks the actual IPC version on every response. A mismatched
 helper requires reinstalling the application; the pinned CEF runtime is unchanged.
 Build with `scripts/build-web-host.sh`; `CEF_ROOT` can select an already
 extracted matching SDK. SDK downloads are build-time operations. Application
-startup never invokes this script. `scripts/build-linux.sh` builds and bundles
-only the helper, runtime manifest and wrapper license. It excludes libcef and
-Chromium resources/locales. A direct Flutter build can bundle a prebuilt helper
-by setting `VARPAPER_WEB_HOST_BINARY` to its absolute path.
+startup never invokes this script. Flutter's Linux CMake build and
+`scripts/build-linux.sh` build and bundle the helper, runtime manifest and
+licenses using the shared `bundle.cmake` inventory. They exclude libcef and
+Chromium resources/locales. Flutter builds the helper in its own build tree;
+standalone builds default to `build/native-web`, configurable with
+`VARPAPER_WEB_BUILD_DIR`. A prebuilt helper can be selected by setting
+`VARPAPER_WEB_HOST_BINARY` to its absolute path before clean configuration;
+the adjacent `runtime.json` must match this source tree's SDK/IPC manifest.
 
 The application installs runtime libraries, resources, locale files, snapshots,
 LICENSE.txt and CREDITS.html only after the Settings installation action. The
 helper starts with this component directory in its own `LD_LIBRARY_PATH`; the
 main application has no libcef dependency. Chromium sandboxing remains enabled.
+Inside Flatpak, Rust launches only this helper through the packaged Zypak wrapper
+with `ZYPAK_CEF_LIBRARY_PATH` pointing at the installed component. Zypak uses the
+Flatpak portal for Chromium subprocess sandboxes. A packaged Zypak patch exposes
+only the installed component directory read-only and supplies the child loader's
+library path; the GUI is not preloaded with
+CEF or Zypak. The Flatpak base package builds the pinned Zypak module without
+installing any CEF runtime.
 CEF initialization failures terminate the helper and become a wallpaper error.
 Development overrides using `VARPAPER_WEB_HOST` require `runtime.json` beside
 the helper; CMake copies the pinned manifest into its build directory.

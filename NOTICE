@@ -34,6 +34,15 @@ automated-build distribution at https://cef-builds.spotifycdn.com/.
 Its SHA-256 is 24ac1980e62be7b1aea2c337d6bd4bc770dccd8b37e47c6db94b397f13ec4dc6.
 The Web helper includes the CEF DLL wrapper built from this SDK; its BSD notice
 is retained in native/web/CEF-LICENSE and bundled under data/licenses.
+The Debian and Arch packages install the helper, fixed component manifest and
+Scene/CEF/JSON notices, alongside the application licenses and this NOTICE.
 CEF runtime binaries are not included in the base distribution. The downloaded
 distribution's LICENSE.txt and CREDITS.html are preserved alongside its
 libraries and resources; those upstream licenses and notices remain applicable.
+
+The Flatpak package builds Zypak v2025.09, revision
+693a71c5ffa80ec9c9ce2ae03b1ccc493c698e53, from
+https://github.com/refi64/zypak for CEF subprocess sandbox integration.
+A local patch exposes only the installed CEF runtime directory read-only to
+sandboxed children and supplies their loader path. Its BSD notice is installed
+as /app/share/licenses/zypak/LICENSE.

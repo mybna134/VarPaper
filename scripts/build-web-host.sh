@@ -13,6 +13,7 @@ for name in ['distribution','url','sha256']:
 PY
 )
 sdk="${CEF_ROOT:-$root/build/cef/${manifest[0]}}"
+web_build_dir="${VARPAPER_WEB_BUILD_DIR:-$root/build/native-web}"
 if [[ ! -f "$sdk/include/cef_version.h" ]]; then
     [[ -z "${CEF_ROOT:-}" ]] || { echo "CEF_ROOT does not contain SDK headers: $sdk" >&2; exit 1; }
     archive="$root/build/cef-sdk.tar.bz2"
@@ -24,5 +25,5 @@ if [[ ! -f "$sdk/include/cef_version.h" ]]; then
     tar --extract --bzip2 --file "$archive" --directory "$root/build/cef" --no-same-owner
     rm -f "$archive"
 fi
-cmake -S "$root/native/web" -B "$root/build/native-web" -DCEF_ROOT="$sdk" -DCMAKE_BUILD_TYPE=Release
-cmake --build "$root/build/native-web" --parallel "${VARPAPER_BUILD_JOBS:-4}"
+cmake -S "$root/native/web" -B "$web_build_dir" -DCEF_ROOT="$sdk" -DCMAKE_BUILD_TYPE=Release
+cmake --build "$web_build_dir" --parallel "${VARPAPER_BUILD_JOBS:-4}"
