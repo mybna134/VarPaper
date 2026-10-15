@@ -76,6 +76,224 @@ FakeStore _libraryStore() => FakeStore(
 );
 
 void main() {
+  for (final language in ['en', 'zh']) {
+    final chinese = language == 'zh';
+    final labels = chinese
+        ? ['视频', '场景', '网页', '图片', 'GIF']
+        : ['Video', 'Scene', 'Web', 'Image', 'GIF'];
+    const types = ['video', 'scene', 'web', 'image', 'gif'];
+    const icons = [
+      Icons.movie_outlined,
+      Icons.auto_awesome_motion_outlined,
+      Icons.language,
+      Icons.image_outlined,
+      Icons.gif_box_outlined,
+    ];
+    testWidgets('$language Web details require missing component', (
+      tester,
+    ) async {
+      final service = FakeService(
+        folders: {
+          '/w': [wallpaper('page', category: 'web')],
+        },
+      );
+      final controller = await _controller(_libraryStore(), service);
+      try {
+        await _pumpShell(tester, controller, locale: Locale(language));
+        await tester.tap(find.text('page'));
+        await tester.pump(kDoubleTapTimeout);
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            chinese
+                ? '兼容性: 需要安装 Web 壁纸支持'
+                : 'Compatibility: Web wallpaper support is required',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text(chinese ? '打开设置' : 'Open settings'));
+        await tester.pumpAndSettle();
+        expect(controller.page, 'settings');
+        expect(service.calls, isNot(contains('installWebSupport')));
+        expect(
+          service.calls.where((call) => call.startsWith('apply:')),
+          isEmpty,
+        );
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await controller.shutdown();
+      }
+    });
+    for (var index = 0; index < types.length; index++) {
+      final type = types[index];
+      testWidgets('$language $type filter, fallback, details and output', (
+        tester,
+      ) async {
+        final item = WallpaperDto(
+          id: type,
+          name: 'Fixture $type',
+          sourcePath: '/fixtures/$type',
+          sourceType: 'local_dir',
+          // Actual type must win over a stale category.
+          wallpaperCategory: 'video',
+          wallpaperType: type,
+          compatibility: 'ready',
+          metadata: wallpaper(type).metadata,
+          addedAt: '',
+        );
+        final service =
+            FakeService(
+                monitors: [monitor('A', primary: true), monitor('B')],
+                folders: {
+                  '/w': [item],
+                },
+              )
+              ..webSupport = const WebSupportDto(
+                state: 'installed',
+                version: 'test',
+                diskBytes: 0,
+                downloadedBytes: 0,
+                source: 'https://cef-builds.spotifycdn.com/',
+                supported: true,
+              );
+        final controller = await _controller(_libraryStore(), service);
+        try {
+          await _pumpShell(tester, controller, locale: Locale(language));
+          expect(find.text('Fixture $type'), findsOneWidget);
+          expect(
+            find.text(chinese ? '暂无预览' : 'Preview unavailable'),
+            findsOneWidget,
+          );
+          expect(find.byIcon(icons[index]), findsWidgets);
+          await tester.tap(find.text(labels[index]));
+          await tester.pumpAndSettle();
+          expect(find.text('Fixture $type'), findsNothing);
+          await tester.tap(find.text(labels[index]));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Fixture $type'));
+          await tester.pump(kDoubleTapTimeout);
+          await tester.pumpAndSettle();
+          expect(
+            find.text('${chinese ? '类型' : 'Type'}: ${labels[index]}'),
+            findsOneWidget,
+          );
+          expect(
+            find.text(chinese ? '来源: 本地项目' : 'Source: Local project'),
+            findsOneWidget,
+          );
+          expect(
+            find.text(chinese ? '兼容性: 可用' : 'Compatibility: Ready'),
+            findsOneWidget,
+          );
+          await tester.tap(find.text(chinese ? '应用到 B' : 'Apply to B'));
+          await tester.pumpAndSettle();
+          expect(service.calls, contains('apply:B:/fixtures/$type'));
+          expect(
+            service.calls.where((call) => call.startsWith('apply:')).length,
+            1,
+          );
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await controller.shutdown();
+        }
+      });
+    }
+
+    for (final error in [
+      (
+        'Unsupported project type: Application',
+        'Unsupported wallpaper type',
+        '不支持的壁纸类型',
+      ),
+      (
+        'Missing shared asset: clock.png',
+        'Required wallpaper resource is missing',
+        '缺少必需的壁纸资源',
+      ),
+      (
+        'Invalid shader: effect.frag',
+        'Wallpaper renderer unavailable',
+        '壁纸渲染器不可用',
+      ),
+    ]) {
+      testWidgets('$language compatibility error ${error.$1}', (tester) async {
+        final service = FakeService(
+          folders: {
+            '/w': [
+              wallpaper(
+                'broken',
+                name: 'Broken project',
+                category: 'unsupported',
+                compatibility: 'unsupported',
+                compatibilityReason: error.$1,
+              ),
+            ],
+          },
+        );
+        final controller = await _controller(_libraryStore(), service);
+        try {
+          await _pumpShell(tester, controller, locale: Locale(language));
+          await tester.tap(find.text('Broken project'));
+          await tester.pump(kDoubleTapTimeout);
+          await tester.pumpAndSettle();
+          expect(
+            find.text(
+              '${chinese ? '兼容性' : 'Compatibility'}: ${chinese ? error.$3 : error.$2}',
+            ),
+            findsOneWidget,
+          );
+          expect(find.text(error.$1), findsOneWidget);
+          final apply = tester.widget<FilledButton>(
+            find.widgetWithText(
+              FilledButton,
+              chinese ? '应用到所有显示器' : 'Apply to all monitors',
+            ),
+          );
+          expect(apply.onPressed, isNull);
+          expect(
+            service.calls.where((call) => call.startsWith('apply:')),
+            isEmpty,
+          );
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await controller.shutdown();
+        }
+      });
+    }
+  }
+
+  for (final filePreview in [false, true]) {
+    testWidgets(
+      'invalid ${filePreview ? 'file' : 'bytes'} preview uses type fallback',
+      (tester) async {
+        final service =
+            FakeService(
+                folders: {
+                  '/w': [wallpaper('picture', category: 'image')],
+                },
+              )
+              ..previews['picture'] = PreviewDto(
+                bytes: tinyPng.sublist(0, 4),
+                imagePath: filePreview ? '/missing/varpaper-preview.png' : null,
+              );
+        final controller = await _controller(_libraryStore(), service);
+        try {
+          await _pumpShell(tester, controller);
+          await tester.runAsync(() async {
+            await Future<void>.delayed(const Duration(milliseconds: 100));
+          });
+          await tester.pumpAndSettle();
+          expect(find.text('Preview unavailable'), findsOneWidget);
+          expect(find.byIcon(Icons.image_outlined), findsWidgets);
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await controller.shutdown();
+        }
+      },
+    );
+  }
+
   testWidgets(
     'Web support setting shows truthful installed state and uninstall action',
     (tester) async {
@@ -431,7 +649,8 @@ void main() {
       expect(service.configs.length, 2);
 
       final slider = find.byType(Slider);
-      await tester.ensureVisible(slider);
+      // The volume row may have been disposed after scrolling to restore.
+      await tester.scrollUntilVisible(slider, -300);
       await tester.tap(slider);
       await tester.pumpAndSettle();
       expect(store.settings.playback.volume, closeTo(0.5, 0.01));

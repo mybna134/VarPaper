@@ -575,3 +575,103 @@ impl Drop for WallpaperSession {
         }
     }
 }
+
+#[cfg(test)]
+mod control_tests {
+    use super::*;
+    use crate::renderer::RendererCapabilities;
+    use std::cell::RefCell;
+
+    #[derive(Default)]
+    struct Calls {
+        paused: bool,
+        volume: f32,
+        muted: bool,
+        loops: bool,
+    }
+    struct Renderer(Rc<RefCell<Calls>>, bool);
+    impl WallpaperRenderer for Renderer {
+        fn render(&mut self, _: i32, _: i32, _: i32) -> Result<bool> {
+            Ok(true)
+        }
+        fn pause(&mut self) -> Result<()> {
+            self.0.borrow_mut().paused = true;
+            Ok(())
+        }
+        fn resume(&mut self) -> Result<()> {
+            self.0.borrow_mut().paused = false;
+            Ok(())
+        }
+        fn set_volume(&mut self, volume: f32) -> Result<()> {
+            self.0.borrow_mut().volume = volume;
+            Ok(())
+        }
+        fn update_config(&mut self, config: &VideoConfig) -> Result<()> {
+            let mut calls = self.0.borrow_mut();
+            calls.volume = config.volume as f32;
+            calls.muted = config.mute;
+            calls.loops = config.loop_playback;
+            Ok(())
+        }
+        fn capabilities(&self) -> RendererCapabilities {
+            RendererCapabilities {
+                video_settings: self.1,
+                project_properties: false,
+                audio_visualization: false,
+            }
+        }
+    }
+
+    #[test]
+    fn all_types_keep_manual_and_battery_pause_independent_and_receive_config() {
+        for kind in ["video", "image", "gif", "scene", "web"] {
+            let output = OutputInfo {
+                name: kind.into(),
+                width: 64,
+                height: 32,
+                scale: 1.0,
+                position: (0, 0),
+                active: true,
+                hdr_capabilities: Default::default(),
+            };
+            let mut session =
+                WallpaperSession::new(PathBuf::from("fixture"), output, VideoConfig::default())
+                    .unwrap();
+            let calls = Rc::new(RefCell::new(Calls::default()));
+            session.player = Some(Box::new(Renderer(
+                calls.clone(),
+                !matches!(kind, "scene" | "web"),
+            )));
+            session.state = PlaybackState::Playing;
+            session.pause();
+            session.set_power_paused(true);
+            session.set_power_paused(false);
+            assert_eq!(session.state(), PlaybackState::Paused, "{kind}");
+            assert!(calls.borrow().paused);
+            session.resume();
+            assert!(!calls.borrow().paused);
+            session.set_power_paused(true);
+            session.resume();
+            assert_eq!(session.state(), PlaybackState::Paused, "{kind}");
+            assert!(calls.borrow().paused);
+            session.update_config(VideoConfig {
+                volume: 0.4,
+                mute: false,
+                loop_playback: false,
+                ..Default::default()
+            });
+            assert!(
+                calls.borrow().paused,
+                "configuration must preserve pause for {kind}"
+            );
+            assert_eq!(calls.borrow().volume, 0.4);
+            assert!(!calls.borrow().muted);
+            assert!(!calls.borrow().loops);
+            session.set_volume(0.6);
+            assert_eq!(calls.borrow().volume, 0.6);
+            session.set_power_paused(false);
+            assert_eq!(session.state(), PlaybackState::Playing, "{kind}");
+            assert!(!calls.borrow().paused);
+        }
+    }
+}

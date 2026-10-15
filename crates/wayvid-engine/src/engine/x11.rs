@@ -856,6 +856,83 @@ mod tests {
                 },
             ),
         ]);
+        // The same command routing controls live mpv, Rust Scene and CEF sessions.
+        let (controls, _) = std::sync::mpsc::channel();
+        let mut control_config = EngineConfig::default();
+        handle_command(
+            EngineCommand::Pause { output: None },
+            &mut control_config,
+            &display,
+            &egl,
+            &HashMap::new(),
+            &mut active,
+            &controls,
+        );
+        for wallpaper in active.values_mut() {
+            wallpaper.session.set_power_paused(true);
+            wallpaper.session.set_power_paused(false);
+            assert_eq!(
+                wallpaper.session.state(),
+                super::super::session::PlaybackState::Paused
+            );
+            wallpaper.session.set_power_paused(true);
+        }
+        handle_command(
+            EngineCommand::Resume { output: None },
+            &mut control_config,
+            &display,
+            &egl,
+            &HashMap::new(),
+            &mut active,
+            &controls,
+        );
+        let mut next = control_config.clone();
+        next.video.volume = 0.4;
+        next.video.mute = false;
+        next.video.loop_playback = false;
+        next.pause_on_battery = false;
+        handle_command(
+            EngineCommand::UpdateConfig(next),
+            &mut control_config,
+            &display,
+            &egl,
+            &HashMap::new(),
+            &mut active,
+            &controls,
+        );
+        for wallpaper in active.values_mut() {
+            assert_eq!(
+                wallpaper.session.state(),
+                super::super::session::PlaybackState::Paused
+            );
+            wallpaper.session.set_power_paused(false);
+            assert_eq!(
+                wallpaper.session.state(),
+                super::super::session::PlaybackState::Playing
+            );
+        }
+        handle_command(
+            EngineCommand::Pause {
+                output: Some(scene_output.name.clone()),
+            },
+            &mut control_config,
+            &display,
+            &egl,
+            &HashMap::new(),
+            &mut active,
+            &controls,
+        );
+        for (name, wallpaper) in &mut active {
+            wallpaper.session.set_power_paused(true);
+            wallpaper.session.set_power_paused(false);
+            let expected = if name == &scene_output.name {
+                super::super::session::PlaybackState::Paused
+            } else {
+                super::super::session::PlaybackState::Playing
+            };
+            assert_eq!(wallpaper.session.state(), expected);
+            wallpaper.session.resume();
+        }
         let (reply, done) = std::sync::mpsc::channel();
         let (events, received) = std::sync::mpsc::channel();
         handle_command(

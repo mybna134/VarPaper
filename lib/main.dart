@@ -527,7 +527,7 @@ class WayvidController extends ChangeNotifier {
           (isLocal && showLocalWallpapers) ||
           (isWorkshop && showWorkshopWallpapers);
       final categoryMatches = wallpaperCategories.contains(
-        wallpaper.wallpaperCategory,
+        wallpaper.wallpaperType,
       );
       final text =
           '${wallpaper.name} ${wallpaper.metadata.title ?? ''} ${wallpaper.metadata.tags.join(' ')}'
@@ -1403,28 +1403,30 @@ class _WallpaperCard extends StatelessWidget {
                           ),
                         )
                       : snapshot.data == null
-                      ? Container(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                        )
+                      ? _WallpaperPreviewFallback(type: wallpaper.wallpaperType)
                       : snapshot.data!.imagePath != null
                       ? Image.file(
                           File(snapshot.data!.imagePath!),
                           fit: BoxFit.cover,
                           width: double.infinity,
+                          errorBuilder: (_, _, _) => _WallpaperPreviewFallback(
+                            type: wallpaper.wallpaperType,
+                          ),
                         )
                       : Image.memory(
                           snapshot.data!.bytes,
                           fit: BoxFit.cover,
                           width: double.infinity,
+                          errorBuilder: (_, _, _) => _WallpaperPreviewFallback(
+                            type: wallpaper.wallpaperType,
+                          ),
                         ),
                 ),
                 Positioned(
                   right: 8,
                   bottom: 8,
                   child: _WallpaperCategoryBadge(
-                    category: wallpaper.wallpaperCategory,
+                    category: wallpaper.wallpaperType,
                   ),
                 ),
               ],
@@ -1442,7 +1444,8 @@ class _WallpaperCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 9),
             child: Text(
-              wallpaper.sourceType,
+              WayvidLocalizations.of(context)
+                  .text(_sourceTypeLabel(wallpaper.sourceType)),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
@@ -1450,6 +1453,66 @@ class _WallpaperCard extends StatelessWidget {
       ),
     ),
   );
+}
+
+class _WallpaperPreviewFallback extends StatelessWidget {
+  const _WallpaperPreviewFallback({required this.type});
+  final String type;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = WayvidLocalizations.of(context);
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _wallpaperTypeIcon(type),
+              size: 42,
+              semanticLabel: l10n.text(_wallpaperTypeLabel(type)),
+            ),
+            const SizedBox(height: 6),
+            Text(l10n.text('Preview unavailable')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _sourceTypeLabel(String type) => switch (type) {
+  'local_file' => 'Local media',
+  'local_dir' => 'Local project',
+  'workshop' || 'steam_workshop' => 'Workshop',
+  _ => 'Other source',
+};
+
+String _compatibilityLabel(
+  WayvidLocalizations l10n,
+  WallpaperDto wallpaper, {
+  required bool webInstalled,
+}) {
+  if (wallpaper.wallpaperType == 'web' && !webInstalled) {
+    return l10n.text('Web wallpaper support is required');
+  }
+  if (wallpaper.compatibility == 'ready') return l10n.text('Ready');
+  final reason = wallpaper.compatibilityReason;
+  if (reason == null || reason.isEmpty) {
+    return l10n.text('Wallpaper renderer unavailable');
+  }
+  if (reason.startsWith('Unsupported project type')) {
+    return l10n.text('Unsupported wallpaper type');
+  }
+  if (reason.toLowerCase().contains('web') &&
+      reason.toLowerCase().contains('support')) {
+    return l10n.text('Web wallpaper support is required');
+  }
+  if (reason.toLowerCase().contains('missing')) {
+    return l10n.text('Required wallpaper resource is missing');
+  }
+  return l10n.text('Wallpaper renderer unavailable');
 }
 
 String _wallpaperTypeLabel(String type) => switch (type) {
@@ -1544,6 +1607,11 @@ class _Details extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = WayvidLocalizations.of(context);
     final metadata = wallpaper.metadata;
+    final compatibilityLabel = _compatibilityLabel(
+      l10n,
+      wallpaper,
+      webInstalled: controller.webSupport?.state == 'installed',
+    );
     return Material(
       color: Theme.of(context).colorScheme.surface,
       elevation: 16,
@@ -1574,6 +1642,36 @@ class _Details extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(metadata.description!),
               ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_wallpaperTypeIcon(wallpaper.wallpaperType), size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${l10n.text('Type')}: ${l10n.text(_wallpaperTypeLabel(wallpaper.wallpaperType))}',
+                    ),
+                  ],
+                ),
+                Text(
+                  '${l10n.text('Source')}: ${l10n.text(_sourceTypeLabel(wallpaper.sourceType))}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${l10n.text('Compatibility')}: $compatibilityLabel',
+              style: TextStyle(
+                color: controller.canApplyWallpaper(wallpaper)
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+              ),
+            ),
             const SizedBox(height: 18),
             AnimatedBuilder(
               animation: controller,
@@ -1612,12 +1710,14 @@ class _Details extends StatelessWidget {
                       ),
                     ] else if (wallpaper.compatibility != 'ready') ...[
                       const SizedBox(height: 8),
-                      Text(
-                        l10n.text(
-                          wallpaper.compatibilityReason ??
-                              'Wallpaper renderer unavailable',
-                        ),
-                      ),
+                      Text(compatibilityLabel),
+                    ],
+                    if (wallpaper.compatibility != 'ready' &&
+                        wallpaper.compatibilityReason != null &&
+                        compatibilityLabel !=
+                            wallpaper.compatibilityReason) ...[
+                      const SizedBox(height: 8),
+                      SelectableText(wallpaper.compatibilityReason!),
                     ],
                     const SizedBox(height: 16),
                     for (final monitor in controller.monitors)

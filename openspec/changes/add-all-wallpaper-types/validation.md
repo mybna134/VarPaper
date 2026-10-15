@@ -140,3 +140,23 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - Flutter 托盘切换仅选择 canApplyWallpaper 的项目，不再选中 unsupported 或组件不可用项目。设置增加中英说明：循环适用于 Video/GIF，图片持续显示，Scene/Web 由各自内容控制动画。
 - `cargo check --workspace --all-targets --locked --offline` 在实现改动后通过。现有 Flutter tray/controller 回归 18 项通过；此范围不包含混合类型的 battery/native renderer 验收。
 - 尚未完成 6.3 要求的混合类型/电池策略回归及两后端实际暂停验证，任务继续未勾选。暂停等待用户提交；未提交或 push。
+
+
+## 2026-10-15：公共控制路由完成（6.3）
+
+- `WallpaperSession` 将手动暂停和电池暂停作为独立原因；解除一个原因不会恢复仍被另一个原因暂停的会话。Wayland/X11 在每帧前同步电池策略，配置关闭后解除电池暂停；Video、Image、GIF、Scene、Web 共用该会话控制路径。
+- Flutter `cycleWallpaper` 只选择 `canApplyWallpaper` 的项目；托盘切换不会选择不支持类型或缺少 Web 组件的项目。设置页增加循环模式适用范围说明：Video/GIF 使用循环设置，Image 持续显示，Scene/Web 使用自身动画。
+- `test/tray_controls_test.dart` 和 `test/controller_logic_test.dart`：19 项通过，覆盖托盘切换、暂停/恢复、静音/音量、Web 状态和不可用项目跳过。
+- Rust session control fixture：5 种类型共用手动/电池暂停独立性、配置转发和音量控制，1 项通过。
+- X11 混合控制 fixture：Video、Rust Scene、Web 会话的暂停、恢复、局部输出控制、音量/静音/循环配置及 Web 停止后的其他输出保留，1 项通过。
+- `scripts/check-wayland.sh`：嵌套 niri Wayland 4 项通过，包含媒体/Scene 暂停恢复、失败候选保留、清除和重启。
+- `cargo check --workspace --all-targets --locked --offline`、Clippy `-D warnings` 通过。Xvfb/CEF fixture 日志中的 Fontconfig warning 不影响测试结果。
+- 本 Task 完成后暂停等待用户提交；未提交或 push。
+
+## 2026-10-15：五类型界面与本地化（6.6）
+
+- 过滤、卡片图标、预览占位及详情统一使用实际 `wallpaperType`，不受旧 category 值影响；详情展示中英类型、来源和兼容状态。缺少或损坏的预览文件/图片数据均显示类型图标与本地化占位文本。
+- Web 组件缺失时详情明确提示安装入口，不能显示“可用”或触发隐式安装。不支持类型、缺失资源及其他加载错误显示本地化说明，并保留原始资产诊断；不可应用项目禁用应用操作。
+- 按已确认的范围修订，GUI 属性编辑继续留待后续；本 Task 不计入属性编辑或 Scene 属性覆盖的完成证据。
+- `flutter test test/shell_widgets_test.dart test/controller_logic_test.dart`：47 项通过，其中新增 20 项覆盖两种语言下的五类型过滤/详情/指定输出、兼容错误、Web 组件缺失和损坏预览。设置回归改为向上滚动查找已被 ListView 回收的音量滑块。
+- `flutter analyze lib/main.dart lib/src/l10n.dart test/shell_widgets_test.dart` 无问题。未执行完整 CI quality；未提交或 push。完成本 Task 后暂停等待用户提交。
