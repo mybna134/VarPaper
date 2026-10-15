@@ -123,3 +123,12 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - 对照 `scene/clock.rs` 的暂停基线和 250 ms delta 上限说明动画恢复；支持范围链接到 Rust fixture 对照表，不把历史 C++ 验证当作当前实现。
 - 修正安装页旧仓库地址、三种包格式/构建产物说明和无效 Scene 文档锚点。
 - 本 Task 仅修改文档和任务记录，未运行测试或重新执行历史 fixture。完成后暂停等待用户提交；未提交或 push。
+
+
+## 2026-10-15：脚本、属性、音频与时间接口文档（4.5）
+
+- `docs/src/dev/rust-scene.md` 新增接口/fixture 对照、从已有 fixture 提取的参数、运行命令及前置条件。逐项核对 `script.rs`、`script_helpers.js`、`script_timers.rs`、`runtime.rs`、`runtime_tests.rs`、`clock.rs`、`properties.rs`、`audio.rs` 和 `native/web/test_host.py` 源码。
+- 明确 Scene hooks/层字段、动画秒/定时器毫秒、暂停恢复、预算、内部快照/typed arrays/uniforms；Web typed property/128 项左右音频顺序、零输入、采集恢复和 consumer 生命周期。
+- 示例参数对应现有断言：Scene opacity 0.2/0.8 → 0.21/0.81；builder gain 0.25 与 opacity 0.8 → 0.2；Web speed 0.4→0.8、caption initial→updated、64×0.25 左/64×0.75 右与零输入；共享 PCM 375/6000 Hz。
+- 实时 Scene 系统音频、可注入本地时钟、完整脚本/API 矩阵、GUI 属性编辑与 Scene 覆盖仍 deferred。采集诊断只声明 AudioSnapshot 字段，不虚构 GUI 状态。运行时属性更新不自动持久化。
+- 修正 Web README 的属性持久化旧表述，并连接 Workshop 兼容说明。此 Task 只修改文档，未运行测试；源码参数核对不代表重新执行 fixture。完成后暂停等待用户提交，未提交或 push。

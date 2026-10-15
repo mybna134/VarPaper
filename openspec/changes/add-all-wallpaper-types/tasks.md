@@ -38,7 +38,7 @@
 - [x] 4.2 实现共享 PulseAudio/PipeWire-Pulse playback monitor、FFT/level、consumer 生命周期；用已知低/高频 PCM 验证频带，模拟断线/输出切换/零输入验证恢复及计数回归。
 - [ ] 4.3 【后续，移出当前 Scene 交付】在 Rust engine 将共享 spectrum/level 直接连接到 Scene shader、效果/粒子和支持的 script APIs；以音频可视化 Scene 验证实际响应、壁纸静音不影响其他系统音频响应。
 - [ ] 4.4 【后续，移出当前 Scene 交付】提供 monotonic animation time/frame delta 及系统 Date/local-time 文字绑定；通过注入时钟测试跨分钟/日期/时区和暂停恢复首帧正确时钟、无动画大跳步。
-- [ ] 4.5 在现有 docs/兼容说明记录支持的脚本属性/音频接口、时钟和采集不可用行为；验证对应 fixture 及其示例参数。
+- [x] 4.5 在现有 docs/兼容说明记录支持的脚本属性/音频接口、时钟和采集不可用行为；验证对应 fixture 及其示例参数。
 
 ## 5. Web 离屏渲染
 
