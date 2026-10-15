@@ -14,7 +14,7 @@ pacman -Syu --noconfirm
 pacman -S --noconfirm --needed \
   base-devel \
   ayatana-ido fontconfig gtk3 libayatana-appindicator libayatana-indicator libglvnd \
-  libx11 libxfixes libxkbcommon libxrandr mpv wayland
+  libx11 libxfixes libxkbcommon libxrandr mpv sdl2 ttf-dejavu wayland
 
 useradd --create-home varpaper-builder
 chown -R varpaper-builder:varpaper-builder "$stage"
@@ -36,7 +36,7 @@ grep -Fxq 'pkgname = varpaper' "$stage/pkginfo"
 grep -Fxq 'arch = x86_64' "$stage/pkginfo"
 for dependency in \
   ayatana-ido fontconfig gtk3 libayatana-appindicator libayatana-indicator libglvnd \
-  libx11 libxfixes libxkbcommon libxrandr mpv wayland; do
+  libx11 libxfixes libxkbcommon libxrandr mpv sdl2 ttf-dejavu wayland; do
   grep -Fxq "depend = $dependency" "$stage/pkginfo" || {
     echo "Arch package metadata is missing dependency $dependency" >&2
     exit 1

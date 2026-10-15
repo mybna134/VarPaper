@@ -32,7 +32,7 @@ impl std::error::Error for BridgeError {}
 
 impl From<anyhow::Error> for BridgeError {
     fn from(error: anyhow::Error) -> Self {
-        Self::message("operation_failed", error.to_string())
+        Self::message("operation_failed", format!("{error:#}"))
     }
 }
 

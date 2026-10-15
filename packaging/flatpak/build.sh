@@ -23,6 +23,20 @@ done
 flatpak info org.gnome.Platform//50 >/dev/null
 flatpak info org.gnome.Sdk//50 >/dev/null
 
+# Reject a host bundle newer than the runtime before downloading/building media.
+required_glibc="$(readelf --version-info "$bundle/lib/libwayvid_gui.so" \
+  | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | cut -d_ -f2 | sort -Vu | tail -n 1)"
+runtime_glibc="$(flatpak run --command=getconf org.gnome.Platform//50 GNU_LIBC_VERSION)"
+runtime_glibc="${runtime_glibc##* }"
+[[ "$required_glibc" =~ ^[0-9]+\.[0-9]+$ && "$runtime_glibc" =~ ^[0-9]+\.[0-9]+$ ]] || {
+  echo 'Could not determine bundle/runtime glibc compatibility' >&2
+  exit 1
+}
+if [[ "$(printf '%s\n' "$required_glibc" "$runtime_glibc" | sort -V | tail -n 1)" != "$runtime_glibc" ]]; then
+  echo "Bundle requires glibc $required_glibc; GNOME 50 provides $runtime_glibc. Rebuild on the CI Ubuntu 24.04 baseline or against the GNOME SDK." >&2
+  exit 1
+fi
+
 stage="$work/app"
 install -d "$stage/bundle" "$stage/libraries" "$output"
 cp -a "$bundle/." "$stage/bundle/"
@@ -67,7 +81,7 @@ while IFS= read -r -d '' elf; do
     [[ -e "$stage/bundle/lib/$soname" || -e "$stage/libraries/$soname" ]] ||
       cp -L "$path" "$stage/libraries/$soname"
   done < <(ldd "$elf" 2>/dev/null)
-done < <(find "$stage/bundle" -type f \( -name 'wayvid-gui' -o -name '*.so' -o -name '*.so.*' \) -print0)
+done < <(find "$stage/bundle" -type f \( -name 'wayvid-gui' -o -name 'varpaper-web-host' -o -name '*.so' -o -name '*.so.*' \) -print0)
 
 cp "$root/packaging/flatpak/manifest.json" "$work/manifest.json"
 (
@@ -78,11 +92,15 @@ cp "$root/packaging/flatpak/manifest.json" "$work/manifest.json"
   flatpak-builder --force-clean --repo=repo --default-branch=stable \
     build-dir manifest.json
   flatpak-builder --run build-dir manifest.json sh -c '
-    for elf in /app/lib/varpaper/wayvid-gui /app/lib/varpaper/lib/libwayvid_gui.so /app/lib/libmpv.so.2; do
+    for elf in /app/lib/varpaper/wayvid-gui /app/lib/varpaper/lib/libwayvid_gui.so /app/lib/libmpv.so.2 /app/lib/varpaper/libexec/varpaper-web-host; do
+      [ -f "$elf" ] || continue
       result="$(LD_LIBRARY_PATH=/app/lib:/app/lib/varpaper/lib ldd "$elf" 2>&1)" || {
         printf "%s\n" "$result" | grep -E "not found|version" >&2 || true
         exit 1
       }
+      if [ "$elf" = /app/lib/varpaper/libexec/varpaper-web-host ]; then
+        result="$(printf "%s\n" "$result" | sed "/libcef\\.so => not found/d")"
+      fi
       if printf "%s\n" "$result" | grep -q "not found"; then
         printf "%s\n" "$result" | grep "not found" >&2
         exit 1

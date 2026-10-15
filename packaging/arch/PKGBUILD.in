@@ -18,6 +18,8 @@ depends=(
   'libxkbcommon'
   'libxrandr'
   'mpv'
+  'sdl2'
+  'ttf-dejavu'
   'wayland'
 )
 source=(
@@ -60,7 +62,7 @@ EOF
 
   local elf missing dependencies library_dir
   library_dir="$pkgdir/usr/lib/varpaper/lib"
-  for elf in "$pkgdir/usr/lib/varpaper/wayvid-gui" "$pkgdir/usr/lib/varpaper"/lib/*.so; do
+  for elf in "$pkgdir/usr/lib/varpaper/wayvid-gui" "$pkgdir/usr/lib/varpaper"/lib/*.so "$pkgdir/usr/lib/varpaper/libexec/varpaper-web-host"; do
     [[ -f "$elf" ]] || continue
     local mode dependencies
     mode="$(stat -c '%a' "$elf")"
@@ -72,6 +74,9 @@ EOF
     fi
     chmod "$mode" "$elf"
     missing="$(printf '%s\n' "$dependencies" | grep 'not found' || true)"
+    if [[ "$elf" == */libexec/varpaper-web-host ]]; then
+      missing="$(printf '%s\n' "$missing" | sed '/libcef\.so => not found/d')"
+    fi
     if [[ -n "$missing" ]]; then
       printf 'Unresolved shared libraries in %s:\n%s\n' "$elf" "$missing" >&2
       return 1

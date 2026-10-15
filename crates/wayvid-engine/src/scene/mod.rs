@@ -20,3 +20,15 @@ mod text;
 pub mod texture;
 pub use resources::SceneResources;
 pub mod runtime;
+
+/// Assignment-owned resources, sampled on the render thread by native fixtures.
+#[cfg(test)]
+pub(crate) fn live_counts() -> ((usize, usize), (usize, usize), usize, usize, usize) {
+    (
+        gpu::counts(),
+        program::counts(),
+        particle_draw::counts(),
+        script::counts(),
+        sound::counts(),
+    )
+}

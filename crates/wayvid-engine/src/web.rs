@@ -20,6 +20,11 @@ const IPC_VERSION: u64 = 2;
 const RUNTIME_MANIFEST: &str = include_str!("../../../native/web/runtime.json");
 thread_local! { static HOST: RefCell<Weak<RefCell<Host>>> = const { RefCell::new(Weak::new()) }; }
 
+#[cfg(test)]
+pub(crate) fn host_is_alive() -> bool {
+    HOST.with(|host| host.borrow().strong_count() != 0)
+}
+
 pub fn runtime_path() -> Result<PathBuf> {
     if let Some(path) = std::env::var_os("VARPAPER_CEF_RUNTIME") {
         return Ok(path.into());

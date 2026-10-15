@@ -45,8 +45,8 @@ context, surface, texture and framebuffer. The renderer holds its EGL surface
 until GPU cleanup finishes; creation, resize, frames and release run with that
 surface current on its owning thread. Failed replacement allocations leave the
 previous target usable. These Rust fixtures do not load a Scene dynamic library.
-The application factory still uses the previous adapter while the remaining
-Rust object, effect and script functionality is being implemented.
+The application factory constructs the Rust renderer directly. The supported
+object, effect and script subset is listed in [Rust Scene checks](rust-scene.md).
 
 With the system dependencies listed above and Xvfb/xauth installed:
 
@@ -117,3 +117,49 @@ notice are in `native/web`. `scripts/check-native.sh` runs the Rust Scene
 fixtures and the optional CEF fixtures in private Xvfb sessions. Build packages
 from a fresh Flutter output directory so historical Scene libraries cannot be
 carried into the bundle.
+
+The mixed X11 fixture runs 100 Media/Scene/Web replacement cycles, rejects an
+invalid Scene candidate after each assignment, and checks that EGL, Scene,
+audio and shared Web host ownership returns to its baseline after every cycle.
+This isolated check does not cover compositor hotplug or installed packages.
+
+For the real Wayland layer-shell/EGL path, install niri, Xvfb and xauth, then run:
+
+```bash
+scripts/check-wayland.sh
+```
+
+This starts niri inside a private Xvfb display with its own runtime directory.
+It checks output discovery, 100 media apply/clear cycles across 20 engine
+restarts, and Scene/media replacement, invalid Scene retention, pause/resume
+and cleanup across three further engine restarts. It does not connect to the
+desktop compositor. Locked Cargo dependencies must already be cached.
+Nested software rendering does not replace physical output hotplug acceptance.
+
+
+### Flatpak build host compatibility
+
+The Rust bridge in the input Linux bundle must target a glibc version supported
+by GNOME 50. The packaging script checks this before downloading media sources.
+Use the CI Ubuntu 24.04 build baseline or compile against the GNOME SDK; a
+bundle linked on a newer rolling distribution can require newer glibc symbols
+and cannot be fixed by copying host libc into the Flatpak.
+
+
+### Scene checks on package contents
+
+After building each package, load its extracted Rust bridge and exercise Scene
+application, named asset errors, pause/resume and clear in a private Xvfb session:
+
+```bash
+scripts/check-scene-package.sh dist/varpaper_VERSION_amd64.deb
+scripts/check-scene-package.sh dist/varpaper-VERSION-1-x86_64.pkg.tar.zst
+scripts/check-scene-package.sh dist/varpaper_VERSION_x86_64.flatpak
+```
+
+Set `VARPAPER_TEST_FLUTTER` to a Flutter executable when it is not on PATH.
+Debian extraction needs dpkg-deb, Arch extraction needs tar/zstd, and Flatpak
+extraction needs flatpak/ostree. This does not install or activate a package;
+the smoke test loads its library against the host libraries. Flatpak's separate
+build-time link check runs inside the GNOME runtime. These checks supplement
+full installation and desktop qualification.

@@ -19,5 +19,7 @@ export VARPAPER_TEST_X11=1
 export VARPAPER_WEB_HOST="$root/build/native-web/varpaper-web-host"
 export VARPAPER_CEF_RUNTIME="$fixture/runtime"
 export VARPAPER_TEST_CEF_SDK="$sdk"
+# Resolve the pinned software Vulkan driver from the temporary runtime.
+export VK_ICD_FILENAMES="$fixture/runtime/vk_swiftshader_icd.json"
 xvfb-run -a python3 native/web/test_host.py --host "$VARPAPER_WEB_HOST" --runtime "$VARPAPER_CEF_RUNTIME"
-xvfb-run -a cargo test --workspace -- --test-threads=1
+xvfb-run -a cargo test --workspace --locked -- --test-threads=1

@@ -60,13 +60,15 @@ def run(host, runtime):
         response, pixels = call(op, ident, **values)
         assert response['ok'], response
         return response, pixels
-    def frame(ident, width=32, height=24, sequence=0, **values):
+    def frame(ident, width=32, height=24, sequence=0, ready=None, **values):
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             response, pixels = ok('frame', ident, width=width, height=height, sequence=sequence, **values)
             if pixels:
                 assert len(pixels) == width*height*4
-                return response, pixels
+                if ready is None or ready(pixels):
+                    return response, pixels
+                sequence = response['sequence']
             time.sleep(.02)
         raise AssertionError('No Web first frame')
     try:
@@ -109,7 +111,7 @@ def run(host, runtime):
             (root/'webgl.html').write_text('<body style="margin:0"><canvas></canvas><script>const c=document.querySelector("canvas");c.width=innerWidth;c.height=innerHeight;const g=c.getContext("webgl");g.clearColor(0.1,0.8,0.2,1);g.clear(g.COLOR_BUFFER_BIT);</script>')
             (root/'escape.html').write_text('<script>fetch("file:///etc/passwd").catch(()=>{});</script>')
             ok('create', 1, root=str(root), entry='index page.html', width=32, height=24)
-            first, pixels = frame(1)
+            first, pixels = frame(1, ready=lambda pixels: pixels[3] == 255 and pixels[1] == 60)
             assert pixels[3] == 255 and pixels[1] == 60, pixels[:4]
             next_frame, changed = frame(1, sequence=first['sequence'])
             deadline=time.monotonic()+2
@@ -119,7 +121,7 @@ def run(host, runtime):
             assert changed != pixels, 'Canvas did not animate'
             (root/'BLUE.HTML').write_text((root/'blue.html').read_text())
             ok('create', 2, root=str(root), entry='BLUE.HTML', width=32, height=24)
-            _, blue = frame(2)
+            _, blue = frame(2, ready=lambda pixels: pixels[:4] == bytes([200,20,10,255]))
             assert blue[:4] == bytes([200,20,10,255]), blue[:4]
             offset=(32+1)*4
             assert blue[offset:offset+4] == bytes([10,160,200,255]), blue[offset:offset+4]
@@ -150,7 +152,7 @@ def run(host, runtime):
             response,_=call('create',11,root=str(root),entry='blue.html',width=100000,height=100000)
             assert not response['ok'] and 'budget' in response['error']
             ok('create',7,root=str(root),entry='webgl.html',width=32,height=24)
-            _, green=frame(7)
+            _, green=frame(7, ready=lambda pixels: abs(pixels[1]-204) <= 2 and abs(pixels[0]-51) <= 2)
             assert abs(green[1]-204) <= 2 and abs(green[0]-51) <= 2, green[:4]
             ok('close',7)
             properties={'enabled':{'value':True},'speed':{'value':.4},'caption':{'value':'initial'}}

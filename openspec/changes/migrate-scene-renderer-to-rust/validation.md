@@ -119,3 +119,47 @@ Rust rquickjs runtime/context 按赋值隔离，binding 作为独立 ES module �
 - 高级功能移至 deferred.md，未完成项没有计为实现完成；Scene delta spec、README、构建与兼容文档同步修订。
 - 本轮实际通过：cargo check --workspace --all-targets --locked --offline；cargo clippy --workspace --all-targets --locked --offline -- -D warnings；构建/打包脚本 bash -n；Flatpak/依赖 JSON 解析；迁移 OpenSpec validate。源码检索确认 crates/rust/native/linux/scripts/.github 不再包含旧 Scene ABI/环境变量/构建路径。
 - 此前的 Rust CPU/GL 通过记录仍为此前证据。本轮未运行测试、构建发行包或执行真实桌面验收；quality 全部检查未执行，未 push。
+
+
+## 2026-10-15 — 切换后集成验收
+
+- Rust Scene 门禁实际通过：24 CPU、12 真实 GL、1 OpenGL 3.0 拒绝；全部从 Rust 创建，无 Scene 动态库或参考 checkout。
+- X11 资源 fixture 实际验证 loose/PKGV/shared 像素及 missing shared 失败；Scene 首帧提交、坏 shader 候选保留旧赋值和独立媒体继续渲染通过。修正旧 shader 错误断言以检查完整 anyhow chain，并在 Wayland/X11 WallpaperFailed 和 bridge 错误中保留完整原因。
+- CEF fixture 的 first frame 改为等待测试页面预期像素，避免初始化透明帧造成假失败；固定软件 Vulkan ICD 指向临时 runtime。初次本地旧 SDK 缺少 libvulkan.so.1，重新下载并校验固定归档后，完整 SDK 的软件渲染通过。
+- scripts/check-native.sh 最终实际通过（去除诊断用 strace）：24 CPU + 12 GL + 1 GL3.0、CEF 原生 Canvas/WebGL/音频/隔离/cleanup，以及 engine 82、library 40、GUI bridge 32 项测试。gated 桌面/真实声音测试未启用不能计入。
+- 新扩展的 X11 混合 fixture 同时创建 Media/Scene/Web 输出，验证 Scene 首帧、resize、pause/resume/volume 和 StopWeb 后 Media/Scene 继续保留及 GL/audio 资源回到基线。X11 单独 suite 11 项通过（Web gated 在该单独命令未启用；真实三类型 fixture 在 check-native 中启用并通过）。
+- cargo llvm-cov --workspace 实际通过并生成 /tmp/varpaper-rust-coverage.info；cargo +1.88.0 check --workspace --all-targets --locked --offline、fmt 和 workspace clippy 实际通过。沙箱中 IPC/Xvfb 失败的检查均在获批后于沙箱外重跑，未将失败记录算作通过。
+- 本地 Flutter 3.50.0-0.1.pre 完成 clean、offline pub get、指定源 analyze 和 58 项 test --coverage；版本不同于 CI 的 3.47.4，因此暂不计为完整 quality 门禁通过。未上传 Codecov，未 push。
+- 干净 Linux release bundle 已构建，ELF 无旧 Scene 依赖；Debian 与 Arch 包实际构建并检查文件清单，含 Rust bridge、Web helper、JSON MIT 和研究 GPL 许可，无旧 Scene 库/库存与 CEF runtime。SDL2、DejaVu 字体依赖补齐；Flatpak 同时检查 helper 的底层库依赖。三种安装环境 Scene smoke/真实 Wayland 与整体发行验收仍待完成。
+- 3.6、5.1、5.2、5.4、5.6 完成；父变更按 Rust 实际证据勾选 2.1/2.2/2.4/2.6/3.1/3.2/3.5/3.6。高级粒子、完整脚本/实时音频/本地时钟条目仍未勾选；不宣称整个五类型交付完成。
+
+
+### 精确 Flutter 版本、三种包与包内 Scene smoke
+
+- 只读复用本机 Flutter git 对象，在 /tmp/varpaper-flutter-ci 建立独立 3.47.4 checkout，下载其固定 engine/Dart 缓存；未切换用户原 Flutter checkout。使用 3.47.4 完成 offline pub get、指定源和新增 fixture 的 analyze（无问题）、58 项 test --coverage（全通过，覆盖率 /tmp/varpaper-flutter-coverage.info）。此前 clean 在本地 SDK 执行；CI 上传/完整远端 quality 尚未执行，6.3 继续未完成。
+- 原生宿主构建的 Rust bridge 引用 GLIBC_2.44，而 GNOME 50 提供 2.42，首次 Flatpak 导出后链接检查明确失败。新增下载前 glibc 检查，已实际验证清晰失败。未把该失败算作成功。
+- 在现有 maxxing/compiler-dev 容器（glibc 2.39）安装开发库，以只读源树/registry 和 Rust 1.88 重新编译同一 Rust bridge，max GLIBC 要求降至 2.39。复制 Linux bundle 至 build/flatpak-compatible-bundle，仅替换其中 Rust bridge；以 VARPAPER_BUNDLE_DIR 指定该兼容 bundle，Flatpak 重建、GNOME 运行时 ldd/FFmpeg ABI 检查和导出全部通过。无复制 host libc 的绕过。
+- 实际产物：dist/varpaper_20261014.gf2f0b356_amd64.deb、dist/varpaper-20261014.gf2f0b356-1-x86_64.pkg.tar.zst、dist/varpaper_20261014.gf2f0b356_x86_64.flatpak（20,765,688 bytes）。Debian/Arch 文件清单无旧 Scene 库、快照库存和 CEF runtime；Flatpak 正常导出且 source bundle 同样无旧 Scene。
+- 新 scripts/check-scene-package.sh 支持三种包，提取到私有临时目录（Flatpak 使用独立 OSTree 仓库，不安装到用户系统），从真实包内加载 Rust .so，经 FRB 启动 X11 engine。三个包均实际通过：Scene 首帧提交、pause/resume/config、坏模型资产的同步 apply_failed 和异步 wallpaper_failed 诊断、清除事件以及 engine shutdown。测试匹配规范化 project.json 路径；monitor discovery 的 currentWallpaper 不是赋值持久化接口，未将其作测试契约。
+- scripts/fixtures/scene_package_smoke_test.dart 生成自有资产；包装脚本只在私有 Xvfb 启用。当前 smoke 使用宿主系统库，不等于三种系统内安装验收；Flatpak 另有 GNOME SDK 内动态链接检查。真实 Wayland/安装环境验收仍在 6.1/6.2。
+- CI 的三个 package verification 步骤均接入该脚本，增加 ostree/Xvfb 工具与显式 fallback 字体依赖；质量检查增加新脚本语法与 Dart fixture analyze。NOTICE/许可继续保留真实参考来源。
+- 5.5 完成，当前 23/27。6.1、6.2、6.3、6.4 仍未完成；未 push，未误报整体变更完成。
+
+- 补充检查：从最终 Flatpak 提取 Web helper，在 GNOME 50 runtime 下实际执行 ldd；X11/SDL2/C++/libc 依赖均解析，只有按可选组件策略排除的 libcef.so 未安装。Flatpak 构建脚本同步加入 helper 检查，并只允许这一项可选缺失。
+
+### 100 次跨类型替换与失败候选回收
+
+- 扩展 X11 的 Media/Scene/Web 混合 fixture，执行 100 轮 Media → Rust Scene → Web，每次赋值均等待首帧提交，随后拒绝一个无效 Scene 候选并核对原路径保持、没有提交事件；每种类型执行 pause/resume 和 resize。累计 300 次成功赋值和 300 次失败候选拒绝。
+- 每轮销毁 session 后检查 EGL context/surface、Scene texture/FBO、shader/program、particle、script、sound 和共享音频服务计数恢复基线；共享 Web host 不再有强引用，其 Drop 执行退出/终止并回收子进程。生成 Scene 为 image fixture，未包含脚本或声音对象，这些计数只验证没有意外创建；具体脚本/声音所有权仍由各自专用 fixture 证明。
+- 沙箱内首次运行无法连接 Xvfb，未计为通过。获准在沙箱外重跑 scripts/check-native.sh 后整体成功：24 CPU + 12 真实 GL + 1 GL3.0 拒绝、真实 CEF fixture，以及 engine 82、library 40、bridge 32 项；engine suite 耗时 175.75 s。日志 /tmp/varpaper-native-100-cycles.log。
+- 新增只在测试编译的 Scene 资源汇总与 Web host 存活查询。fmt --check、workspace/all-targets clippy -D warnings、Rust 1.88 workspace/all-targets locked/offline check、git diff --check 均通过。构建文档中仍声称工厂使用旧 adapter 的过期句子已修正。
+- 此结果仍是私有 Xvfb 验收，不覆盖真实 Wayland/native X11 的 hotplug/restart 或三种系统的安装环境；6.1/6.2 保持未勾选。完整远端 quality/coverage 上传及最终衔接仍待完成，当前 23/27，未 push。
+
+### 嵌套 niri 的真实 Wayland/EGL 集成
+
+- 新增 scripts/check-wayland.sh 和 scripts/fixtures/wayland_session.py。在私有 Xvfb 中运行 niri 26.04（8ed0da4），使用独立 mode=0700 的 XDG_RUNTIME_DIR、空配置、软件 GL 和 dummy SDL；不使用 --session、不导入全局环境，也不连接用户桌面的 Wayland socket。退出时回收 niri 与临时目录，测试 subprocess 设 300 s 上限。
+- 首次沙箱内运行因 XOpenDisplayFailed 失败；获批在沙箱外重跑后成功。原有 backend 三项实际通过（63.34 s），包含输出发现和 20 次 engine 重启 × 5 次媒体 apply/clear，不把 gated 跳过算作执行。
+- 新增 nested_wayland_scene_media_failure_clear_and_restart，仅在隔离 runner 的显式开关下运行。生成 Rust image Scene，三次完整 engine 生命周期各执行 Media → Scene → Media → Scene：逐次等待首帧提交，pause/resume，提交无效 Scene 并等待 WallpaperFailed，再查询 GetStatus 确认有效赋值仍在；clear 后 EGL context/surface 为 (1,0)，随后 shutdown/join。
+- 新 runner 最终实际通过 backend 全部 4 项（70.19 s）；日志 /tmp/varpaper-wayland-scene.log。此处执行的是实际 niri layer-shell、Wayland EGL 和 Rust renderer 路径，不是仅协议 mock，也不等于物理显示器的热插拔验收。
+- workspace/all-targets clippy -D warnings、Rust 1.88 locked/offline check、fmt、shell/Python 语法和 diff 检查通过。CI 脚本语法门禁已覆盖新增 shell 脚本；CI 未安装 niri，也未宣称远端执行了这项可选验收。
+- 6.1 的 Wayland Scene/media 首帧、失败保留、clear 和 engine restart 已补充；混合多输出/Web、物理 hotplug、resize/截图以及三种安装环境仍待验收。6.1–6.4 继续未勾选，进度 23/27，未 push。

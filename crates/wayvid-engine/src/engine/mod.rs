@@ -404,7 +404,7 @@ fn render_all_surfaces(state: &mut EngineState) {
                 let _ = state.events_tx.send(EngineEvent::WallpaperFailed {
                     output: output_name.clone(),
                     path,
-                    error: e.to_string(),
+                    error: format!("{e:#}"),
                 });
             } else {
                 let _ = state
@@ -628,7 +628,7 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
                         let _ = state.events_tx.send(EngineEvent::WallpaperFailed {
                             output: output_name,
                             path: path.clone(),
-                            error: e.to_string(),
+                            error: format!("{e:#}"),
                         });
                     }
                 }
@@ -1195,6 +1195,90 @@ mod backend_tests {
                     }
                 }
             }
+            handle.request_shutdown();
+            handle.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn nested_wayland_scene_media_failure_clear_and_restart() {
+        if std::env::var_os("VARPAPER_TEST_NESTED_WAYLAND").is_none() {
+            return;
+        }
+        assert_eq!(std::env::var("XDG_SESSION_TYPE").as_deref(), Ok("wayland"));
+        let assets = tempfile::tempdir().unwrap();
+        let scene = assets.path().join("scene");
+        crate::scene::fixtures::export(&crate::scene::fixtures::image_resources(), &scene).unwrap();
+        let broken = assets.path().join("broken");
+        std::fs::create_dir(&broken).unwrap();
+        std::fs::write(
+            broken.join("project.json"),
+            r#"{"type":"scene","file":"scene.json"}"#,
+        )
+        .unwrap();
+        std::fs::write(broken.join("scene.json"), "{}").unwrap();
+        let media = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../packaging/varpaper.png");
+        for _ in 0..3 {
+            let (handle, events) = spawn_engine(EngineConfig::default()).unwrap();
+            let wait = |matches: &dyn Fn(&EngineEvent) -> bool| {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+                loop {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "Wayland event timed out"
+                    );
+                    match events.recv_timeout(std::time::Duration::from_millis(100)) {
+                        Ok(event) if matches(&event) => return event,
+                        Ok(EngineEvent::Error(error)) => panic!("{error}"),
+                        Ok(EngineEvent::WallpaperFailed { error, .. }) => panic!("{error}"),
+                        _ => {}
+                    }
+                }
+            };
+            wait(&|event| matches!(event, EngineEvent::Started));
+            for path in [&media, &scene, &media, &scene] {
+                handle
+                    .send(EngineCommand::ApplyWallpaper {
+                        path: path.clone(),
+                        output: None,
+                    })
+                    .unwrap();
+                wait(
+                    &|event| matches!(event, EngineEvent::WallpaperApplied { path: applied, .. } if applied == path),
+                );
+                handle.send(EngineCommand::Pause { output: None }).unwrap();
+                handle.send(EngineCommand::Resume { output: None }).unwrap();
+                handle
+                    .send(EngineCommand::ApplyWallpaper {
+                        path: broken.clone(),
+                        output: None,
+                    })
+                    .unwrap();
+                wait(
+                    &|event| matches!(event, EngineEvent::WallpaperFailed { path, .. } if path == &broken),
+                );
+                handle.send(EngineCommand::GetStatus).unwrap();
+                let status = wait(&|event| matches!(event, EngineEvent::Status(_)));
+                let EngineEvent::Status(status) = status else {
+                    unreachable!()
+                };
+                assert_eq!(status.active_wallpapers.len(), 1);
+                assert_eq!(
+                    status.active_wallpapers.values().next().unwrap().as_ref(),
+                    Some(path)
+                );
+            }
+            handle
+                .send(EngineCommand::ClearWallpaper { output: None })
+                .unwrap();
+            wait(&|event| matches!(event, EngineEvent::WallpaperCleared { .. }));
+            let (tx, rx) = mpsc::channel();
+            handle.send(EngineCommand::ResourceCounts(tx)).unwrap();
+            assert_eq!(
+                rx.recv_timeout(std::time::Duration::from_secs(5)).unwrap(),
+                (1, 0)
+            );
             handle.request_shutdown();
             handle.join().unwrap();
         }

@@ -24,7 +24,7 @@
 - [x] 3.2 实现多 pass effects 和材质参数更新；固定效果 fixture 验证 pass 顺序、ping-pong FBO、输出像素/GL 状态及失败 cleanup，对照参考画面。
 - [x] 3.4 实现 Rust text/font 布局、栅格和 fallback；真实 GL 验证文字可见、缺失字体 fallback、有界文本分配及清除资源回收。
 - [x] 3.5 实现 Rust sound 对象的解码/播放控制与 stream/device/worker owner；通过已知 PCM 验证实际 volume/mute、pause/resume、清除停止声音和 partial sound 加载失败回收。
-- [ ] 3.6 按已实现 Rust 子集更新图形/声音兼容矩阵和生成 fixture 命令，验证全部声明对应新 Rust 通过结果；未知 required 模式必须有清晰错误，不能静默忽略。
+- [x] 3.6 按已实现 Rust 子集更新图形/声音兼容矩阵和生成 fixture 命令，验证全部声明对应新 Rust 通过结果；未知 required 模式必须有清晰错误，不能静默忽略。
 
 ## 4. SceneScript、音频与时间
 
@@ -33,12 +33,12 @@
 
 ## 5. session 切换与旧链路删除
 
-- [ ] 5.1 让 renderer factory 直接创建 Rust Scene，接入 Wayland/X11 事件、现有 stretch/resize/fps、pause/mute 与初始 property 输入（其他布局和实时属性编辑移入后续）；用媒体/Scene/Web 混合输出验证首帧提交、失败候选保留旧路径与其他输出继续运行。
-- [ ] 5.2 替换原动态库依赖的 Rust Scene/X11/lifecycle fixture，移除 Scene library path 查找和所有 vp_scene_* 加载/调用；在未设置 Scene 环境变量且无独立 Scene 库时执行完整 Rust 集成测试。
+- [x] 5.1 让 renderer factory 直接创建 Rust Scene，接入 Wayland/X11 事件、现有 stretch/resize/fps、pause/mute 与初始 property 输入（其他布局和实时属性编辑移入后续）；用媒体/Scene/Web 混合输出验证首帧提交、失败候选保留旧路径与其他输出继续运行。
+- [x] 5.2 替换原动态库依赖的 Rust Scene/X11/lifecycle fixture，移除 Scene library path 查找和所有 vp_scene_* 加载/调用；在未设置 Scene 环境变量且无独立 Scene 库时执行完整 Rust 集成测试。
 - [x] 5.3 删除 native/wallpaperengine 自有 C++ Scene、adapter、ABI、专用 vendored 快照/库存验证及 scripts/build-scene.sh；用架构检查确认已删除路径且执行代码不再含旧库/ABI 依赖，生成 fixture/音频 runner 已迁出。
-- [ ] 5.4 移除 Flutter/Linux CMake、build-linux/check-native、Cargo 集成和 CI 中的 Scene CMake/library/manifest 安装与调用；新增 Rust Scene fixture 门禁并保留 CEF/media 检查，核对工作流不引用已删除脚本且真正运行新测试。
-- [ ] 5.5 修正 .deb/Flatpak/Arch 的 Scene 依赖和产物清单，按实际使用保留 Web/mpv/第三方依赖；构建各包并检查不带旧 Scene 库/快照，动态链接和实际 Scene smoke test 通过。
-- [ ] 5.6 更新 NOTICE、README/构建/兼容文档和旧 Scene 许可分发规则，保留实际参考来源和第三方许可证；检查文档命令、许可清单及历史 C++ 证据与 Rust 完成状态明确区分。
+- [x] 5.4 移除 Flutter/Linux CMake、build-linux/check-native、Cargo 集成和 CI 中的 Scene CMake/library/manifest 安装与调用；新增 Rust Scene fixture 门禁并保留 CEF/media 检查，核对工作流不引用已删除脚本且真正运行新测试。
+- [x] 5.5 修正 .deb/Flatpak/Arch 的 Scene 依赖和产物清单，按实际使用保留 Web/mpv/第三方依赖；构建各包并检查不带旧 Scene 库/快照，动态链接和实际 Scene smoke test 通过。
+- [x] 5.6 更新 NOTICE、README/构建/兼容文档和旧 Scene 许可分发规则，保留实际参考来源和第三方许可证；检查文档命令、许可清单及历史 C++ 证据与 Rust 完成状态明确区分。
 
 ## 6. 集成验收与变更衔接
 

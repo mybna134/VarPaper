@@ -16,21 +16,21 @@
 
 ## 2. Rust Scene 与 renderer 边界
 
-- [ ] 2.1 在 crates/wayvid-engine 内建立 Rust Scene 模块，按参考修订 b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d 研究格式/行为；移除 native/wallpaperengine 及其 vendored C++ Scene 构建链、动态库加载和废弃适配来源清单，保留实际第三方许可/研究出处；验证无参考 checkout 和无 Scene 动态库的独立 Cargo 构建。
-- [ ] 2.2 用 Rust 类型、资源读取 trait 和 RAII 实现 Scene renderer，直接连接 session/EGL；第三方底层 FFI 限制在 Rust wrapper 中，Scene 解析/渲染策略不得移入 C++；用重复创建释放、初始化失败及 current-context 资源测试验证。
+- [x] 2.1 在 crates/wayvid-engine 内建立 Rust Scene 模块，按参考修订 b016d7d1fdcf4e5fd2f9c9fa420a8aaa07fee02d 研究格式/行为；移除 native/wallpaperengine 及其 vendored C++ Scene 构建链、动态库加载和废弃适配来源清单，保留实际第三方许可/研究出处；验证无参考 checkout 和无 Scene 动态库的独立 Cargo 构建。
+- [x] 2.2 用 Rust 类型、资源读取 trait 和 RAII 实现 Scene renderer，直接连接 session/EGL；第三方底层 FFI 限制在 Rust wrapper 中，Scene 解析/渲染策略不得移入 C++；用重复创建释放、初始化失败及 current-context 资源测试验证。
 - [x] 2.3 抽取共同 renderer 接口并适配 mpv Video/Image/GIF，统一配置能力标记；用既有 mpv/session 回归及 Image 无限停留、GIF 动画循环 fixture 验证。
-- [ ] 2.4 为 Rust Scene 增加 OpenGL 3.3 能力检测/上下文要求，保留媒体上下文兼容；用真实/测试 GL 上下文验证可用首帧及缺失能力的目标级错误。
+- [x] 2.4 为 Rust Scene 增加 OpenGL 3.3 能力检测/上下文要求，保留媒体上下文兼容；用真实/测试 GL 上下文验证可用首帧及缺失能力的目标级错误。
 - [x] 2.5 增加候选首帧后提交赋值及关联成功/失败事件，保持 GL current 清理顺序；以失败替换保留旧赋值、初始化失败资源回收测试验证。
-- [ ] 2.6 在现有开发文档记录 Rust Scene 模块、renderer/GPU/第三方 FFI 所有权及 Cargo 构建命令，移除 Scene C ABI 指南；验证示例构建及最小 Scene 首帧可执行。
+- [x] 2.6 在现有开发文档记录 Rust Scene 模块、renderer/GPU/第三方 FFI 所有权及 Cargo 构建命令，移除 Scene C ABI 指南；验证示例构建及最小 Scene 首帧可执行。
 
 ## 3. Scene 图形与声音
 
-- [ ] 3.1 在 Rust engine 实现 Scene texture/model/material 解析与纹理缓存，复用 Rust package/shared 资源定位；将旧生成资产测试迁为 Rust fixture，以包内/外纹理、RGBA/R/RG/DXT1/3/5、LZ4、缺失共享资源和非法尺寸验证实际画面/缓存/回收。
-- [ ] 3.2 在 Rust engine 接入 image objects、camera/layer transforms、混合和多 pass effects；以固定画面截图及 reference 同 fixture 对比验证层次、裁剪、透明度和效果。
+- [x] 3.1 在 Rust engine 实现 Scene texture/model/material 解析与纹理缓存，复用 Rust package/shared 资源定位；将旧生成资产测试迁为 Rust fixture，以包内/外纹理、RGBA/R/RG/DXT1/3/5、LZ4、缺失共享资源和非法尺寸验证实际画面/缓存/回收。
+- [x] 3.2 在 Rust engine 接入 image objects、camera/layer transforms、混合和多 pass effects；以固定画面截图及 reference 同 fixture 对比验证层次、裁剪、透明度和效果。
 - [ ] 3.3 在 Rust engine 接入 animated texture 与 particle 更新；以固定随机种子/时间步检查连续帧变化和暂停冻结。
 - [ ] 3.4 在 Rust engine 接入 text/font 和 sound objects；以文本可见、字体 fallback、音量/静音及清除声音的 fixture 验证。
-- [ ] 3.5 在 Rust parser/shader/pass 返回 unsupported required objects/shaders 的资产级兼容诊断；将 C++ 失败 fixture 迁为 Rust，以未知对象、无效 shader 和 partial GPU 初始化失败验证首帧失败、资源回收及其他输出继续运行。
-- [ ] 3.6 在现有 docs/兼容说明维护上述功能与 fixture 对照表；逐项检查每个声明均有通过的 fixture，不使用不可再分发 Workshop 内容作提交资产。
+- [x] 3.5 在 Rust parser/shader/pass 返回 unsupported required objects/shaders 的资产级兼容诊断；将 C++ 失败 fixture 迁为 Rust，以未知对象、无效 shader 和 partial GPU 初始化失败验证首帧失败、资源回收及其他输出继续运行。
+- [x] 3.6 在现有 docs/兼容说明维护上述功能与 fixture 对照表；逐项检查每个声明均有通过的 fixture，不使用不可再分发 Workshop 内容作提交资产。
 
 ## 4. SceneScript、属性、音频可视化与时间
 

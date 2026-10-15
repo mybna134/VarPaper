@@ -306,7 +306,7 @@ pub(super) fn run(
                             let _ = events.send(EngineEvent::WallpaperFailed {
                                 output: name.clone(),
                                 path,
-                                error: error.to_string(),
+                                error: format!("{error:#}"),
                             });
                         } else {
                             let _ = events.send(EngineEvent::Error(format!("{name}: {error}")));
@@ -432,7 +432,7 @@ fn handle_command(
                         let _ = events.send(EngineEvent::WallpaperFailed {
                             output: name,
                             path: path.clone(),
-                            error: error.to_string(),
+                            error: format!("{error:#}"),
                         });
                     }
                 }
@@ -643,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn web_texture_orientation_first_frame_and_stop_preserve_media() {
+    fn web_texture_orientation_first_frame_and_stop_preserve_media_and_scene() {
         if std::env::var_os("VARPAPER_TEST_X11").is_none()
             || std::env::var_os("VARPAPER_WEB_HOST").is_none()
         {
@@ -788,6 +788,32 @@ mod tests {
                 .unwrap();
             std::thread::sleep(Duration::from_millis(10));
         }
+        let authored = tempfile::tempdir().unwrap();
+        let scene_project = authored.path().join("scene");
+        crate::scene::fixtures::export(&crate::scene::fixtures::image_resources(), &scene_project)
+            .unwrap();
+        let mut scene_output = output.clone();
+        scene_output.name = "FixtureScene".into();
+        let scene_window = display.create_desktop_window(&scene_output).unwrap();
+        let mut scene = WallpaperSession::new(
+            scene_project.clone(),
+            scene_output.clone(),
+            Default::default(),
+        )
+        .unwrap();
+        scene
+            .render_frame_to_x11_window(&egl, scene_window, 64, 32)
+            .unwrap();
+        assert_eq!(
+            scene.take_committed().as_deref(),
+            Some(scene_project.as_path())
+        );
+        scene.pause();
+        scene.set_volume(0.5);
+        scene.resume();
+        scene
+            .render_frame_to_x11_window(&egl, scene_window, 80, 40)
+            .unwrap();
         let mut active = HashMap::from([
             (output.name.clone(), ActiveWallpaper { window, session }),
             (
@@ -795,6 +821,13 @@ mod tests {
                 ActiveWallpaper {
                     window: media_window,
                     session: media,
+                },
+            ),
+            (
+                scene_output.name.clone(),
+                ActiveWallpaper {
+                    window: scene_window,
+                    session: scene,
                 },
             ),
         ]);
@@ -810,15 +843,76 @@ mod tests {
             &events,
         );
         done.recv_timeout(Duration::from_secs(10)).unwrap().unwrap();
-        assert_eq!(active.len(), 1);
+        assert_eq!(active.len(), 2);
         assert_eq!(
             active[&media_output.name].session.wallpaper_path(),
             image.to_str()
         );
+        assert_eq!(
+            active[&scene_output.name].session.wallpaper_path(),
+            scene_project.to_str()
+        );
+        active
+            .get_mut(&scene_output.name)
+            .unwrap()
+            .session
+            .render_frame_to_x11_window(&egl, scene_window, 80, 40)
+            .unwrap();
         assert!(
             matches!(received.recv().unwrap(),EngineEvent::WallpaperCleared {output: name} if name == output.name)
         );
         destroy_wallpaper(&display, &egl, active.remove(&media_output.name).unwrap());
+        destroy_wallpaper(&display, &egl, active.remove(&scene_output.name).unwrap());
+        let native_baseline = crate::egl::native_counts();
+        let scene_baseline = crate::scene::live_counts();
+        assert!(!crate::web::host_is_alive());
+        let broken = authored.path().join("broken");
+        std::fs::create_dir(&broken).unwrap();
+        std::fs::write(
+            broken.join("project.json"),
+            r#"{"type":"scene","file":"scene.json"}"#,
+        )
+        .unwrap();
+        std::fs::write(broken.join("scene.json"), "{}").unwrap();
+        for cycle in 0..100 {
+            let window = display.create_desktop_window(&output).unwrap();
+            let mut session =
+                WallpaperSession::new(image.clone(), output.clone(), Default::default()).unwrap();
+            for path in [&image, &scene_project, &project.path().to_path_buf()] {
+                if path != &image {
+                    session.load_new_wallpaper(path).unwrap();
+                }
+                let deadline = Instant::now() + Duration::from_secs(15);
+                loop {
+                    session
+                        .render_frame_to_x11_window(&egl, window, 64, 32)
+                        .unwrap();
+                    if let Some(committed) = session.take_committed() {
+                        assert_eq!(&committed, path, "cycle {cycle}");
+                        break;
+                    }
+                    assert!(Instant::now() < deadline, "cycle {cycle}: {path:?}");
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                assert!(session.load_new_wallpaper(&broken).is_err());
+                assert_eq!(session.wallpaper_path(), path.to_str(), "cycle {cycle}");
+                assert!(session.take_committed().is_none());
+                session.pause();
+                session.resume();
+                session
+                    .render_frame_to_x11_window(&egl, window, 80, 40)
+                    .unwrap();
+            }
+            destroy_wallpaper(&display, &egl, ActiveWallpaper { window, session });
+            assert_eq!(
+                crate::egl::native_counts(),
+                native_baseline,
+                "cycle {cycle}"
+            );
+            assert_eq!(crate::scene::live_counts(), scene_baseline, "cycle {cycle}");
+            assert_eq!(crate::audio::live_counts(), audio_baseline, "cycle {cycle}");
+            assert!(!crate::web::host_is_alive(), "cycle {cycle}");
+        }
         drop(egl);
         assert_eq!(crate::egl::native_counts(), baseline);
         assert_eq!(crate::audio::live_counts(), audio_baseline);
@@ -905,11 +999,11 @@ mod tests {
             "void main() { gl_FragColor=vec4(1.0); }\n",
         )
         .unwrap();
-        assert!(session
-            .load_new_wallpaper(broken.path())
-            .unwrap_err()
-            .to_string()
-            .contains("shader compilation failed"));
+        let error = session.load_new_wallpaper(broken.path()).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("shader compilation failed"),
+            "{error:#}"
+        );
         assert_eq!(session.wallpaper_path(), project.path().to_str());
         assert!(session.take_committed().is_none());
         other

@@ -60,7 +60,7 @@ Section: video
 Priority: optional
 Architecture: $arch
 Maintainer: VarPaper contributors
-Depends: libc6 (>= $glibc_min), libgtk-3-0 | libgtk-3-0t64, libayatana-appindicator3-1, libmpv2, libwayland-client0, libwayland-egl1, libx11-6, libxrandr2, libxfixes3, libegl1, libgl1
+Depends: libc6 (>= $glibc_min), libgtk-3-0 | libgtk-3-0t64, libayatana-appindicator3-1, libmpv2, libwayland-client0, libwayland-egl1, libx11-6, libxrandr2, libxfixes3, libegl1, libgl1, libsdl2-2.0-0, fonts-dejavu-core
 Description: Linux animated wallpaper manager
  VarPaper is a Flutter application with a Rust playback engine.
 EOF
