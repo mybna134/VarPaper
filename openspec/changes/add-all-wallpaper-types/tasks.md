@@ -56,7 +56,7 @@
 ## 6. 桌面输出与界面持久化
 
 - [x] 6.1 将所有 renderers 接入 Wayland/X11 输出事件、resize、layout 和 fps scheduling；以混合 Video/Scene/Web 多输出测试验证独立控制、缩放、首帧及背景层位置。
-- [ ] 6.2 将清除、切换、断屏、重连和 shutdown 的统一 renderer cleanup 接入两后端；扩展既有 wayland/native lifecycle 测试验证 native/GPU/browser/audio consumer 计数回到基线。
+- [x] 6.2 将清除、切换、断屏、重连和 shutdown 的统一 renderer cleanup 接入两后端；扩展既有 wayland/native lifecycle 测试验证 native/GPU/browser/audio consumer 计数回到基线。
 - [x] 6.3 将 tray、battery pause 和配置更新路由到所有支持类型；扩展 tray/controller tests 验证暂停/恢复及明确的类型专用设置行为。
 - [x] 6.4 扩展 FRB 描述式应用/属性/错误接口并重生成 Rust/Dart bindings，保留旧路径解析适配；以 bridge tests 验证各类型描述、旧项目入口和失败事件。
 - [x] 6.5 为 Isar 赋值使用新版版本/type/project/property/sourcePath/sourceId 描述与独立集合，不读取或迁移旧记录；更新 settings_store/controller_restore tests 的新版媒体与 Scene/Web 恢复、失败候选不覆盖存储。

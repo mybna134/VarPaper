@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Resize outputs in the private mixed-output fixture only."""
+"""Resize/disconnect/reconnect outputs in the private mixed-output fixture only."""
 import ctypes as c
 import os
 import subprocess
 import sys
 
 
-def resize_x11(name, width, height):
+def update_x11(name, width=800, height=600, action='resize'):
     # Delete/recreate the synthetic RandR monitor while holding the server,
     # so the engine only observes the final monitor configuration.
     class Monitor(c.Structure):
@@ -40,8 +40,10 @@ def resize_x11(name, width, height):
         index = ['FixtureA', 'FixtureB', 'FixtureC'].index(name)
         monitor = Monitor(atom, 0, 0, 0, index * 800, 0, width, height, 200, 150, None)
         x.XGrabServer(display)
-        randr.XRRDeleteMonitor(display, root, atom)
-        randr.XRRSetMonitor(display, root, c.byref(monitor))
+        if action != 'reconnect':
+            randr.XRRDeleteMonitor(display, root, atom)
+        if action != 'disconnect':
+            randr.XRRSetMonitor(display, root, c.byref(monitor))
         x.XUngrabServer(display)
         x.XSync(display, 0)
     finally:
@@ -51,8 +53,18 @@ def resize_x11(name, width, height):
 if __name__ == '__main__':
     if os.environ.get('VARPAPER_TEST_MIXED_OUTPUTS') != '1':
         raise RuntimeError('Only use this helper in the owned output fixture')
-    name, width, height, scale = sys.argv[1:]
+    name, *args = sys.argv[1:]
+    action = args[0]
     if os.environ['XDG_SESSION_TYPE'] == 'wayland':
-        subprocess.run(['swaymsg', 'output', name, 'mode', f'{width}x{height}', 'scale', scale], check=True)
+        if action in ['disconnect', 'reconnect']:
+            command = ['disable'] if action == 'disconnect' else ['enable']
+        else:
+            width, height, scale = args
+            command = ['mode', f'{width}x{height}', 'scale', scale]
+        subprocess.run(['swaymsg', 'output', name, *command], check=True)
     else:
-        resize_x11(name, int(width), int(height))
+        if action in ['disconnect', 'reconnect']:
+            update_x11(name, action=action)
+        else:
+            width, height, _scale = args
+            update_x11(name, int(width), int(height))

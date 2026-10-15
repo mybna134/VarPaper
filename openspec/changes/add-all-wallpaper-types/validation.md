@@ -173,3 +173,15 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 复现混合输出：构建 `build/native-web/varpaper-web-host` 并提供已存在的扁平 CEF runtime，设置 `VARPAPER_CEF_RUNTIME=/path/to/runtime` 后执行 `python3 scripts/fixtures/mixed_outputs.py x11` 或 `python3 scripts/fixtures/mixed_outputs.py wayland`。X11 需要 Xvfb/xrandr；Wayland 需要 sway/swaymsg，始终创建私有 runtime 与 headless 输出。本次 Wayland 使用临时容器内的 Sway 1.12 / wlroots 0.20.1，GL 在主机使用 Mesa 软件渲染；临时容器和镜像已删除。Scene 仍使用已声明的 stretch 布局，未扩展后续布局范围。
 
 首次未固定 `LIBGL_ALWAYS_SOFTWARE=1` 的全量原生回归中，一个 Web 候选在 100 次切换测试中首帧超时；固定软件 GL 后重新执行 87 项全部通过（186.11 秒）。该结果不替代 Task 8.x 的真实桌面、安装包或完整资源 soak 验收。
+
+## 2026-10-15：统一 renderer 生命周期（6.2）
+
+- Wayland 清除、断屏、layer closed 和 shutdown 统一经 `remove_wallpaper` 调用 session cleanup；与 X11 保持 renderer → EGL surface → native window 的释放顺序。候选或当前 renderer 的 `close()` 报错仍会释放两个 renderer 和 EGL，返回首个错误；绑定失败仍保留所有权供 Drop 重试。
+- Wayland EGL 使用 swap interval 0，由引擎调度限帧，避免断屏时等待 EGL 帧回调阻塞输出事件和退出。首轮默认 swap interval 的 Wayland 重复断屏发生事件超时；调试运行未复现，改用非阻塞帧同步后四次独立运行全部通过。此处是针对阻塞风险的修正，不将未取得线程栈的首次超时归因视为已证实。
+- 扩展私有三输出 fixture：Video/Scene/Web/Image/GIF 逐类断屏、重连、重新应用、单输出/全输出清除，检查 native、Scene GPU/script/sound、Web 宿主/renderer owner/program/texture/VAO、audio consumer/worker 计数回到基线；带 Video/Scene/Web 活跃会话 shutdown 时两后端在引擎线程断言 graphics/宿主所有权归零。
+- 保存赋值仍由 Flutter 管理；断屏仅释放运行资源，重连按保存描述重新应用。扩展 Scene/Web controller fixture，验证项目上下文和属性保留，显式清除后再次重连不会复活赋值。
+- `python3 scripts/fixtures/mixed_outputs.py x11`：1 项通过（19.60 秒）；Wayland 同一 fixture 四次通过（13.61 / 13.66 / 13.73 / 12.82 秒）。Wayland 使用临时 Sway 1.12 容器和私有 headless 输出，X11 使用私有 Xvfb，CEF 使用已有 `/tmp/varpaper-controls-runtime`；不接触用户桌面，不下载 CEF。临时 Sway 容器、镜像与命令包装器已清理。
+- `scripts/check-wayland.sh`：4 项通过（65.73 秒）；常规 `cargo test -p wayvid-engine --locked --offline -- --test-threads=1`：88 项通过；Flutter `controller_restore_test.dart`：10 项通过；该文件 analyze、workspace Clippy `-D warnings`、fmt 和 `git diff --check` 通过。
+- 新增 close 错误回归覆盖候选失败、当前失败、两者失败与幂等 cleanup。首次全量回归发现原有模拟 Host 测试手动构造对象未计入新计数器，已补计数并重跑。
+- 修复后 Xvfb/真实 CEF 全量原生回归：88 项全部通过（184.48 秒），包括原有 100 次跨媒体/Scene/Web 切换、失败初始化、clear 和 shutdown 检查。`openspec validate add-all-wallpaper-types --strict` 通过。
+- 完整 CI quality 与 Task 8.x 桌面/安装包验收另行执行。本 Task 完成后暂停供用户提交；未提交或 push。

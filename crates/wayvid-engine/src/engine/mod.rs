@@ -338,11 +338,7 @@ fn run_engine_thread(
 
     state.cleanup();
     #[cfg(test)]
-    assert_eq!(
-        crate::egl::native_counts(),
-        (0, 0),
-        "Wayland engine leaked native graphics resources"
-    );
+    command::LifecycleCounts::assert_graphics_released();
 
     state.running = false;
     let _ = events_tx.send(EngineEvent::Stopped);
@@ -477,10 +473,18 @@ struct EngineState {
 }
 
 impl EngineState {
-    /// MPV/EGL must end before their Wayland protocol windows. Used on every
+    /// Renderers/EGL must end before their Wayland protocol windows. Used on every
     /// exit path, including event-loop errors; replacement never calls this.
     fn remove_wallpaper(&mut self, output: &str) -> bool {
-        let existed = self.sessions.remove(output).is_some();
+        let existed = if let Some(mut session) = self.sessions.remove(output) {
+            if let Some(egl) = &self.egl_context {
+                session.cleanup_egl(egl);
+            }
+            drop(session);
+            true
+        } else {
+            false
+        };
         // Removing the session drops it synchronously with its context current.
         self.layer_surfaces.remove(output);
         existed
@@ -500,7 +504,10 @@ impl EngineState {
     }
 
     fn cleanup(&mut self) {
-        self.sessions.clear();
+        let outputs: Vec<_> = self.sessions.keys().cloned().collect();
+        for output in outputs {
+            self.remove_wallpaper(&output);
+        }
         self.layer_surfaces.clear();
         self.pending_outputs.clear();
         self.outputs = OutputManager::new();
@@ -628,6 +635,10 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
         #[cfg(test)]
         EngineCommand::ResourceCounts(reply) => {
             let _ = reply.send(crate::egl::native_counts());
+        }
+        #[cfg(test)]
+        EngineCommand::LifecycleCounts(reply) => {
+            let _ = reply.send(command::LifecycleCounts::current());
         }
         EngineCommand::UpdateConfig(config) => {
             state.config = config.clone();

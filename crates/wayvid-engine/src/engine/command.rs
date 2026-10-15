@@ -6,9 +6,43 @@ use std::path::PathBuf;
 use crate::mpv::VideoConfig;
 use crate::types::OutputInfo;
 
+#[cfg(test)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LifecycleCounts {
+    pub native: (usize, usize),
+    pub scene: ((usize, usize), (usize, usize), usize, usize, usize),
+    pub web: [usize; 5],
+    pub audio: (usize, usize),
+}
+
+#[cfg(test)]
+impl LifecycleCounts {
+    pub(super) fn assert_graphics_released() {
+        let counts = Self::current();
+        assert_eq!(counts.native, (0, 0), "native graphics leak: {counts:?}");
+        assert_eq!(
+            counts.scene,
+            ((0, 0), (0, 0), 0, 0, 0),
+            "Scene leak: {counts:?}"
+        );
+        assert_eq!(counts.web, [0; 5], "Web host/renderer/GPU leak: {counts:?}");
+    }
+
+    pub(super) fn current() -> Self {
+        Self {
+            native: crate::egl::native_counts(),
+            scene: crate::scene::live_counts(),
+            web: crate::web::live_counts(),
+            audio: crate::audio::live_counts(),
+        }
+    }
+}
+
 /// Commands sent from GUI to engine
 #[derive(Debug, Clone)]
 pub enum EngineCommand {
+    #[cfg(test)]
+    LifecycleCounts(std::sync::mpsc::Sender<LifecycleCounts>),
     /// Query native acquisitions on the engine thread during lifecycle tests.
     #[cfg(test)]
     ResourceCounts(std::sync::mpsc::Sender<(usize, usize)>),

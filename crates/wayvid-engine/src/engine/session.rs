@@ -1,7 +1,7 @@
 //! Wallpaper playback session for a single output
 //!
-//! A session manages the MPV player for rendering video/image wallpaper
-//! on a specific Wayland output via the shared EGL context.
+//! A session owns the active and candidate renderers for a Wayland/X11 output,
+//! releasing them with their EGL context current before the native window ends.
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -45,7 +45,7 @@ pub struct WallpaperSession {
     /// Video configuration
     video_config: VideoConfig,
     initial_properties: serde_json::Value,
-    /// MPV player instance
+    /// Active renderer
     player: Option<Box<dyn WallpaperRenderer>>,
     candidate: Option<(PathBuf, Box<dyn WallpaperRenderer>, Instant)>,
     committed: Option<PathBuf>,
@@ -585,6 +585,7 @@ impl WallpaperSession {
     }
 
     pub(super) fn release_resources(&mut self) -> Result<()> {
+        let mut close_error = None;
         if self.player.is_some() || self.candidate.is_some() {
             if let Some(window) = &self.egl_window {
                 // Keep ownership if binding fails; Drop retries before releasing
@@ -592,11 +593,14 @@ impl WallpaperSession {
                 window.make_current()?;
             }
             if let Some((_, candidate, _)) = self.candidate.as_mut() {
-                candidate.close()?;
+                close_error = candidate.close().err();
             }
             drop(self.candidate.take());
             if let Some(player) = self.player.as_mut() {
-                player.close()?;
+                // A browser/IPC close error must not prevent the other owner
+                // from closing, or leave GPU objects for field-drop order.
+                let error = player.close().err();
+                close_error = close_error.or(error);
             }
             drop(self.player.take());
         }
@@ -604,7 +608,7 @@ impl WallpaperSession {
         drop(self.egl_window.take());
         self.egl_context = None;
         self.initialized = false;
-        Ok(())
+        close_error.map_or(Ok(()), Err)
     }
 }
 
@@ -641,9 +645,23 @@ mod control_tests {
         volume: f32,
         muted: bool,
         loops: bool,
+        close_error: bool,
+        closed: usize,
+        dropped: usize,
     }
     struct Renderer(Rc<RefCell<Calls>>, bool);
+    impl Drop for Renderer {
+        fn drop(&mut self) {
+            self.0.borrow_mut().dropped += 1;
+        }
+    }
     impl WallpaperRenderer for Renderer {
+        fn close(&mut self) -> Result<()> {
+            let mut calls = self.0.borrow_mut();
+            calls.closed += 1;
+            anyhow::ensure!(!calls.close_error, "fixture close failure");
+            Ok(())
+        }
         fn render(&mut self, _: i32, _: i32, _: i32) -> Result<bool> {
             Ok(true)
         }
@@ -671,6 +689,46 @@ mod control_tests {
                 video_settings: self.1,
                 project_properties: false,
                 audio_visualization: false,
+            }
+        }
+    }
+
+    #[test]
+    fn close_failure_releases_both_renderers_and_cleanup_is_idempotent() {
+        for (candidate_fails, player_fails) in [(true, false), (false, true), (true, true)] {
+            let output = OutputInfo {
+                name: "cleanup".into(),
+                width: 64,
+                height: 32,
+                scale: 1.0,
+                position: (0, 0),
+                active: true,
+                hdr_capabilities: Default::default(),
+            };
+            let mut session =
+                WallpaperSession::new("old".into(), output, Default::default()).unwrap();
+            let candidate = Rc::new(RefCell::new(Calls {
+                close_error: candidate_fails,
+                ..Default::default()
+            }));
+            let player = Rc::new(RefCell::new(Calls {
+                close_error: player_fails,
+                ..Default::default()
+            }));
+            session.player = Some(Box::new(Renderer(player.clone(), false)));
+            session.candidate = Some((
+                "candidate".into(),
+                Box::new(Renderer(candidate.clone(), false)),
+                Instant::now(),
+            ));
+            assert!(session.release_resources().is_err());
+            assert!(session.player.is_none());
+            assert!(session.candidate.is_none());
+            session.release_resources().unwrap();
+            drop(session);
+            for owner in [candidate, player] {
+                assert_eq!(owner.borrow().closed, 1);
+                assert_eq!(owner.borrow().dropped, 1);
             }
         }
     }

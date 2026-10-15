@@ -20,6 +20,7 @@ impl Drop for RunningEngine {
     }
 }
 
+#[track_caller]
 fn wait(events: &StdReceiver<EngineEvent>, matches: impl Fn(&EngineEvent) -> bool) -> EngineEvent {
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -37,6 +38,12 @@ fn wait(events: &StdReceiver<EngineEvent>, matches: impl Fn(&EngineEvent) -> boo
 fn snapshots(handle: &EngineHandle) -> HashMap<String, SessionSnapshot> {
     let (tx, rx) = mpsc::channel();
     handle.send(EngineCommand::InspectSessions(tx)).unwrap();
+    rx.recv_timeout(Duration::from_secs(5)).unwrap()
+}
+
+fn counts(handle: &EngineHandle) -> command::LifecycleCounts {
+    let (tx, rx) = mpsc::channel();
+    handle.send(EngineCommand::LifecycleCounts(tx)).unwrap();
     rx.recv_timeout(Duration::from_secs(5)).unwrap()
 }
 
@@ -125,6 +132,7 @@ fn mixed_outputs_first_frames_scale_resize_pause_and_frame_limit() {
         3,
         "Runner must provide exactly three owned outputs"
     );
+    let baseline = counts(&handle);
     for (path, output) in [&video, &scene, &web].into_iter().zip(&outputs) {
         apply(&handle, &events, path, &output.name);
     }
@@ -284,5 +292,70 @@ fn mixed_outputs_first_frames_scale_resize_pause_and_frame_limit() {
         snapshots(&handle)[output].presented_frames,
         initial.presented_frames
     );
+
+    // Cleanup must be independent of renderer type and of the reason for
+    // removal. The GUI owns saved descriptions and reapplies on OutputAdded.
+    handle
+        .send(EngineCommand::ClearWallpaper { output: None })
+        .unwrap();
+    assert!(snapshots(&handle).is_empty());
+    assert_eq!(counts(&handle), baseline);
+    let control_output = |name: &str, action: &str| {
+        assert!(std::process::Command::new(&control)
+            .args([name, action])
+            .status()
+            .unwrap()
+            .success());
+    };
+    for path in [&video, &scene, &web, &image, &gif] {
+        eprintln!("Lifecycle: {}", path.display());
+        for output in &outputs {
+            apply(&handle, &events, path, &output.name);
+        }
+        let before = counts(&handle);
+        let output = &outputs[1].name;
+        control_output(output, "disconnect");
+        wait(
+            &events,
+            |event| matches!(event, EngineEvent::OutputRemoved(name) if name == output),
+        );
+        assert_eq!(snapshots(&handle).len(), 2);
+        let disconnected = counts(&handle);
+        assert_eq!(disconnected.native, (before.native.0, before.native.1 - 1));
+        if path == &web {
+            assert_eq!(disconnected.web[1], before.web[1] - 1);
+            assert_eq!(disconnected.audio.0, before.audio.0 - 1);
+        }
+        control_output(output, "reconnect");
+        wait(
+            &events,
+            |event| matches!(event, EngineEvent::OutputAdded(info) if &info.name == output),
+        );
+        assert!(!snapshots(&handle).contains_key(output));
+        // Reapply the saved description after receiving the reconnect event.
+        apply(&handle, &events, path, output);
+        assert_eq!(counts(&handle), before);
+        handle
+            .send(EngineCommand::ClearWallpaper {
+                output: Some(output.clone()),
+            })
+            .unwrap();
+        wait(
+            &events,
+            |event| matches!(event, EngineEvent::WallpaperCleared { output: name } if name == output),
+        );
+        assert_eq!(snapshots(&handle).len(), 2);
+        handle
+            .send(EngineCommand::ClearWallpaper { output: None })
+            .unwrap();
+        assert!(snapshots(&handle).is_empty());
+        assert_eq!(counts(&handle), baseline, "cleanup for {}", path.display());
+    }
+    // Shutdown while all three renderer families are still active. Backend
+    // teardown asserts native, Scene and Web owner/GPU counts on its thread.
+    for (path, output) in [&video, &scene, &web].into_iter().zip(&outputs) {
+        apply(&handle, &events, path, &output.name);
+    }
     drop(handle);
+    assert_eq!(crate::audio::live_counts(), baseline.audio);
 }

@@ -314,6 +314,16 @@ impl EglContext {
                 Some(self.owner.context),
             )
             .context("Failed to make EGL context current")?;
+        if window.egl_window.is_some() {
+            // The engine already paces frames. Waiting for an EGL-owned frame
+            // callback here can block the render/event thread when an output
+            // is disabled, preventing it from handling removal and shutdown.
+            self.owner
+                .display
+                .instance
+                .swap_interval(self.owner.display.raw, 0)
+                .context("Failed to disable blocking Wayland EGL frame pacing")?;
+        }
         Ok(())
     }
 

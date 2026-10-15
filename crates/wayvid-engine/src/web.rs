@@ -21,6 +21,28 @@ const RUNTIME_MANIFEST: &str = include_str!("../../../native/web/runtime.json");
 thread_local! { static HOST: RefCell<Weak<RefCell<Host>>> = const { RefCell::new(Weak::new()) }; }
 
 #[cfg(test)]
+thread_local! {
+    // Host processes, renderer/browser owners, programs, textures, vertex arrays.
+    static LIVE: std::cell::Cell<[usize; 5]> = const { std::cell::Cell::new([0; 5]) };
+}
+#[cfg(test)]
+pub(crate) fn live_counts() -> [usize; 5] {
+    LIVE.with(|counts| counts.get())
+}
+#[cfg(test)]
+fn track(index: usize, acquired: bool) {
+    LIVE.with(|counts| {
+        let mut live = counts.get();
+        if acquired {
+            live[index] += 1;
+        } else {
+            live[index] -= 1;
+        }
+        counts.set(live);
+    });
+}
+
+#[cfg(test)]
 pub(crate) fn host_is_alive() -> bool {
     HOST.with(|host| host.borrow().strong_count() != 0)
 }
@@ -140,6 +162,8 @@ impl Host {
             .spawn()
             .context("Cannot launch the Web wallpaper host")?;
         drop(child_socket);
+        #[cfg(test)]
+        track(0, true);
         Ok(Self {
             socket,
             child,
@@ -221,6 +245,8 @@ impl Drop for Host {
             }
         }
         self.terminate();
+        #[cfg(test)]
+        track(0, false);
     }
 }
 
@@ -275,6 +301,8 @@ impl WebRenderer {
             closed: false,
             config: config.clone(),
         };
+        #[cfg(test)]
+        track(1, true);
         let mut command = result.command("create");
         command["root"] = root.to_string_lossy().as_ref().into();
         command["entry"] = entry.into();
@@ -298,6 +326,10 @@ impl WebRenderer {
                 Ok(shader) => shader, Err(error) => { gl::DeleteShader(vertex); return Err(error); }
             };
             self.program = gl::CreateProgram();
+            #[cfg(test)]
+            if self.program != 0 {
+                track(2, true);
+            }
             gl::AttachShader(self.program, vertex);
             gl::AttachShader(self.program, fragment);
             gl::LinkProgram(self.program);
@@ -308,6 +340,15 @@ impl WebRenderer {
             ensure!(success != 0, "Cannot link Web presentation shader");
             gl::GenTextures(1, &mut self.texture);
             gl::GenVertexArrays(1, &mut self.vao);
+            #[cfg(test)]
+            {
+                if self.texture != 0 {
+                    track(3, true);
+                }
+                if self.vao != 0 {
+                    track(4, true);
+                }
+            }
         }
         Ok(())
     }
@@ -559,14 +600,22 @@ impl Drop for WebRenderer {
         unsafe {
             if self.texture != 0 {
                 gl::DeleteTextures(1, &self.texture);
+                #[cfg(test)]
+                track(3, false);
             }
             if self.vao != 0 {
                 gl::DeleteVertexArrays(1, &self.vao);
+                #[cfg(test)]
+                track(4, false);
             }
             if self.program != 0 {
                 gl::DeleteProgram(self.program);
+                #[cfg(test)]
+                track(2, false);
             }
         }
+        #[cfg(test)]
+        track(1, false);
     }
 }
 
@@ -655,6 +704,7 @@ mod tests {
             next_id: 0,
             dead: false,
         };
+        track(0, true);
         assert!(host
             .call(json!({"id":0,"generation":0}))
             .unwrap_err()

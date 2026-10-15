@@ -248,6 +248,33 @@ void main() {
             isTrue,
           );
           expect(controller.error, contains('candidate first frame failed'));
+
+          service.typedFailure = null;
+          // Hotplug uses the saved full description, including properties.
+          service.events.add(const ServiceEvent.outputsChanged(outputs: []));
+          await controller.pollEvents();
+          expect(controller.appliedByOutput, isEmpty);
+          expect(store.assignments[_monitor.name], same(saved));
+          service.events.add(
+            const ServiceEvent.outputsChanged(outputs: [_monitor]),
+          );
+          await controller.pollEvents();
+          expect(
+            controller.isAppliedTo(source.sourceId, _monitor.name),
+            isTrue,
+          );
+          expect(service.descriptions.last, source);
+
+          // Explicit clear prevents a later reconnect from resurrecting it.
+          await controller.clear(output: _monitor.name);
+          final afterClear = service.descriptions.length;
+          service.events.add(const ServiceEvent.outputsChanged(outputs: []));
+          service.events.add(
+            const ServiceEvent.outputsChanged(outputs: [_monitor]),
+          );
+          await controller.pollEvents();
+          expect(service.descriptions.length, afterClear);
+          expect(controller.appliedByOutput, isEmpty);
         } finally {
           await controller.shutdown();
           await directory.delete(recursive: true);

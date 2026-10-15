@@ -324,11 +324,7 @@ pub(super) fn run(
     #[cfg(test)]
     {
         drop(egl);
-        assert_eq!(
-            crate::egl::native_counts(),
-            (0, 0),
-            "X11 engine leaked native graphics resources"
-        );
+        super::command::LifecycleCounts::assert_graphics_released();
     }
     let _ = events.send(EngineEvent::Stopped);
     Ok(())
@@ -337,7 +333,7 @@ pub(super) fn run(
 fn destroy_wallpaper(display: &Display, egl: &EglContext, mut wallpaper: ActiveWallpaper) {
     wallpaper.session.cleanup_egl(egl);
     // Session Drop retries a recoverable binding failure while this window is
-    // still valid. No native window may die before its MPV/EGL resources.
+    // still valid. No native window may die before its renderer/EGL resources.
     drop(wallpaper.session);
     unsafe {
         xlib::XDestroyWindow(display.raw, wallpaper.window);
@@ -416,6 +412,10 @@ fn handle_command(
         #[cfg(test)]
         EngineCommand::ResourceCounts(reply) => {
             let _ = reply.send(crate::egl::native_counts());
+        }
+        #[cfg(test)]
+        EngineCommand::LifecycleCounts(reply) => {
+            let _ = reply.send(super::command::LifecycleCounts::current());
         }
         EngineCommand::ApplyWallpaper { path, output } => {
             handle_command(
