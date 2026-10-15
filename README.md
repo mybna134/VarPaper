@@ -4,7 +4,7 @@
 
 # VarPaper
 
-Video wallpaper manager for Linux Wayland and X11 desktops
+Animated wallpaper manager for Linux Wayland and X11 desktops
 
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -19,13 +19,13 @@ Video wallpaper manager for Linux Wayland and X11 desktops
 
 </div>
 
-VarPaper is a Flutter desktop app with a Rust and mpv playback engine. It finds video files in folders you add and in locally installed Wallpaper Engine Workshop content. Choose a wallpaper in the library, then apply it to one monitor or all monitors.
+VarPaper is a Flutter desktop app with a Rust rendering engine and mpv media playback. It finds media files and projects in folders you add and in locally installed Wallpaper Engine Workshop content. Choose a wallpaper in the library, then apply it to one monitor or all monitors.
 
 ## Features
 
-- Browse local videos with previews, search, and source filters.
+- Browse Video, Scene, Web, Image and GIF wallpapers with previews, search, and type/source filters.
 - Apply different wallpapers to different monitors, or apply one to every monitor.
-- Find locally installed Wallpaper Engine Workshop video wallpapers. Workshop downloads are managed through Steam; VarPaper does not download them.
+- Find locally installed Wallpaper Engine Workshop projects. Workshop downloads are managed through Steam; VarPaper does not download them.
 - Restore per-monitor wallpaper assignments on startup.
 - Pause, resume, or change wallpapers from the system tray.
 - Configure playback, appearance, autostart, and battery pause in the app.
@@ -62,11 +62,17 @@ Niri filters the `wlr-layer-shell` protocol from sandboxed Flatpak apps for secu
 
 ## Use
 
-Add a video folder on the **Folders** page. Browse or search on **Library**, then double-click a wallpaper to apply it to all monitors. The wallpaper details let you apply it to a specific monitor. Use **Monitors** to inspect current assignments and **Settings** to control startup, playback, and power options.
+Add a media or project folder on the **Folders** page. Browse or search on **Library**, then double-click a wallpaper to apply it to all monitors. The wallpaper details let you apply it to a specific monitor. Use **Monitors** to inspect current assignments and **Settings** to control startup, playback, and power options.
 
 The app saves settings and monitor assignments in an Isar database in the platform application support directory. Existing YAML settings are not migrated. Enable **Launch at login** and **Restore last wallpaper** in Settings if you want wallpapers restored automatically after logging in. **Minimize to tray** and **Start minimized** control the window separately.
 
 Wallpaper Engine Workshop content must already be installed locally through Steam. VarPaper plays video projects and the implemented Rust Scene subset (image layers, effects, animation, core sprite particles, text, sound and basic scripts). Advanced Scene particles, live system-audio visualization and full clock/script compatibility are deferred; unsupported required content reports an error. Web projects use the optional Web wallpaper component. See [Scene support](docs/src/dev/rust-scene.md).
+
+Image wallpapers stay displayed; GIFs animate through the media renderer. Scene requires OpenGL 3.3 and currently uses stretch layout. Video hardware decoding and HDR settings apply to media; see the [usage guide](docs/src/user-guide/gui.md) for type-specific limits.
+
+For Web, open **Settings → Web wallpaper support** and explicitly install the component. Startup, scanning, applying and restoring never download it automatically. Web pages use local resources; external requests and downloads are blocked. Pause freezes the last frame and closes the page; resume rebuilds it and may reset page state. Uninstall stops Web playback and removes component files while preserving projects and saved assignments.
+
+Web supports declared initial properties and system-playback audio callbacks. Saved descriptions can retain Web overrides supplied through the service API; a GUI property editor is pending. Missing audio capture supplies silence and retries automatically. Scene live system-audio visualization and local date/time bindings remain deferred. Unsupported Application projects are never executed. See [project compatibility](docs/src/features/workshop.md).
 
 ## Build from source
 
@@ -78,7 +84,7 @@ cd VarPaper
 ./scripts/build-packages.sh
 ```
 
-The script writes both packages to `dist/`. For a local Linux bundle, run `./scripts/build-linux.sh`. For development, run `flutter run -d linux` and `cargo test --workspace`.
+The script writes all three packages to `dist/`. For a local Linux bundle, run `./scripts/build-linux.sh`. For development, run `flutter run -d linux` and `cargo test --workspace`.
 
 ## Project structure
 
@@ -88,7 +94,7 @@ linux/                  Flutter Linux runner and Rust build integration
 rust/                   Flutter/Rust bridge service
 crates/wayvid-engine/    Wayland/X11 wallpaper playback
 crates/wayvid-library/   Folder and Workshop scanning, previews
-packaging/              Debian and Flatpak recipes
+packaging/              Debian, Flatpak and Arch recipes
 scripts/                Build and development commands
 ```
 

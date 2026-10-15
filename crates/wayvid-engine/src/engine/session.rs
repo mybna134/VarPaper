@@ -13,7 +13,7 @@ use wayland_client::protocol::wl_surface::WlSurface;
 
 use crate::egl::{EglContext, EglWindow};
 use crate::mpv::VideoConfig;
-use crate::renderer::{create_renderer, WallpaperRenderer};
+use crate::renderer::{create_renderer_with_properties, WallpaperRenderer};
 use crate::types::OutputInfo;
 
 /// Playback state
@@ -35,6 +35,7 @@ pub struct WallpaperSession {
     wallpaper_path: Option<PathBuf>,
     /// Video configuration
     video_config: VideoConfig,
+    initial_properties: serde_json::Value,
     /// MPV player instance
     player: Option<Box<dyn WallpaperRenderer>>,
     candidate: Option<(PathBuf, Box<dyn WallpaperRenderer>, Instant)>,
@@ -71,6 +72,20 @@ impl WallpaperSession {
         output_info: OutputInfo,
         video_config: VideoConfig,
     ) -> Result<Self> {
+        Self::new_with_properties(
+            wallpaper_path,
+            output_info,
+            video_config,
+            serde_json::json!({}),
+        )
+    }
+
+    pub fn new_with_properties(
+        wallpaper_path: PathBuf,
+        output_info: OutputInfo,
+        video_config: VideoConfig,
+        initial_properties: serde_json::Value,
+    ) -> Result<Self> {
         info!(
             "Creating WallpaperSession for {} ({}x{})",
             output_info.name, output_info.width, output_info.height
@@ -80,6 +95,7 @@ impl WallpaperSession {
             output_info,
             wallpaper_path: Some(wallpaper_path),
             video_config,
+            initial_properties,
             player: None,
             candidate: None,
             committed: None,
@@ -137,7 +153,7 @@ impl WallpaperSession {
         let egl_window = Rc::new(egl_window);
         let mut candidate_config = self.video_config.clone();
         candidate_config.mute = true;
-        let player_result = create_renderer(
+        let player_result = create_renderer_with_properties(
             self.wallpaper_path
                 .as_deref()
                 .context("Wallpaper source missing")?,
@@ -145,6 +161,7 @@ impl WallpaperSession {
             &self.output_info,
             egl_context,
             egl_window.clone(),
+            &self.initial_properties,
         );
 
         let player = match player_result {
@@ -362,6 +379,14 @@ impl WallpaperSession {
     /// Load a new wallpaper without recreating the EGL surface (hot-swap)
     /// This provides seamless wallpaper transitions without flicker
     pub fn load_new_wallpaper(&mut self, path: &std::path::Path) -> Result<()> {
+        self.load_with_properties(path, &serde_json::json!({}))
+    }
+
+    pub fn load_with_properties(
+        &mut self,
+        path: &std::path::Path,
+        properties: &serde_json::Value,
+    ) -> Result<()> {
         info!(
             "Hot-swapping wallpaper for {}: {}",
             self.output_info.name,
@@ -381,15 +406,47 @@ impl WallpaperSession {
             let mut config = self.video_config.clone();
             // Candidates produce no sound until their first frame commits.
             config.mute = true;
-            let candidate =
-                create_renderer(path, &config, &self.output_info, context, window.clone())?;
+            let candidate = create_renderer_with_properties(
+                path,
+                &config,
+                &self.output_info,
+                context,
+                window.clone(),
+                properties,
+            )?;
             self.candidate = Some((path.to_path_buf(), candidate, Instant::now()));
         } else {
             self.terminal_failure = false;
             self.wallpaper_path = Some(path.to_path_buf());
+            self.initial_properties = properties.clone();
         }
 
         Ok(())
+    }
+
+    pub fn set_properties(
+        &mut self,
+        path: &std::path::Path,
+        updates: &serde_json::Value,
+    ) -> Result<()> {
+        anyhow::ensure!(
+            self.first_frame && self.wallpaper_path.as_deref() == Some(path),
+            "Wallpaper assignment changed before property update"
+        );
+        anyhow::ensure!(self.candidate.is_none(), "Wallpaper replacement is pending");
+        let player = self
+            .player
+            .as_mut()
+            .context("Wallpaper renderer is not ready")?;
+        anyhow::ensure!(
+            player.capabilities().project_properties,
+            "This renderer does not support live project properties"
+        );
+        self.egl_window
+            .as_ref()
+            .context("Missing renderer surface")?
+            .make_current()?;
+        player.set_properties(updates)
     }
 
     pub(super) fn stop_web(&mut self) -> Result<bool> {

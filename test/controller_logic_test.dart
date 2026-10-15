@@ -51,8 +51,15 @@ void main() {
     final controller = await _create(store, service);
     store.assignments['A'] = WallpaperAssignmentRecord()
       ..output = 'A'
-      ..sourcePath = '/project/web/project.json'
-      ..sourceId = 'web';
+      ..setSourceDescription(
+        const WallpaperSourceDto(
+          version: 1,
+          sourceId: 'web',
+          sourcePath: '/project/web/project.json',
+          wallpaperType: 'web',
+          propertyOverridesJson: '{}',
+        ),
+      );
     await controller.installWebSupport();
     expect(service.calls, contains('installWebSupport'));
     expect(
@@ -100,8 +107,15 @@ void main() {
     expect(controller.canApplyWallpaper(controller.wallpapers.single), isTrue);
     store.assignments['A'] = WallpaperAssignmentRecord()
       ..output = 'A'
-      ..sourceId = 'web'
-      ..sourcePath = '/project/web/project.json';
+      ..setSourceDescription(
+        const WallpaperSourceDto(
+          version: 1,
+          sourceId: 'web',
+          sourcePath: '/project/web/project.json',
+          wallpaperType: 'web',
+          propertyOverridesJson: '{}',
+        ),
+      );
     controller.appliedByOutput['A'] = 'web';
     service.events.add(const ServiceEvent.wallpaperCleared(output: 'A'));
     await controller.pollEvents();

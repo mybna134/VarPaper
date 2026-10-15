@@ -236,21 +236,64 @@ time.sleep(10)
             .unwrap_err();
         assert_eq!(failure.code, "apply_failed");
         assert!(failure.message.contains("IPC version mismatch"));
-        assert!(installed
-            .poll_events()
-            .unwrap()
-            .iter()
-            .all(|event| !matches!(
-                event,
-                ServiceEvent::WallpaperApplied { .. } | ServiceEvent::WallpaperCleared { .. }
-            )));
+        let failures = installed.poll_events().unwrap();
+        assert!(failures.iter().any(|event| matches!(event,
+            ServiceEvent::WallpaperFailed { path, code, message, .. }
+            if path == &project.join("project.json").to_string_lossy()
+                && code == "wallpaper_failed" && message.contains("IPC version mismatch")
+        )));
+        assert!(failures.iter().all(|event| !matches!(
+            event,
+            ServiceEvent::WallpaperApplied { .. } | ServiceEvent::WallpaperCleared { .. }
+        )));
         assert_eq!(wayvid_engine::audio::live_counts(), counts);
         assert_eq!(fs::read(&assignment).unwrap(), saved);
     }
+    let mut description = installed
+        .describe_wallpaper(project.to_string_lossy().into_owned())
+        .unwrap();
+    description.property_overrides_json = r#"{"caption":{"value":"restored override"}}"#.into();
     installed
-        .apply_wallpaper(project.to_string_lossy().into_owned(), None)
+        .apply_wallpaper_source(description, None)
         .await
         .unwrap();
+    let output = installed.refresh_monitors().await.unwrap().remove(0).name;
+    installed
+        .update_wallpaper_properties(
+            output.clone(),
+            project.to_string_lossy().into_owned(),
+            r#"{"caption":{"value":"edited override"}}"#.into(),
+        )
+        .await
+        .unwrap();
+    let invalid = installed
+        .update_wallpaper_properties(
+            output.clone(),
+            project.to_string_lossy().into_owned(),
+            r#"{"caption":{"value":123}}"#.into(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(invalid.code, "invalid_properties");
+    let other_project = temp.path().join("other-project");
+    fs::create_dir(&other_project).unwrap();
+    fs::write(other_project.join("project.json"), manifest).unwrap();
+    fs::write(other_project.join("index.html"), "<body/>").unwrap();
+    let stale_assignment = installed
+        .update_wallpaper_properties(
+            output.clone(),
+            other_project.to_string_lossy().into_owned(),
+            r#"{"caption":{"value":"stale"}}"#.into(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(stale_assignment.code, "property_update_failed");
+    assert!(stale_assignment.message.contains("assignment changed"));
+    let stale = installed
+        .update_wallpaper_properties(output, image.to_string_lossy().into_owned(), "{}".into())
+        .await
+        .unwrap_err();
+    assert_eq!(stale.code, "unsupported_control");
     assert!(wayvid_engine::audio::live_counts().0 > counts.0);
     let hosts: Vec<_> = fs::read_dir(root.join("browser-cache"))
         .unwrap()

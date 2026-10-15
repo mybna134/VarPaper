@@ -34,7 +34,7 @@ See proposal.md for motivation and the four capability deltas for acceptance con
 
 新增共同源描述：实际类型、稳定 source id、原始路径、可选 project root/manifest/entry、shared asset roots、兼容状态、属性 schema/overrides。独立媒体维持现有路径哈希 ID；项目以 project.json 的规范路径标识，Workshop ID 仅作为元数据。扫描显式定位 project.json，并停止把项目内部资源重复当独立媒体扫描；Scene 入口由资源定位器验证，不能仅用 `Path::exists`。
 
-FRB 添加描述式应用接口并重生成绑定；旧路径应用接口在适配层解析媒体文件、project.json、项目目录和可识别项目内旧入口，保持历史赋值可恢复。异常类型使用 unsupported 状态和 declared type，不再回退 Video。替代方案“只增加 Web 字符串”不能传递资源上下文及可靠恢复，因此不采用。
+FRB 添加描述式应用接口并重生成绑定；路径应用接口可解析媒体和项目，但持久化与恢复只使用新版完整描述，不读取或迁移旧赋值。异常类型使用 unsupported 状态和 declared type，不再回退 Video。替代方案“只增加 Web 字符串”不能传递资源上下文及可靠恢复，因此不采用。
 
 ### 2. 统一 renderer 会话，保留输出所有权
 
@@ -80,7 +80,7 @@ Scene 将频谱映射到参考实现 shader uniforms、效果/粒子和已声明
 
 ### 6. Flutter 持久化、界面与分发
 
-Isar 赋值新增可选描述版本、type、project manifest/root、property overrides，保留 sourcePath/sourceId 以兼容老记录和回滚。新字段为空按旧路径解析；只有已确认应用成功才保存。类型标签/过滤/预览/错误及属性编辑使用真实 type，category 不再把 Image/GIF 合并为 Video；明确呈现不能用于当前类型的设置。
+Isar 赋值使用独立 WallpaperSourceAssignment 集合保存完整描述版本、sourcePath/sourceId、type、project context 和 property overrides；不读取或迁移旧集合，旧赋值需重新应用。只有已确认应用成功才保存，空描述只表示单输出显式清除。类型标签/过滤/预览/错误及属性编辑使用真实 type，category 不再把 Image/GIF 合并为 Video；明确呈现不能用于当前类型的设置。
 
 Scene 使用 Cargo 构建并随 Rust engine 集成，移除独立 Scene CMake 动态库及 vendored C++ 编译链。CEF 宿主使用其 SDK 所需的构建集成，与 Flutter Linux 打包共用安装清单。固定参考研究修订、第三方依赖以及 CEF SDK 发布及校验和；构建时可获取 SDK 编译 Web 宿主/subprocess，但基础发行包仅安装宿主/辅助程序、组件清单和必要 Scene 依赖，不安装 libcef/resources/locales，不将 CEF 设为强制运行依赖。Web 宿主仅在组件已安装时用应用私有目录中的完整运行清单启动，主应用不直接链接 libcef。维护 .deb、Flatpak 和 Arch 配方，分别测试默认离线媒体/Scene、用户点击后从官方源下载、应用私有目录加载、卸载后空间回收；Flatpak 的安装器网络权限不能使 Web 页面获得默认网络访问。构建/运行不依赖参考 checkout。来源与保留许可记录到现有 NOTICE；这是实施交付的一部分。
 
@@ -98,9 +98,9 @@ Scene 使用 Cargo 构建并随 Rust engine 集成，移除独立 Scene CMake �
 
 1. 固定参考研究修订，将 Scene 业务逻辑与测试迁移到 Rust engine，移除已导入的 C++ Scene 源、动态库加载及构建/打包/CI 依赖；复用已完成的 Rust 类型、资源定位和音频服务。由新 Rust fixture 重新验收相关任务，历史 C++ 结果不计入当前完成状态。
 2. 完成 Scene 音频/时钟、可选 Web 组件安装/卸载及 Web 回调，接入统一会话和事件。
-3. 添加兼容 Isar 字段和 FRB 绑定、界面，再迁移旧赋值的恢复解析。
+3. 添加新版 Isar 描述字段、FRB 绑定和界面，仅恢复新版赋值。
 4. 跑 fixture、Wayland/X11 mixed-output/lifecycle、三发行包验收和 CI quality；不得以只有扫描通过替代渲染验收。
-5. 回滚程序时旧媒体字段仍可读取，新 Scene/Web 赋值由旧版本忽略/报不支持；不删除原项目及用户资源。
+5. 不提供赋值格式迁移或回滚兼容；切换版本需重新应用壁纸，不删除原项目及用户资源。
 
 
 Scene 图层语义已由用户确认：使用项目显式 size，再应用 scale；父 visible=false 隐藏子树。缺省尺寸才使用纹理/model。参考固定提交的尺寸覆盖、父可见性不继承不是目标行为；截图对照按 migration design 的方向规范化、公共案例像素容差与明确差异记录执行。

@@ -87,3 +87,29 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 原生 C ABI fixture 验证频谱像素、脚本文字变化、静音独立、缺少新输入归零、非法分辨率、注册预算、双 Scene 隔离与资源回收；完整原生脚本通过（ABI 10.67 s、CEF、Rust 118 项，此时尚未增加下述新 Rust 测试）。新增私有音频 runner 在独立 PipeWire graph 中仅加载 null sink，WirePlumber 只启用 policy（无硬件 monitor），播放左 375 Hz/右 6000 Hz；真实 libpulse→FFT→SceneScript 画面测试通过（0.56 s），验证壁纸静音仍有新 PCM/频谱和文字响应，audio/EGL 计数回基线。临时配置/音频文件和私有服务退出；未修改用户音频服务。粒子/emitter、多 pass 效果和采集不可用的 GUI 诊断尚需验收，4.3 未勾选。
 
 音频接入最终回归：频谱/level NaN/Infinity/负数与超范围输入清洗、非恒定频带 downsample、ABI 2 断言均通过。最新完整原生脚本通过：ABI 10.55 s、真实 CEF、engine 47/library 40/GUI 32（50.89/1.36/8.23 s），共 119 项；私有真实音频测试另行显式运行通过。fmt、clippy warnings-as-errors、OpenSpec strict、191 源/9 依赖 hash 和 diff 检查通过。Linux release bundle 重建通过，Scene 库哈希/ABI 2 新 symbol/来源清单匹配，GUI/Scene ldd 无缺失/CEF 链接，基础 bundle 不包含 CEF runtime。发现原有全局 tests/ 忽略规则会遗漏 C ABI fixture，已仅为两个 Scene fixture 源文件增加例外，保持测试缓存忽略。当前仍 26/48；未执行 push 或宣称完成全部 quality/安装包/桌面验收。
+
+
+## 2026-10-15：描述式应用与赋值持久化（6.4、6.5）
+
+当前 Rust Scene 范围按本 change 顶部修订执行；上文 C++/C ABI 记录均为历史证据。
+
+- FRB 新增版本化 WallpaperSourceDto、describe/apply source 与属性更新接口，并重生成 Rust/Dart bindings。旧路径接口保留；失败事件携带 output/path/code/message，候选失败不覆盖当前赋值。
+- Web 初始属性覆盖在候选首帧之前传入。更新校验声明名、类型、颜色、范围、choices 和 64 KiB 上限；更新要求源匹配且无候选替换。Scene 继续使用声明初始属性，GUI 属性编辑及 Scene 覆盖仍未交付。
+- Isar 新增可选 sourceVersion/wallpaperType/projectSourceJson/propertyOverridesJson，保留 sourcePath/sourceId。新赋值保存描述，旧记录按路径恢复；替换成旧媒体时清除描述字段。失败恢复和失败候选均保留原记录。
+- `/tmp/varpaper-source-persistence-tests.log`：Flutter 62 项通过。settings_store tests 实际覆盖冻结旧 Isar schema 到新 schema 的迁移、Scene/Web 描述及 Web 覆盖重开数据库后保留、旧媒体替换清除新字段；controller_restore tests 覆盖描述式恢复和失败保留。
+- `/tmp/varpaper-typed-source-native.log`：Rust Scene CPU 24、GL 12、GL 3.0 拒绝 1，以及 engine 84/library 40/bridge 34 项通过。原生日志不能替代完整安装包/物理桌面验收。
+- `/tmp/varpaper-source-wayland.log`：嵌套 niri Wayland 4 项通过，包含 Scene/media 失败替换、清除及重启。
+- 本轮交接后 `git diff --check` 与 `cargo fmt --all -- --check` 通过。未运行完整 CI quality，未 push。
+
+6.5 完成后按用户要求暂停，等待提交。4.5、6.7 的文档修订已开始，仍未勾选，需在后续 Task 中核对并收尾。
+
+
+### 2026-10-15：按用户要求只使用新版赋值格式
+
+本节取代上述 6.5 的旧格式兼容策略及迁移验收要求。
+
+- 新版记录使用独立 `WallpaperSourceAssignment` Isar 集合；旧集合不读取、不迁移，旧分配需要重新应用。
+- 保存接口仅接收完整 `WallpaperSourceDto`，路径和 ID 从描述写入；null 描述仅用于“所有显示器”分配下单输出显式清除。
+- 恢复只调用描述式应用接口；缺失/不支持版本或不完整描述报错，不回退路径恢复。路径应用 API 本身仍可用于显式应用，不参与旧数据恢复。
+- 删除旧 schema 迁移 fixture；现有媒体/项目恢复、持久化和 fake fixtures 改用新版描述。Isar 代码重新生成成功。文档/design/spec/tasks 同步新规则。
+- 本次修改未运行测试，先前 62 项结果仅对应修改前。完整 CI quality 未执行，未提交或 push。按用户要求本 Task 结束后暂停。

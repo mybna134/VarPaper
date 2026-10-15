@@ -83,6 +83,32 @@ Use `cargo check --workspace --all-targets --locked` to compile it and
 See [Rust Scene checks](rust-scene.md) for the supported subset and deferred
 features. Unsupported required content fails with an asset diagnostic.
 
+### Described assignments and project properties
+
+The FRB service exposes `describeWallpaper(path)` and
+`applyWallpaperSource(source, output)`. `WallpaperSourceDto` version 1 retains
+the stable source ID, actual wallpaper type, source path and project context.
+Rust re-reads the project before applying it and rejects a changed identity,
+type or context. The path-based `applyWallpaper(path, output)` can resolve
+media files, project directories, manifests and project-entry paths. Assignment
+persistence uses only current source descriptions in the
+`WallpaperSourceAssignment` collection; old path-only assignments are neither
+read nor migrated. Reapply wallpapers to save new assignments.
+
+`propertyOverridesJson` maps declared Web property names to typed values,
+for example `{"caption":{"value":"Hello"}}`. Initial overrides reach the
+candidate before its first frame. `updateWallpaperProperties(output,
+sourcePath, propertiesJson)` updates an existing Web assignment only when its
+source still matches and no replacement is pending. Validation checks declared
+names, types, slider bounds, colors, choices and a 64 KiB update limit before
+sending changes to the browser. Scene property overrides remain deferred;
+Scene still receives the project's declared initial properties.
+
+`ServiceEvent_WallpaperFailed` carries the output, path, code and full cause.
+The existing generic error event is also emitted for older consumers. Flutter
+continues to own persistence; the new API does not itself save assignments or
+provide a property editor.
+
 ## Optional Web runtime development
 
 Settings contains **Web wallpaper support** with explicit install, progress,
@@ -101,7 +127,8 @@ Uninstall removes the owned component directory and temporary files, preserving
 wallpaper projects and saved assignments. Web browser playback is now connected through the shared host, provided the
 bundle contains `libexec/varpaper-web-host`. Local HTML/CSS/JS, Canvas/WebGL,
 resize, pause/resume, typed project callbacks and audio callbacks have passed the
-native fixtures. The GUI property editor/persistence and full Scene audio/script
+native fixtures. Versioned source descriptions and Web property overrides are persisted with
+confirmed assignments. The GUI property editor and full Scene audio/script
 compatibility remain pending; see
 [native Web component notes](../../../native/web/README.md).
 

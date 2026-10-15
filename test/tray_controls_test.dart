@@ -23,8 +23,7 @@ class _Store implements SettingsStore {
   @override
   Future<void> saveAssignment({
     required String output,
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto? source,
   }) async {}
 
   @override
@@ -102,6 +101,12 @@ class _Service implements WayvidService {
   Future<void> applyWallpaper({required String path, String? output}) async {
     applied.add('${output ?? 'all'}:$path');
   }
+
+  @override
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  }) => applyWallpaper(path: source.sourcePath, output: output);
 
   @override
   Future<void> pause({String? output}) async => paused.add(output ?? 'all');

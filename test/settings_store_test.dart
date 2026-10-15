@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
 import 'package:varpaper/src/storage/settings_store.dart';
+import 'package:varpaper/src/bridge_generated.dart/bridge.dart';
 
 Future<void> _initIsarCore() async {
   final configFile = File('.dart_tool/package_config.json').absolute;
@@ -17,6 +18,15 @@ Future<void> _initIsarCore() async {
   final libraryPath = '${File.fromUri(packageRoot).path}/linux/libisar.so';
   await Isar.initializeIsarCore(libraries: {ffi.Abi.current(): libraryPath});
 }
+
+WallpaperSourceDto _source(String path, String id, {String type = 'video'}) =>
+    WallpaperSourceDto(
+      version: 1,
+      sourceId: id,
+      sourcePath: path,
+      wallpaperType: type,
+      propertyOverridesJson: '{}',
+    );
 
 void main() {
   late Directory directory;
@@ -59,17 +69,18 @@ void main() {
   test('per-output assignments are upserted, listed and removed', () async {
     expect(await store.loadAssignments(), isEmpty);
 
-    await store.saveAssignment(output: 'A', sourcePath: '/a.mp4');
+    await store.saveAssignment(
+      output: 'A',
+      source: _source('/a.mp4', '/a.mp4', type: 'video'),
+    );
     await store.saveAssignment(
       output: 'B',
-      sourcePath: '/b.mp4',
-      sourceId: 'b',
+      source: _source('/b.mp4', 'b', type: 'video'),
     );
     // Saving again for the same output updates the existing record.
     await store.saveAssignment(
       output: 'A',
-      sourcePath: '/a2.mp4',
-      sourceId: 'a2',
+      source: _source('/a2.mp4', 'a2', type: 'video'),
     );
 
     var assignments = await store.loadAssignments();
@@ -86,11 +97,63 @@ void main() {
     expect(await store.loadAssignments(), isEmpty);
   });
 
-  test('default assignment replaces all per-output assignments', () async {
-    await store.saveAssignment(output: 'A', sourcePath: '/a.mp4');
-    await store.saveAssignment(output: 'B', sourcePath: '/b.mp4');
+  test(
+    'project descriptions and overrides survive reopening and replacement',
+    () async {
+      for (final kind in ['scene', 'web']) {
+        final source = WallpaperSourceDto(
+          version: 1,
+          sourceId: '$kind-id',
+          sourcePath: '/$kind/project.json',
+          wallpaperType: kind,
+          projectSourceJson: '{"properties":{"caption":{"value":"initial"}}}',
+          propertyOverridesJson: kind == 'web'
+              ? '{"caption":{"value":"saved"}}'
+              : '{}',
+        );
+        await store.saveAssignment(output: kind, source: source);
+      }
+      await isar.close();
+      isar = await Isar.open(
+        [AppSettingsRecordSchema, WallpaperAssignmentRecordSchema],
+        directory: directory.path,
+        name: 'store_test',
+      );
+      store = SettingsStore(isar);
+      final restored = await store.loadAssignments();
+      expect(restored['scene']!.sourceDescription!.wallpaperType, 'scene');
+      expect(
+        restored['scene']!.sourceDescription!.projectSourceJson,
+        contains('initial'),
+      );
+      expect(
+        restored['web']!.sourceDescription!.propertyOverridesJson,
+        contains('saved'),
+      );
+      expect(restored['web']!.sourceId, 'web-id');
+      await store.saveAssignment(
+        output: 'web',
+        source: _source('/replacement.mp4', '/replacement.mp4', type: 'video'),
+      );
+      final replaced = (await store.loadAssignments())['web']!;
+      expect(replaced.sourceDescription!.wallpaperType, 'video');
+      expect(replaced.propertyOverridesJson, '{}');
+    },
+  );
 
-    await store.saveDefaultAssignment(sourcePath: '/all.mp4', sourceId: 'x');
+  test('default assignment replaces all per-output assignments', () async {
+    await store.saveAssignment(
+      output: 'A',
+      source: _source('/a.mp4', '/a.mp4', type: 'video'),
+    );
+    await store.saveAssignment(
+      output: 'B',
+      source: _source('/b.mp4', '/b.mp4', type: 'video'),
+    );
+
+    await store.saveDefaultAssignment(
+      source: _source('/all.mp4', 'x', type: 'video'),
+    );
 
     final assignments = await store.loadAssignments();
     expect(assignments.keys, ['all']);

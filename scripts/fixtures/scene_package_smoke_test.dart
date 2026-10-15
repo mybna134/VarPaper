@@ -62,7 +62,11 @@ void main() {
           throw StateError('No expected packaged Scene event');
         }
 
-        await service.applyWallpaper(path: root.path);
+        final description = await service.describeWallpaper(path: root.path);
+        expect(description.version, 1);
+        expect(description.wallpaperType, 'scene');
+        expect(description.propertyOverridesJson, '{}');
+        await service.applyWallpaperSource(source: description);
         final applied = await waitFor(
           (event) => event is ServiceEvent_WallpaperApplied,
         );
@@ -92,8 +96,11 @@ void main() {
                 ),
           ),
         );
-        final failure = await waitFor((event) => event is ServiceEvent_Error);
-        expect((failure as ServiceEvent_Error).code, 'wallpaper_failed');
+        final failure = await waitFor(
+          (event) => event is ServiceEvent_WallpaperFailed,
+        );
+        expect((failure as ServiceEvent_WallpaperFailed).code, 'wallpaper_failed');
+        expect(failure.path, '${broken.path}/project.json');
         expect(failure.message, contains('missing.json'));
         // Assignment persistence is Flutter-owned; monitor discovery only
         // reports outputs. A clear event confirms the failed candidate left

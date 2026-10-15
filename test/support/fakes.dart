@@ -36,26 +36,22 @@ class FakeStore implements SettingsStore {
   @override
   Future<void> saveAssignment({
     required String output,
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto? source,
   }) async {
     assignments[output] = WallpaperAssignmentRecord()
       ..output = output
-      ..sourcePath = sourcePath
-      ..sourceId = sourceId;
+      ..setSourceDescription(source);
   }
 
   @override
   Future<void> saveDefaultAssignment({
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto source,
   }) async {
     assignments
       ..clear()
       ..['all'] = (WallpaperAssignmentRecord()
         ..output = 'all'
-        ..sourcePath = sourcePath
-        ..sourceId = sourceId);
+        ..setSourceDescription(source));
   }
 
   @override
@@ -218,6 +214,12 @@ class FakeService implements WayvidService {
   @override
   Future<void> applyWallpaper({required String path, String? output}) async =>
       calls.add('apply:${output ?? 'all'}:$path');
+
+  @override
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  }) => applyWallpaper(path: source.sourcePath, output: output);
 
   @override
   Future<void> clearWallpaper({String? output}) async =>

@@ -4352,18 +4352,38 @@ extension GetWallpaperAssignmentRecordCollection on Isar {
 }
 
 const WallpaperAssignmentRecordSchema = CollectionSchema(
-  name: r'WallpaperAssignmentRecord',
-  id: -6324685307849166934,
+  name: r'WallpaperSourceAssignment',
+  id: 7322384376986404418,
   properties: {
     r'output': PropertySchema(id: 0, name: r'output', type: IsarType.string),
-    r'sourceId': PropertySchema(
+    r'projectSourceJson': PropertySchema(
       id: 1,
+      name: r'projectSourceJson',
+      type: IsarType.string,
+    ),
+    r'propertyOverridesJson': PropertySchema(
+      id: 2,
+      name: r'propertyOverridesJson',
+      type: IsarType.string,
+    ),
+    r'sourceId': PropertySchema(
+      id: 3,
       name: r'sourceId',
       type: IsarType.string,
     ),
     r'sourcePath': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'sourcePath',
+      type: IsarType.string,
+    ),
+    r'sourceVersion': PropertySchema(
+      id: 5,
+      name: r'sourceVersion',
+      type: IsarType.long,
+    ),
+    r'wallpaperType': PropertySchema(
+      id: 6,
+      name: r'wallpaperType',
       type: IsarType.string,
     ),
   },
@@ -4405,12 +4425,30 @@ int _wallpaperAssignmentRecordEstimateSize(
   var bytesCount = offsets.last;
   bytesCount += 3 + object.output.length * 3;
   {
+    final value = object.projectSourceJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.propertyOverridesJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.sourceId;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
   }
   bytesCount += 3 + object.sourcePath.length * 3;
+  {
+    final value = object.wallpaperType;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -4421,8 +4459,12 @@ void _wallpaperAssignmentRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.output);
-  writer.writeString(offsets[1], object.sourceId);
-  writer.writeString(offsets[2], object.sourcePath);
+  writer.writeString(offsets[1], object.projectSourceJson);
+  writer.writeString(offsets[2], object.propertyOverridesJson);
+  writer.writeString(offsets[3], object.sourceId);
+  writer.writeString(offsets[4], object.sourcePath);
+  writer.writeLong(offsets[5], object.sourceVersion);
+  writer.writeString(offsets[6], object.wallpaperType);
 }
 
 WallpaperAssignmentRecord _wallpaperAssignmentRecordDeserialize(
@@ -4434,8 +4476,12 @@ WallpaperAssignmentRecord _wallpaperAssignmentRecordDeserialize(
   final object = WallpaperAssignmentRecord();
   object.id = id;
   object.output = reader.readString(offsets[0]);
-  object.sourceId = reader.readStringOrNull(offsets[1]);
-  object.sourcePath = reader.readString(offsets[2]);
+  object.projectSourceJson = reader.readStringOrNull(offsets[1]);
+  object.propertyOverridesJson = reader.readStringOrNull(offsets[2]);
+  object.sourceId = reader.readStringOrNull(offsets[3]);
+  object.sourcePath = reader.readString(offsets[4]);
+  object.sourceVersion = reader.readLongOrNull(offsets[5]);
+  object.wallpaperType = reader.readStringOrNull(offsets[6]);
   return object;
 }
 
@@ -4451,7 +4497,15 @@ P _wallpaperAssignmentRecordDeserializeProp<P>(
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
+      return (reader.readStringOrNull(offset)) as P;
+    case 3:
+      return (reader.readStringOrNull(offset)) as P;
+    case 4:
       return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readLongOrNull(offset)) as P;
+    case 6:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -4978,6 +5032,423 @@ extension WallpaperAssignmentRecordQueryFilter
     WallpaperAssignmentRecord,
     QAfterFilterCondition
   >
+  projectSourceJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'projectSourceJson'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'projectSourceJson'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'projectSourceJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'projectSourceJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'projectSourceJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'projectSourceJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  projectSourceJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'projectSourceJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'propertyOverridesJson'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'propertyOverridesJson'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'propertyOverridesJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'propertyOverridesJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'propertyOverridesJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'propertyOverridesJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  propertyOverridesJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'propertyOverridesJson',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
   sourceIdIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -5360,6 +5831,310 @@ extension WallpaperAssignmentRecordQueryFilter
       );
     });
   }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'sourceVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'sourceVersion'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sourceVersion', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionGreaterThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sourceVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionLessThan(int? value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sourceVersion',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  sourceVersionBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sourceVersion',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'wallpaperType'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'wallpaperType'),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'wallpaperType',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'wallpaperType',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'wallpaperType',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'wallpaperType', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterFilterCondition
+  >
+  wallpaperTypeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'wallpaperType', value: ''),
+      );
+    });
+  }
 }
 
 extension WallpaperAssignmentRecordQueryObject
@@ -5412,6 +6187,50 @@ extension WallpaperAssignmentRecordQuerySortBy
     WallpaperAssignmentRecord,
     QAfterSortBy
   >
+  sortByProjectSourceJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'projectSourceJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortByProjectSourceJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'projectSourceJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortByPropertyOverridesJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'propertyOverridesJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortByPropertyOverridesJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'propertyOverridesJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
   sortBySourceId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceId', Sort.asc);
@@ -5448,6 +6267,50 @@ extension WallpaperAssignmentRecordQuerySortBy
   sortBySourcePathDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourcePath', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortBySourceVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortBySourceVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortByWallpaperType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wallpaperType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  sortByWallpaperTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wallpaperType', Sort.desc);
     });
   }
 }
@@ -5508,6 +6371,50 @@ extension WallpaperAssignmentRecordQuerySortThenBy
     WallpaperAssignmentRecord,
     QAfterSortBy
   >
+  thenByProjectSourceJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'projectSourceJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenByProjectSourceJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'projectSourceJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenByPropertyOverridesJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'propertyOverridesJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenByPropertyOverridesJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'propertyOverridesJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
   thenBySourceId() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'sourceId', Sort.asc);
@@ -5546,6 +6453,50 @@ extension WallpaperAssignmentRecordQuerySortThenBy
       return query.addSortBy(r'sourcePath', Sort.desc);
     });
   }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenBySourceVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceVersion', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenBySourceVersionDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sourceVersion', Sort.desc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenByWallpaperType() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wallpaperType', Sort.asc);
+    });
+  }
+
+  QueryBuilder<
+    WallpaperAssignmentRecord,
+    WallpaperAssignmentRecord,
+    QAfterSortBy
+  >
+  thenByWallpaperTypeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wallpaperType', Sort.desc);
+    });
+  }
 }
 
 extension WallpaperAssignmentRecordQueryWhereDistinct
@@ -5563,6 +6514,26 @@ extension WallpaperAssignmentRecordQueryWhereDistinct
   }
 
   QueryBuilder<WallpaperAssignmentRecord, WallpaperAssignmentRecord, QDistinct>
+  distinctByProjectSourceJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'projectSourceJson',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, WallpaperAssignmentRecord, QDistinct>
+  distinctByPropertyOverridesJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'propertyOverridesJson',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, WallpaperAssignmentRecord, QDistinct>
   distinctBySourceId({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourceId', caseSensitive: caseSensitive);
@@ -5573,6 +6544,23 @@ extension WallpaperAssignmentRecordQueryWhereDistinct
   distinctBySourcePath({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'sourcePath', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, WallpaperAssignmentRecord, QDistinct>
+  distinctBySourceVersion() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sourceVersion');
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, WallpaperAssignmentRecord, QDistinct>
+  distinctByWallpaperType({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'wallpaperType',
+        caseSensitive: caseSensitive,
+      );
     });
   }
 }
@@ -5598,6 +6586,20 @@ extension WallpaperAssignmentRecordQueryProperty
   }
 
   QueryBuilder<WallpaperAssignmentRecord, String?, QQueryOperations>
+  projectSourceJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'projectSourceJson');
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, String?, QQueryOperations>
+  propertyOverridesJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'propertyOverridesJson');
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, String?, QQueryOperations>
   sourceIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourceId');
@@ -5608,6 +6610,20 @@ extension WallpaperAssignmentRecordQueryProperty
   sourcePathProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'sourcePath');
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, int?, QQueryOperations>
+  sourceVersionProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sourceVersion');
+    });
+  }
+
+  QueryBuilder<WallpaperAssignmentRecord, String?, QQueryOperations>
+  wallpaperTypeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'wallpaperType');
     });
   }
 }

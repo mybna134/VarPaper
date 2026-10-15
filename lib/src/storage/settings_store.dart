@@ -60,6 +60,7 @@ class AppSettingsRecord {
 }
 
 @collection
+@Name('WallpaperSourceAssignment')
 class WallpaperAssignmentRecord {
   Id id = Isar.autoIncrement;
 
@@ -67,6 +68,41 @@ class WallpaperAssignmentRecord {
   late String output;
   late String sourcePath;
   String? sourceId;
+  int? sourceVersion;
+  String? wallpaperType;
+  String? projectSourceJson;
+  String? propertyOverridesJson;
+
+  @ignore
+  WallpaperSourceDto? get sourceDescription {
+    if (sourcePath.isEmpty) return null;
+    if (sourceVersion != 1 ||
+        sourceId == null ||
+        wallpaperType == null ||
+        propertyOverridesJson == null) {
+      throw StateError('Incomplete wallpaper assignment description');
+    }
+    return WallpaperSourceDto(
+      version: sourceVersion!,
+      sourceId: sourceId!,
+      sourcePath: sourcePath,
+      wallpaperType: wallpaperType!,
+      projectSourceJson: projectSourceJson,
+      propertyOverridesJson: propertyOverridesJson!,
+    );
+  }
+
+  void setSourceDescription(WallpaperSourceDto? source) {
+    if (source != null && source.version != 1) {
+      throw ArgumentError('Unsupported wallpaper source version');
+    }
+    sourcePath = source?.sourcePath ?? '';
+    sourceId = source?.sourceId;
+    sourceVersion = source?.version;
+    wallpaperType = source?.wallpaperType;
+    projectSourceJson = source?.projectSourceJson;
+    propertyOverridesJson = source?.propertyOverridesJson;
+  }
 }
 
 class GuiSettingsDto {
@@ -433,8 +469,7 @@ class SettingsStore {
 
   Future<void> saveAssignment({
     required String output,
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto? source,
   }) async {
     final current =
         await isar.wallpaperAssignmentRecords
@@ -442,8 +477,7 @@ class SettingsStore {
             .outputEqualTo(output)
             .findFirst() ??
         (WallpaperAssignmentRecord()..output = output);
-    current.sourcePath = sourcePath;
-    current.sourceId = sourceId;
+    current.setSourceDescription(source);
     await isar.writeTxn(() => isar.wallpaperAssignmentRecords.put(current));
   }
 
@@ -463,16 +497,14 @@ class SettingsStore {
   }
 
   Future<void> saveDefaultAssignment({
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto source,
   }) async {
     await isar.writeTxn(() async {
       await isar.wallpaperAssignmentRecords.clear();
       await isar.wallpaperAssignmentRecords.put(
         WallpaperAssignmentRecord()
           ..output = 'all'
-          ..sourcePath = sourcePath
-          ..sourceId = sourceId,
+          ..setSourceDescription(source),
       );
     });
   }

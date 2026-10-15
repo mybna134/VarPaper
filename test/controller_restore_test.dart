@@ -25,26 +25,19 @@ class _Store implements SettingsStore {
   @override
   Future<void> saveAssignment({
     required String output,
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto? source,
   }) async {
     assignments[output] = WallpaperAssignmentRecord()
       ..output = output
-      ..sourcePath = sourcePath
-      ..sourceId = sourceId;
+      ..setSourceDescription(source);
   }
 
   @override
   Future<void> saveDefaultAssignment({
-    required String sourcePath,
-    String? sourceId,
+    required WallpaperSourceDto source,
   }) async {
     assignments.clear();
-    await saveAssignment(
-      output: 'all',
-      sourcePath: sourcePath,
-      sourceId: sourceId,
-    );
+    await saveAssignment(output: 'all', source: source);
   }
 
   @override
@@ -77,6 +70,8 @@ class _Service implements WayvidService {
   List<MonitorDto> outputs;
   final events = <ServiceEvent>[];
   final applied = <String>[];
+  final descriptions = <WallpaperSourceDto>[];
+  String? typedFailure;
 
   @override
   Future<ServiceInfo> initialize() async =>
@@ -95,6 +90,18 @@ class _Service implements WayvidService {
   @override
   Future<void> applyWallpaper({required String path, String? output}) async {
     applied.add(output ?? 'all');
+  }
+
+  @override
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  }) async {
+    descriptions.add(source);
+    if (typedFailure != null) {
+      throw BridgeError(code: 'apply_failed', message: typedFailure!);
+    }
+    await applyWallpaper(path: source.sourcePath, output: output);
   }
 
   @override
@@ -152,8 +159,102 @@ const _monitor = MonitorDto(
   primary: true,
 );
 
+WallpaperSourceDto _source(String path, String id, {String type = 'video'}) =>
+    WallpaperSourceDto(
+      version: 1,
+      sourceId: id,
+      sourcePath: path,
+      wallpaperType: type,
+      propertyOverridesJson: '{}',
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final kind in ['scene', 'web']) {
+    test(
+      '$kind described assignment restores initial properties and retains failures',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'varpaper-described-restore-',
+        );
+        final manifest = File('${directory.path}/project.json');
+        await manifest.writeAsString('{"type":"$kind"}');
+        final source = WallpaperSourceDto(
+          version: 1,
+          sourceId: '$kind-id',
+          sourcePath: manifest.path,
+          wallpaperType: kind,
+          projectSourceJson: '{"properties":{"caption":{"value":"initial"}}}',
+          propertyOverridesJson: kind == 'web'
+              ? '{"caption":{"value":"saved"}}'
+              : '{}',
+        );
+        final store = _Store();
+        await store.saveAssignment(output: _monitor.name, source: source);
+        final saved = store.assignments[_monitor.name];
+        final service = _Service([_monitor])
+          ..typedFailure = 'unsupported required asset';
+        var controller = await WayvidController.create(
+          store,
+          serviceOverride: service,
+        );
+        try {
+          expect(
+            service.descriptions.single.propertyOverridesJson,
+            source.propertyOverridesJson,
+          );
+          expect(controller.appliedByOutput, isEmpty);
+          expect(store.assignments[_monitor.name], same(saved));
+          expect(controller.error, contains('unsupported required asset'));
+          await controller.shutdown();
+          service.typedFailure = null;
+          controller = await WayvidController.create(
+            store,
+            serviceOverride: service,
+          );
+          expect(
+            controller.isAppliedTo(source.sourceId, _monitor.name),
+            isTrue,
+          );
+          expect(
+            service.descriptions.last.projectSourceJson,
+            source.projectSourceJson,
+          );
+          expect(
+            service.descriptions.last.propertyOverridesJson,
+            source.propertyOverridesJson,
+          );
+          expect(store.assignments[_monitor.name], same(saved));
+
+          controller.wallpapers = [
+            WallpaperDto(
+              id: 'replacement',
+              name: 'Replacement',
+              sourcePath: '${directory.path}/new.mp4',
+              sourceType: 'local_file',
+              wallpaperCategory: 'video',
+              wallpaperType: 'video',
+              compatibility: 'ready',
+              metadata: const WallpaperMetadataDto(tags: []),
+              addedAt: '',
+            ),
+          ];
+          service.typedFailure = 'candidate first frame failed';
+          await controller.apply('replacement', output: _monitor.name);
+          expect(store.assignments[_monitor.name], same(saved));
+          expect(
+            controller.isAppliedTo(source.sourceId, _monitor.name),
+            isTrue,
+          );
+          expect(controller.error, contains('candidate first frame failed'));
+        } finally {
+          await controller.shutdown();
+          await directory.delete(recursive: true);
+        }
+      },
+    );
+  }
 
   test(
     'saved wallpaper resumes at startup and after monitor reconnect',
@@ -166,8 +267,7 @@ void main() {
       final store = _Store();
       await store.saveAssignment(
         output: _monitor.name,
-        sourcePath: source.path,
-        sourceId: 'wallpaper-1',
+        source: _source(source.path, 'wallpaper-1', type: 'video'),
       );
       final service = _Service([_monitor]);
       final controller = await WayvidController.create(
@@ -218,8 +318,7 @@ void main() {
     await source.writeAsString('fixture');
     final store = _Store();
     await store.saveDefaultAssignment(
-      sourcePath: source.path,
-      sourceId: 'wallpaper-1',
+      source: _source(source.path, 'wallpaper-1', type: 'video'),
     );
     final service = _Service([_monitor]);
     final controller = await WayvidController.create(
@@ -254,7 +353,10 @@ void main() {
         const SettingsPatch(restoreLastWallpaper: false),
       ),
     );
-    await store.saveAssignment(output: _monitor.name, sourcePath: source.path);
+    await store.saveAssignment(
+      output: _monitor.name,
+      source: _source(source.path, source.path, type: 'video'),
+    );
     final service = _Service([_monitor]);
     final controller = await WayvidController.create(
       store,
@@ -298,8 +400,7 @@ void main() {
         final store = _Store();
         await store.saveAssignment(
           output: _monitor.name,
-          sourcePath: project.path,
-          sourceId: 'web-1',
+          source: _source(project.path, 'web-1', type: 'web'),
         );
         final saved = store.assignments[_monitor.name];
         final service = _WebRestoreService(

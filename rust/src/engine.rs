@@ -140,6 +140,15 @@ impl EngineController {
     }
 
     pub fn apply_wallpaper(&mut self, output: Option<String>, path: PathBuf) -> Result<(), String> {
+        self.apply_with_properties(output, path, serde_json::json!({}))
+    }
+
+    pub fn apply_with_properties(
+        &mut self,
+        output: Option<String>,
+        path: PathBuf,
+        properties: serde_json::Value,
+    ) -> Result<(), String> {
         if !self.is_running() {
             return Err("Engine is not running".into());
         }
@@ -152,9 +161,10 @@ impl EngineController {
         if waiting.is_empty() {
             return Err("No display outputs available".into());
         }
-        self.send_command(EngineCommand::ApplyWallpaper {
+        self.send_command(EngineCommand::ApplyWithProperties {
             output,
             path: path.clone(),
+            properties,
         })?;
         let deadline = Instant::now() + Duration::from_secs(12);
         while Instant::now() < deadline {
@@ -199,6 +209,24 @@ impl EngineController {
             std::thread::sleep(Duration::from_millis(10));
         }
         Err("Timed out waiting for wallpaper first frame".into())
+    }
+
+    pub fn set_properties(
+        &self,
+        output: String,
+        path: PathBuf,
+        properties: serde_json::Value,
+    ) -> Result<(), String> {
+        let (reply, receiver) = std::sync::mpsc::channel();
+        self.send_command(EngineCommand::SetProperties {
+            output,
+            path,
+            properties,
+            reply,
+        })?;
+        receiver
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|error| format!("Property update acknowledgement failed: {error}"))?
     }
 
     pub fn clear_wallpaper(&self, output: Option<String>) -> Result<(), String> {

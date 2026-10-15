@@ -9,19 +9,26 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:freezed_annotation/freezed_annotation.dart' hide protected;
 part 'bridge.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `preview_cache_path`, `validate_media_source`, `wallpaper_to_dto`
+// These functions are ignored because they are not marked as `pub`: `config_to_engine`, `describe_source`, `is_direct_image`, `lock`, `message`, `monitor_from_engine`, `parse_hdr_mode`, `parse_hwdec`, `parse_layout`, `parse_tone_mapping_algorithm`, `prepare_source`, `preview_cache_path`, `validate_source`, `wallpaper_dto`, `wallpaper_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ServiceInner`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>>
 abstract class WayvidService implements RustOpaqueInterface {
   Future<void> applyWallpaper({required String path, String? output});
+
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  });
 
   Future<void> cancelWebSupportInstall();
 
   Future<void> clearWallpaper({String? output});
 
   Future<void> createEngine({required EngineConfigDto config});
+
+  Future<WallpaperSourceDto> describeWallpaper({required String path});
 
   Future<ServiceInfo> initialize();
 
@@ -60,6 +67,12 @@ abstract class WayvidService implements RustOpaqueInterface {
   Future<void> uninstallWebSupport();
 
   Future<void> updateEngineConfig({required EngineConfigDto config});
+
+  Future<void> updateWallpaperProperties({
+    required String output,
+    required String sourcePath,
+    required String propertiesJson,
+  });
 
   Future<WebSupportDto> webSupportStatus();
 }
@@ -241,6 +254,12 @@ sealed class ServiceEvent with _$ServiceEvent {
     required String code,
     required String message,
   }) = ServiceEvent_Error;
+  const factory ServiceEvent.wallpaperFailed({
+    required String output,
+    required String path,
+    required String code,
+    required String message,
+  }) = ServiceEvent_WallpaperFailed;
 }
 
 class ServiceInfo {
@@ -380,6 +399,48 @@ class WallpaperMetadataDto {
           resolutionHeight == other.resolutionHeight &&
           fileSize == other.fileSize &&
           workshopId == other.workshopId;
+}
+
+/// Versioned assignment description. Rust revalidates disk metadata on apply.
+class WallpaperSourceDto {
+  final int version;
+  final String sourceId;
+  final String sourcePath;
+  final String wallpaperType;
+  final String? projectSourceJson;
+
+  /// Declared property names mapped to {"value": typed_value} objects.
+  final String propertyOverridesJson;
+
+  const WallpaperSourceDto({
+    required this.version,
+    required this.sourceId,
+    required this.sourcePath,
+    required this.wallpaperType,
+    this.projectSourceJson,
+    required this.propertyOverridesJson,
+  });
+
+  @override
+  int get hashCode =>
+      version.hashCode ^
+      sourceId.hashCode ^
+      sourcePath.hashCode ^
+      wallpaperType.hashCode ^
+      projectSourceJson.hashCode ^
+      propertyOverridesJson.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WallpaperSourceDto &&
+          runtimeType == other.runtimeType &&
+          version == other.version &&
+          sourceId == other.sourceId &&
+          sourcePath == other.sourcePath &&
+          wallpaperType == other.wallpaperType &&
+          projectSourceJson == other.projectSourceJson &&
+          propertyOverridesJson == other.propertyOverridesJson;
 }
 
 class WebSupportDto {

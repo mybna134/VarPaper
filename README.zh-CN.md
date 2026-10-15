@@ -4,7 +4,7 @@
 
 # VarPaper
 
-适用于 Linux Wayland 和 X11 桌面的动态视频壁纸管理器
+适用于 Linux Wayland 和 X11 桌面的动态壁纸管理器
 
 [![许可证](https://img.shields.io/badge/license-GPL--3.0--only-blue?style=for-the-badge)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
@@ -19,13 +19,13 @@
 
 </div>
 
-VarPaper 是一款 Flutter 桌面应用，使用 Rust 和 mpv 作为视频播放引擎。它会扫描你添加的文件夹，以及本机已安装的 Wallpaper Engine 创意工坊内容，供你在媒体库中选择壁纸并应用到一台或所有显示器。
+VarPaper 是一款 Flutter 桌面应用，使用 Rust 渲染引擎和 mpv 媒体播放。它会扫描你添加的文件夹，以及本机已安装的 Wallpaper Engine 创意工坊内容，供你在媒体库中选择壁纸并应用到一台或所有显示器。
 
 ## 功能
 
-- 浏览本地视频，支持预览、搜索和来源筛选。
+- 浏览视频、Scene、网页、图片和 GIF 壁纸，支持预览、搜索和类型／来源筛选。
 - 为不同显示器设置不同壁纸，也可以将同一壁纸应用到所有显示器。
-- 查找本机已安装的 Wallpaper Engine 创意工坊视频壁纸。创意工坊内容由 Steam 管理和下载，VarPaper 不负责下载。
+- 查找本机已安装的 Wallpaper Engine 创意工坊项目。创意工坊内容由 Steam 管理和下载，VarPaper 不负责下载。
 - 启动时恢复各显示器之前设置的壁纸。
 - 通过系统托盘暂停、继续播放或更换壁纸。
 - 在应用中配置播放、外观、开机启动和电池供电时暂停等选项。
@@ -62,11 +62,17 @@ Niri 出于安全原因会隐藏沙盒 Flatpak 应用的 `wlr-layer-shell` 协�
 
 ## 使用
 
-在 **文件夹** 页面添加视频文件夹。在 **媒体库** 中浏览或搜索，然后双击壁纸即可将其应用到所有显示器。打开壁纸详情可以将其应用到指定显示器。在 **显示器** 页面查看当前壁纸分配，在 **设置** 页面调整启动、播放和电源选项。
+在 **文件夹** 页面添加媒体或项目文件夹。在 **媒体库** 中浏览或搜索，然后双击壁纸即可将其应用到所有显示器。打开壁纸详情可以将其应用到指定显示器。在 **显示器** 页面查看当前壁纸分配，在 **设置** 页面调整启动、播放和电源选项。
 
 应用会将设置和显示器壁纸分配保存在平台的应用支持目录中的 Isar 数据库里。旧版 YAML 设置不会自动迁移。如需登录后自动恢复壁纸，请在设置中启用 **登录时启动** 和 **恢复上次壁纸**。**最小化到托盘** 和 **启动时最小化** 分别控制窗口行为。
 
 Wallpaper Engine 创意工坊内容必须先通过 Steam 安装到本机。VarPaper 支持视频项目和已实现的 Rust Scene 子集：图像图层、效果、动画、基础精灵粒子、文字、声音及基础脚本。高级粒子、系统音频可视化和完整时钟／脚本兼容留待后续实现；遇到未支持的必需功能会明确报错。网页项目使用可选的 Web 壁纸组件。详见 [Scene 支持范围](docs/src/dev/rust-scene.md)。
+
+图片壁纸持续显示，GIF 通过媒体渲染器播放动画。Scene 需要 OpenGL 3.3，目前采用拉伸布局。硬件解码和 HDR 是媒体播放设置，各类型的限制见[使用指南](docs/src/user-guide/gui.md)。
+
+网页壁纸需在 **设置 → Web 壁纸支持** 中主动安装组件。启动、扫描、应用和恢复均不会自动下载。网页使用本地资源，外部请求和下载被阻止；暂停保留最后画面并关闭页面，继续时重新创建，页面临时状态可能丢失。卸载停止网页播放并删除组件文件，保留项目和已保存的壁纸分配。
+
+Web 支持项目初始属性和系统播放音频回调。通过服务 API 提交的 Web 属性覆盖可随分配保存，图形属性编辑器尚未实现。音频采集不可用时提供零输入并自动重试；Scene 实时系统音频可视化和本地日期／时钟绑定仍待后续实现。Application 项目不会执行，详见[项目兼容说明](docs/src/features/workshop.md)。
 
 ## 从源码构建
 
@@ -78,7 +84,7 @@ cd VarPaper
 ./scripts/build-packages.sh
 ```
 
-脚本会将两个安装包写入 `dist/`。如需构建本地 Linux 程序包，请运行 `./scripts/build-linux.sh`。开发时可运行 `flutter run -d linux` 和 `cargo test --workspace`。
+脚本会将三种安装包写入 `dist/`。如需构建本地 Linux 程序包，请运行 `./scripts/build-linux.sh`。开发时可运行 `flutter run -d linux` 和 `cargo test --workspace`。
 
 ## 项目结构
 
@@ -88,7 +94,7 @@ linux/                  Flutter Linux runner 和 Rust 构建集成
 rust/                   Flutter/Rust 桥接服务
 crates/wayvid-engine/    Wayland/X11 壁纸播放
 crates/wayvid-library/  文件夹和创意工坊扫描、预览
-packaging/              Debian 和 Flatpak 打包配置
+packaging/              Debian、Flatpak 和 Arch 打包配置
 scripts/                构建和开发脚本
 ```
 

@@ -20,6 +20,19 @@ pub enum EngineCommand {
         output: Option<String>,
     },
 
+    ApplyWithProperties {
+        path: PathBuf,
+        output: Option<String>,
+        properties: serde_json::Value,
+    },
+
+    SetProperties {
+        path: PathBuf,
+        output: String,
+        properties: serde_json::Value,
+        reply: std::sync::mpsc::Sender<Result<(), String>>,
+    },
+
     /// Clear wallpaper from output(s)
     ClearWallpaper {
         /// Target output (None = all outputs)

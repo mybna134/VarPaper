@@ -1,50 +1,37 @@
 # VarPaper
 
-<div align="center">
-<img src="logo.svg" alt="VarPaper logo" width="100" height="100">
-</div>
+Animated wallpaper manager for Linux Wayland and native X11 desktops, with a
+Flutter interface and Rust rendering engine.
 
-Animated wallpaper manager for Wayland compositors.
+Browse Video, Scene, Web, Image and GIF wallpapers from local folders and locally
+installed Wallpaper Engine Workshop projects. Apply a wallpaper to one or all
+monitors, control playback from the tray and restore saved assignments on startup.
+Media uses mpv. Scene uses the implemented Rust subset and requires OpenGL 3.3;
+unsupported required features produce diagnostics. Web uses an optional component
+installed explicitly from Settings; startup and scanning never download it.
 
-**v0.5** introduces a GUI-first design — just open the app, pick a wallpaper, and apply.
+Advanced Scene particles, full SceneScript compatibility, live Scene system-audio
+visualization and local clock bindings remain deferred. Web supports project
+properties and system-playback audio callbacks. See the
+[compatibility table](features/workshop.md) for limits.
 
-## Features
+## Start
 
-- 🖼️ **GUI wallpaper browser** - Thumbnails, search, and one-click apply
-- 🖥️ **Multi-monitor support** - Independent wallpapers per display
-- ⚡ **Hardware accelerated** - VA-API/NVDEC via mpv
-- 🎮 **Steam Workshop** - Import video wallpapers from Wallpaper Engine
-- 🌈 **HDR support** - 10-bit HDR with tone-mapping
+Install a package using the [installation guide](user-guide/installation.md), then
+run `varpaper`. Add a directory on **Folders**, browse **Library**, and double-click
+to apply to all monitors or open details to select one monitor.
 
-## Tested Compositors
+Wayland requires a compositor exposing `wlr-layer-shell`; native X11 requires
+RandR. Desktop stacking depends on the compositor/window manager. See
+[multi-monitor use](user-guide/multi-monitor.md).
 
-- Hyprland ✓
-- Niri ✓
-- Sway (should work)
-- River (should work)
+## Guides
 
-## Quick Start
-
-```bash
-# Install (Arch)
-yay -S wayvid
-
-# Run
-wayvid-gui
-```
-
-## Quick Links
-
-- [Installation](./user-guide/installation.md)
-- [GUI Guide](./user-guide/gui.md)
-- [CLI Reference](./reference/cli.md)
-- [GitHub](https://github.com/YangYuS8/wayvid)
-
-## Requirements
-
-- Linux with Wayland
-- Compositor with wlr-layer-shell support
-- libmpv, libEGL, libwayland-client
+- [GUI and settings](user-guide/gui.md)
+- [Configuration and persistence](user-guide/configuration.md)
+- [Project discovery and compatibility](features/workshop.md)
+- [Rust Scene support and fixtures](dev/rust-scene.md)
+- [Building and native checks](dev/building.md)
 
 ## License
 

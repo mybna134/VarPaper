@@ -87,6 +87,18 @@ pub struct WallpaperDto {
     pub last_used: Option<String>,
 }
 
+/// Versioned assignment description. Rust revalidates disk metadata on apply.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WallpaperSourceDto {
+    pub version: u32,
+    pub source_id: String,
+    pub source_path: String,
+    pub wallpaper_type: String,
+    pub project_source_json: Option<String>,
+    /// Declared property names mapped to {"value": typed_value} objects.
+    pub property_overrides_json: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonitorDto {
     pub name: String,
@@ -134,10 +146,26 @@ pub struct PreviewDto {
 pub enum ServiceEvent {
     EngineStarted,
     EngineStopped,
-    WallpaperApplied { output: String, path: String },
-    WallpaperCleared { output: String },
-    OutputsChanged { outputs: Vec<MonitorDto> },
-    Error { code: String, message: String },
+    WallpaperApplied {
+        output: String,
+        path: String,
+    },
+    WallpaperCleared {
+        output: String,
+    },
+    OutputsChanged {
+        outputs: Vec<MonitorDto>,
+    },
+    Error {
+        code: String,
+        message: String,
+    },
+    WallpaperFailed {
+        output: String,
+        path: String,
+        code: String,
+        message: String,
+    },
 }
 
 struct ServiceInner {
@@ -410,6 +438,50 @@ impl WayvidService {
             .map_err(|message| BridgeError::message("clear_failed", message))
     }
 
+    pub fn describe_wallpaper(&self, path: String) -> Result<WallpaperSourceDto, BridgeError> {
+        describe_source(Path::new(&path))
+    }
+
+    pub async fn apply_wallpaper_source(
+        &self,
+        source: WallpaperSourceDto,
+        output: Option<String>,
+    ) -> Result<(), BridgeError> {
+        let (path, properties) = prepare_source(&source, self.web_component.playback_allowed())?;
+        let mut guard = self.lock()?;
+        // Uninstall uses the same lock; recheck availability before dispatch.
+        validate_source(&path, self.web_component.playback_allowed())?;
+        guard
+            .engine
+            .wait_for_outputs(Duration::from_secs(5))
+            .map_err(|message| BridgeError::message("engine_not_ready", message))?;
+        guard
+            .engine
+            .apply_with_properties(output, path, properties)
+            .map_err(|message| BridgeError::message("apply_failed", message))
+    }
+
+    pub async fn update_wallpaper_properties(
+        &self,
+        output: String,
+        source_path: String,
+        properties_json: String,
+    ) -> Result<(), BridgeError> {
+        let mut source = describe_source(Path::new(&source_path))?;
+        source.property_overrides_json = properties_json;
+        let (path, properties) = prepare_source(&source, self.web_component.playback_allowed())?;
+        if source.wallpaper_type != "web" {
+            return Err(BridgeError::message(
+                "unsupported_control",
+                "Live project properties are available only for Web wallpapers.",
+            ));
+        }
+        self.lock()?
+            .engine
+            .set_properties(output, path, properties)
+            .map_err(|message| BridgeError::message("property_update_failed", message))
+    }
+
     pub async fn pause(&self, output: Option<String>) -> Result<(), BridgeError> {
         self.lock()?
             .engine
@@ -464,6 +536,12 @@ impl WayvidService {
                     path,
                     error,
                 } => {
+                    guard.events.push_back(ServiceEvent::WallpaperFailed {
+                        output: output.clone(),
+                        path: path.to_string_lossy().into_owned(),
+                        code: "wallpaper_failed".into(),
+                        message: error.clone(),
+                    });
                     guard.events.push_back(ServiceEvent::Error {
                         code: "wallpaper_failed".to_string(),
                         message: format!("{output}: {}: {error}", path.display()),
@@ -497,6 +575,120 @@ impl WayvidService {
             .lock()
             .map_err(|_| BridgeError::message("service_poisoned", "Rust service lock poisoned"))
     }
+}
+
+fn describe_source(path: &Path) -> Result<WallpaperSourceDto, BridgeError> {
+    let root = if path.is_dir() {
+        path
+    } else {
+        path.parent().unwrap_or(Path::new("."))
+    };
+    let item = if root.join("project.json").is_file() {
+        let shared = SteamLibrary::try_discover()
+            .map(|steam| steam.shared_asset_roots())
+            .unwrap_or_default();
+        wayvid_library::project::discover_project(
+            root,
+            wayvid_library::SourceType::LocalDirectory,
+            None,
+            shared,
+        )
+        .map_err(BridgeError::from)?
+    } else {
+        let kind = FolderScanner::new()
+            .get_wallpaper_type(path)
+            .ok_or_else(|| BridgeError::message("unsupported", "Unsupported wallpaper source"))?;
+        let path = path
+            .canonicalize()
+            .map_err(|error| BridgeError::message("invalid_source", error.to_string()))?;
+        if !path.is_file() {
+            return Err(BridgeError::message(
+                "invalid_source",
+                "Wallpaper source must be a file",
+            ));
+        }
+        WallpaperItem::new(
+            path,
+            String::new(),
+            wayvid_library::SourceType::LocalFile,
+            kind,
+        )
+    };
+    let dto = wallpaper_to_dto(&item);
+    Ok(WallpaperSourceDto {
+        version: 1,
+        source_id: dto.id,
+        source_path: dto.source_path,
+        wallpaper_type: dto.wallpaper_type,
+        project_source_json: dto.project_source_json,
+        property_overrides_json: "{}".into(),
+    })
+}
+
+fn prepare_source(
+    source: &WallpaperSourceDto,
+    web_installed: bool,
+) -> Result<(PathBuf, serde_json::Value), BridgeError> {
+    if source.version != 1 {
+        return Err(BridgeError::message(
+            "unsupported_source_version",
+            "Unsupported wallpaper source description version",
+        ));
+    }
+    let fresh = describe_source(Path::new(&source.source_path))?;
+    if fresh.source_id != source.source_id || fresh.wallpaper_type != source.wallpaper_type {
+        return Err(BridgeError::message(
+            "source_changed",
+            "Wallpaper identity or type changed; reload its description",
+        ));
+    }
+    let parse_project =
+        |value: &Option<String>| -> Result<Option<wayvid_library::ProjectSource>, BridgeError> {
+            value
+                .as_deref()
+                .map(serde_json::from_str)
+                .transpose()
+                .map_err(|error| {
+                    BridgeError::message(
+                        "invalid_source",
+                        format!("Invalid project description: {error}"),
+                    )
+                })
+        };
+    let project = parse_project(&fresh.project_source_json)?;
+    if project != parse_project(&source.project_source_json)? {
+        return Err(BridgeError::message(
+            "source_changed",
+            "Wallpaper project description changed; reload its description",
+        ));
+    }
+    let path = validate_source(Path::new(&fresh.source_path), web_installed)?;
+    if source.property_overrides_json.len() > 65536 {
+        return Err(BridgeError::message(
+            "invalid_properties",
+            "Property overrides exceed 64 KiB",
+        ));
+    }
+    let properties: serde_json::Value = serde_json::from_str(&source.property_overrides_json)
+        .map_err(|error| BridgeError::message("invalid_properties", error.to_string()))?;
+    let overrides = properties.as_object().ok_or_else(|| {
+        BridgeError::message("invalid_properties", "Properties must be an object")
+    })?;
+    if !overrides.is_empty() {
+        if fresh.wallpaper_type != "web" {
+            return Err(BridgeError::message(
+                "unsupported_control",
+                "Project property overrides are available only for Web wallpapers.",
+            ));
+        }
+        let schema = &project
+            .as_ref()
+            .ok_or_else(|| BridgeError::message("invalid_source", "Project description missing"))?
+            .properties;
+        wayvid_engine::properties::merge(schema, &properties)
+            .map_err(|error| BridgeError::message("invalid_properties", format!("{error:#}")))?;
+    }
+    Ok((path, properties))
 }
 
 // Keep the legacy path API safe while typed renderers are being integrated.
@@ -803,6 +995,84 @@ mod tests {
             parse_tone_mapping_algorithm("other"),
             ToneMappingAlgorithm::Hable
         );
+    }
+
+    #[test]
+    fn descriptions_preserve_media_types_and_validate_versions_and_overrides() {
+        let root = tempfile::tempdir().unwrap();
+        for (extension, kind) in [("mp4", "video"), ("png", "image"), ("gif", "gif")] {
+            let path = root.path().join(format!("wallpaper.{extension}"));
+            std::fs::write(&path, b"fixture").unwrap();
+            let mut source = describe_source(&path).unwrap();
+            assert_eq!(source.wallpaper_type, kind);
+            assert!(source.project_source_json.is_none());
+            let encoded = serde_json::to_string(&source).unwrap();
+            let restored: WallpaperSourceDto = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(
+                prepare_source(&restored, false).unwrap().0,
+                path.canonicalize().unwrap()
+            );
+            source.version = 2;
+            assert_eq!(
+                prepare_source(&source, false).unwrap_err().code,
+                "unsupported_source_version"
+            );
+            source.version = 1;
+            source.property_overrides_json = "[]".into();
+            assert_eq!(
+                prepare_source(&source, false).unwrap_err().code,
+                "invalid_properties"
+            );
+            source.property_overrides_json = r#"{"caption":{"value":"x"}}"#.into();
+            assert_eq!(
+                prepare_source(&source, false).unwrap_err().code,
+                "unsupported_control"
+            );
+            source.property_overrides_json = "{}".into();
+            source.wallpaper_type = "scene".into();
+            assert_eq!(
+                prepare_source(&source, false).unwrap_err().code,
+                "source_changed"
+            );
+        }
+    }
+
+    #[test]
+    fn descriptions_adapt_legacy_project_paths_and_reject_stale_context() {
+        let root = tempfile::tempdir().unwrap();
+        for (kind, entry) in [("scene", "scene.json"), ("web", "index.html")] {
+            std::fs::write(root.path().join("project.json"), format!(r#"{{"type":"{kind}","file":"{entry}","general":{{"properties":{{"speed":{{"type":"slider","value":0.5}}}}}}}}"#)).unwrap();
+            std::fs::write(root.path().join(entry), "{}").unwrap();
+            let source = describe_source(root.path()).unwrap();
+            assert_eq!(source.wallpaper_type, kind);
+            for path in [root.path().join("project.json"), root.path().join(entry)] {
+                let legacy = describe_source(&path).unwrap();
+                assert_eq!(source.source_id, legacy.source_id);
+                assert_eq!(source.project_source_json, legacy.project_source_json);
+            }
+            let mut forged = source.clone();
+            let mut project: wayvid_library::ProjectSource =
+                serde_json::from_str(forged.project_source_json.as_deref().unwrap()).unwrap();
+            project.root = "/unrelated".into();
+            forged.project_source_json = Some(serde_json::to_string(&project).unwrap());
+            assert_eq!(
+                prepare_source(&forged, false).unwrap_err().code,
+                "source_changed"
+            );
+            if kind == "web" {
+                assert_eq!(
+                    prepare_source(&source, false).unwrap_err().code,
+                    "requires_renderer"
+                );
+            } else {
+                let mut overrides = source;
+                overrides.property_overrides_json = r#"{"speed":{"value":0.75}}"#.into();
+                assert_eq!(
+                    prepare_source(&overrides, false).unwrap_err().code,
+                    "unsupported_control"
+                );
+            }
+        }
     }
 
     #[test]

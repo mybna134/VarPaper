@@ -422,11 +422,42 @@ fn handle_command(
             let _ = reply.send(crate::egl::native_counts());
         }
         EngineCommand::ApplyWallpaper { path, output } => {
+            handle_command(
+                EngineCommand::ApplyWithProperties {
+                    path,
+                    output,
+                    properties: serde_json::json!({}),
+                },
+                config,
+                display,
+                egl,
+                outputs,
+                active,
+                events,
+            );
+        }
+        EngineCommand::SetProperties {
+            path,
+            output,
+            properties,
+            reply,
+        } => {
+            let result = active
+                .get_mut(&output)
+                .context("Output has no wallpaper")
+                .and_then(|wallpaper| wallpaper.session.set_properties(&path, &properties));
+            let _ = reply.send(result.map_err(|error| format!("{error:#}")));
+        }
+        EngineCommand::ApplyWithProperties {
+            path,
+            output,
+            properties,
+        } => {
             let names: Vec<_> = output
                 .map(|name| vec![name])
                 .unwrap_or_else(|| outputs.keys().cloned().collect());
             for name in names {
-                match apply_wallpaper(&path, &name, config, display, egl, outputs, active) {
+                match apply_wallpaper(&path, &properties, &name, config, display, outputs, active) {
                     Ok(()) => {}
                     Err(error) => {
                         let _ = events.send(EngineEvent::WallpaperFailed {
@@ -525,10 +556,10 @@ fn for_each_session(
 
 fn apply_wallpaper(
     path: &Path,
+    properties: &serde_json::Value,
     name: &str,
     config: &EngineConfig,
     display: &Display,
-    _egl: &EglContext,
     outputs: &HashMap<String, OutputInfo>,
     active: &mut HashMap<String, ActiveWallpaper>,
 ) -> Result<()> {
@@ -536,10 +567,15 @@ fn apply_wallpaper(
         .get(name)
         .with_context(|| format!("X11 monitor {name} not found"))?;
     if let Some(existing) = active.get_mut(name) {
-        return existing.session.load_new_wallpaper(path);
+        return existing.session.load_with_properties(path, properties);
     }
     let window = display.create_desktop_window(output)?;
-    match WallpaperSession::new(path.to_path_buf(), output.clone(), config.video.clone()) {
+    match WallpaperSession::new_with_properties(
+        path.to_path_buf(),
+        output.clone(),
+        config.video.clone(),
+        properties.clone(),
+    ) {
         Ok(mut session) => {
             if !config.auto_play {
                 session.pause();
@@ -1112,10 +1148,10 @@ mod tests {
             for _ in 0..5 {
                 apply_wallpaper(
                     &path,
+                    &serde_json::json!({}),
                     &output.name,
                     &config,
                     &display,
-                    &egl,
                     &outputs,
                     &mut active,
                 )
@@ -1130,10 +1166,10 @@ mod tests {
                 let original_surface = wallpaper.session.surface_identity();
                 apply_wallpaper(
                     &path,
+                    &serde_json::json!({}),
                     &output.name,
                     &config,
                     &display,
-                    &egl,
                     &outputs,
                     &mut active,
                 )
@@ -1258,10 +1294,10 @@ mod tests {
         let mut active = HashMap::new();
         apply_wallpaper(
             &path,
+            &serde_json::json!({}),
             &output.name,
             &EngineConfig::default(),
             &display,
-            &egl,
             &outputs,
             &mut active,
         )

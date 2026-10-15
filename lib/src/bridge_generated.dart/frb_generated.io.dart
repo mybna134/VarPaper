@@ -62,6 +62,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   BigInt dco_decode_box_autoadd_u_64(dynamic raw);
 
   @protected
+  WallpaperSourceDto dco_decode_box_autoadd_wallpaper_source_dto(dynamic raw);
+
+  @protected
   BridgeError dco_decode_bridge_error(dynamic raw);
 
   @protected
@@ -134,6 +137,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   WallpaperMetadataDto dco_decode_wallpaper_metadata_dto(dynamic raw);
 
   @protected
+  WallpaperSourceDto dco_decode_wallpaper_source_dto(dynamic raw);
+
+  @protected
   WebSupportDto dco_decode_web_support_dto(dynamic raw);
 
   @protected
@@ -173,6 +179,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  WallpaperSourceDto sse_decode_box_autoadd_wallpaper_source_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   BridgeError sse_decode_bridge_error(SseDeserializer deserializer);
@@ -253,6 +264,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  WallpaperSourceDto sse_decode_wallpaper_source_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   WebSupportDto sse_decode_web_support_dto(SseDeserializer deserializer);
 
   @protected
@@ -296,6 +312,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_wallpaper_source_dto(
+    WallpaperSourceDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bridge_error(BridgeError self, SseSerializer serializer);
@@ -384,6 +406,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_wallpaper_metadata_dto(
     WallpaperMetadataDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_wallpaper_source_dto(
+    WallpaperSourceDto self,
     SseSerializer serializer,
   );
 

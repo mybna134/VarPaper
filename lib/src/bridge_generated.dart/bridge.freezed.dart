@@ -55,7 +55,7 @@ extension ServiceEventPatterns on ServiceEvent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult Function( ServiceEvent_Error value)?  error,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult Function( ServiceEvent_Error value)?  error,TResult Function( ServiceEvent_WallpaperFailed value)?  wallpaperFailed,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
@@ -64,7 +64,8 @@ return engineStopped(_that);case ServiceEvent_WallpaperApplied() when wallpaperA
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged() when outputsChanged != null:
 return outputsChanged(_that);case ServiceEvent_Error() when error != null:
-return error(_that);case _:
+return error(_that);case ServiceEvent_WallpaperFailed() when wallpaperFailed != null:
+return wallpaperFailed(_that);case _:
   return orElse();
 
 }
@@ -82,7 +83,7 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ServiceEvent_EngineStarted value)  engineStarted,required TResult Function( ServiceEvent_EngineStopped value)  engineStopped,required TResult Function( ServiceEvent_WallpaperApplied value)  wallpaperApplied,required TResult Function( ServiceEvent_WallpaperCleared value)  wallpaperCleared,required TResult Function( ServiceEvent_OutputsChanged value)  outputsChanged,required TResult Function( ServiceEvent_Error value)  error,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( ServiceEvent_EngineStarted value)  engineStarted,required TResult Function( ServiceEvent_EngineStopped value)  engineStopped,required TResult Function( ServiceEvent_WallpaperApplied value)  wallpaperApplied,required TResult Function( ServiceEvent_WallpaperCleared value)  wallpaperCleared,required TResult Function( ServiceEvent_OutputsChanged value)  outputsChanged,required TResult Function( ServiceEvent_Error value)  error,required TResult Function( ServiceEvent_WallpaperFailed value)  wallpaperFailed,}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted():
@@ -91,7 +92,8 @@ return engineStopped(_that);case ServiceEvent_WallpaperApplied():
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared():
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged():
 return outputsChanged(_that);case ServiceEvent_Error():
-return error(_that);}
+return error(_that);case ServiceEvent_WallpaperFailed():
+return wallpaperFailed(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -105,7 +107,7 @@ return error(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult? Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult? Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult? Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult? Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult? Function( ServiceEvent_Error value)?  error,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( ServiceEvent_EngineStarted value)?  engineStarted,TResult? Function( ServiceEvent_EngineStopped value)?  engineStopped,TResult? Function( ServiceEvent_WallpaperApplied value)?  wallpaperApplied,TResult? Function( ServiceEvent_WallpaperCleared value)?  wallpaperCleared,TResult? Function( ServiceEvent_OutputsChanged value)?  outputsChanged,TResult? Function( ServiceEvent_Error value)?  error,TResult? Function( ServiceEvent_WallpaperFailed value)?  wallpaperFailed,}){
 final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
@@ -114,7 +116,8 @@ return engineStopped(_that);case ServiceEvent_WallpaperApplied() when wallpaperA
 return wallpaperApplied(_that);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that);case ServiceEvent_OutputsChanged() when outputsChanged != null:
 return outputsChanged(_that);case ServiceEvent_Error() when error != null:
-return error(_that);case _:
+return error(_that);case ServiceEvent_WallpaperFailed() when wallpaperFailed != null:
+return wallpaperFailed(_that);case _:
   return null;
 
 }
@@ -131,7 +134,7 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  engineStarted,TResult Function()?  engineStopped,TResult Function( String output,  String path)?  wallpaperApplied,TResult Function( String output)?  wallpaperCleared,TResult Function( List<MonitorDto> outputs)?  outputsChanged,TResult Function( String code,  String message)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  engineStarted,TResult Function()?  engineStopped,TResult Function( String output,  String path)?  wallpaperApplied,TResult Function( String output)?  wallpaperCleared,TResult Function( List<MonitorDto> outputs)?  outputsChanged,TResult Function( String code,  String message)?  error,TResult Function( String output,  String path,  String code,  String message)?  wallpaperFailed,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
 return engineStarted();case ServiceEvent_EngineStopped() when engineStopped != null:
@@ -139,7 +142,8 @@ return engineStopped();case ServiceEvent_WallpaperApplied() when wallpaperApplie
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged() when outputsChanged != null:
 return outputsChanged(_that.outputs);case ServiceEvent_Error() when error != null:
-return error(_that.code,_that.message);case _:
+return error(_that.code,_that.message);case ServiceEvent_WallpaperFailed() when wallpaperFailed != null:
+return wallpaperFailed(_that.output,_that.path,_that.code,_that.message);case _:
   return orElse();
 
 }
@@ -157,7 +161,7 @@ return error(_that.code,_that.message);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  engineStarted,required TResult Function()  engineStopped,required TResult Function( String output,  String path)  wallpaperApplied,required TResult Function( String output)  wallpaperCleared,required TResult Function( List<MonitorDto> outputs)  outputsChanged,required TResult Function( String code,  String message)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  engineStarted,required TResult Function()  engineStopped,required TResult Function( String output,  String path)  wallpaperApplied,required TResult Function( String output)  wallpaperCleared,required TResult Function( List<MonitorDto> outputs)  outputsChanged,required TResult Function( String code,  String message)  error,required TResult Function( String output,  String path,  String code,  String message)  wallpaperFailed,}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted():
 return engineStarted();case ServiceEvent_EngineStopped():
@@ -165,7 +169,8 @@ return engineStopped();case ServiceEvent_WallpaperApplied():
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared():
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged():
 return outputsChanged(_that.outputs);case ServiceEvent_Error():
-return error(_that.code,_that.message);}
+return error(_that.code,_that.message);case ServiceEvent_WallpaperFailed():
+return wallpaperFailed(_that.output,_that.path,_that.code,_that.message);}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -179,7 +184,7 @@ return error(_that.code,_that.message);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  engineStarted,TResult? Function()?  engineStopped,TResult? Function( String output,  String path)?  wallpaperApplied,TResult? Function( String output)?  wallpaperCleared,TResult? Function( List<MonitorDto> outputs)?  outputsChanged,TResult? Function( String code,  String message)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  engineStarted,TResult? Function()?  engineStopped,TResult? Function( String output,  String path)?  wallpaperApplied,TResult? Function( String output)?  wallpaperCleared,TResult? Function( List<MonitorDto> outputs)?  outputsChanged,TResult? Function( String code,  String message)?  error,TResult? Function( String output,  String path,  String code,  String message)?  wallpaperFailed,}) {final _that = this;
 switch (_that) {
 case ServiceEvent_EngineStarted() when engineStarted != null:
 return engineStarted();case ServiceEvent_EngineStopped() when engineStopped != null:
@@ -187,7 +192,8 @@ return engineStopped();case ServiceEvent_WallpaperApplied() when wallpaperApplie
 return wallpaperApplied(_that.output,_that.path);case ServiceEvent_WallpaperCleared() when wallpaperCleared != null:
 return wallpaperCleared(_that.output);case ServiceEvent_OutputsChanged() when outputsChanged != null:
 return outputsChanged(_that.outputs);case ServiceEvent_Error() when error != null:
-return error(_that.code,_that.message);case _:
+return error(_that.code,_that.message);case ServiceEvent_WallpaperFailed() when wallpaperFailed != null:
+return wallpaperFailed(_that.output,_that.path,_that.code,_that.message);case _:
   return null;
 
 }
@@ -200,7 +206,7 @@ return error(_that.code,_that.message);case _:
 
 class ServiceEvent_EngineStarted extends ServiceEvent {
   const ServiceEvent_EngineStarted(): super._();
-  
+
 
 
 
@@ -232,7 +238,7 @@ String toString() {
 
 class ServiceEvent_EngineStopped extends ServiceEvent {
   const ServiceEvent_EngineStopped(): super._();
-  
+
 
 
 
@@ -264,7 +270,7 @@ String toString() {
 
 class ServiceEvent_WallpaperApplied extends ServiceEvent {
   const ServiceEvent_WallpaperApplied({required this.output, required this.path}): super._();
-  
+
 
  final  String output;
  final  String path;
@@ -332,7 +338,7 @@ as String,
 
 class ServiceEvent_WallpaperCleared extends ServiceEvent {
   const ServiceEvent_WallpaperCleared({required this.output}): super._();
-  
+
 
  final  String output;
 
@@ -398,7 +404,7 @@ as String,
 
 class ServiceEvent_OutputsChanged extends ServiceEvent {
   const ServiceEvent_OutputsChanged({required  List<MonitorDto> outputs}): _outputs = outputs,super._();
-  
+
 
  final  List<MonitorDto> _outputs;
  List<MonitorDto> get outputs {
@@ -470,7 +476,7 @@ as List<MonitorDto>,
 
 class ServiceEvent_Error extends ServiceEvent {
   const ServiceEvent_Error({required this.code, required this.message}): super._();
-  
+
 
  final  String code;
  final  String message;
@@ -525,6 +531,78 @@ class _$ServiceEvent_ErrorCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') $Res call({Object? code = null,Object? message = null,}) {
   return _then(ServiceEvent_Error(
 code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
+as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class ServiceEvent_WallpaperFailed extends ServiceEvent {
+  const ServiceEvent_WallpaperFailed({required this.output, required this.path, required this.code, required this.message}): super._();
+
+
+ final  String output;
+ final  String path;
+ final  String code;
+ final  String message;
+
+/// Create a copy of ServiceEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ServiceEvent_WallpaperFailedCopyWith<ServiceEvent_WallpaperFailed> get copyWith => _$ServiceEvent_WallpaperFailedCopyWithImpl<ServiceEvent_WallpaperFailed>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ServiceEvent_WallpaperFailed&&(identical(other.output, output) || other.output == output)&&(identical(other.path, path) || other.path == path)&&(identical(other.code, code) || other.code == code)&&(identical(other.message, message) || other.message == message));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,output,path,code,message);
+
+@override
+String toString() {
+  return 'ServiceEvent.wallpaperFailed(output: $output, path: $path, code: $code, message: $message)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ServiceEvent_WallpaperFailedCopyWith<$Res> implements $ServiceEventCopyWith<$Res> {
+  factory $ServiceEvent_WallpaperFailedCopyWith(ServiceEvent_WallpaperFailed value, $Res Function(ServiceEvent_WallpaperFailed) _then) = _$ServiceEvent_WallpaperFailedCopyWithImpl;
+@useResult
+$Res call({
+ String output, String path, String code, String message
+});
+
+
+
+
+}
+/// @nodoc
+class _$ServiceEvent_WallpaperFailedCopyWithImpl<$Res>
+    implements $ServiceEvent_WallpaperFailedCopyWith<$Res> {
+  _$ServiceEvent_WallpaperFailedCopyWithImpl(this._self, this._then);
+
+  final ServiceEvent_WallpaperFailed _self;
+  final $Res Function(ServiceEvent_WallpaperFailed) _then;
+
+/// Create a copy of ServiceEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? output = null,Object? path = null,Object? code = null,Object? message = null,}) {
+  return _then(ServiceEvent_WallpaperFailed(
+output: null == output ? _self.output : output // ignore: cast_nullable_to_non_nullable
+as String,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,code: null == code ? _self.code : code // ignore: cast_nullable_to_non_nullable
 as String,message: null == message ? _self.message : message // ignore: cast_nullable_to_non_nullable
 as String,
   ));

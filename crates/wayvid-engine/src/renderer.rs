@@ -132,6 +132,28 @@ pub fn create_renderer(
     context: &EglContext,
     window: Rc<EglWindow>,
 ) -> Result<Box<dyn WallpaperRenderer>> {
+    create_renderer_with_properties(
+        path,
+        config,
+        output,
+        context,
+        window,
+        &serde_json::json!({}),
+    )
+}
+
+pub fn create_renderer_with_properties(
+    path: &Path,
+    config: &VideoConfig,
+    output: &OutputInfo,
+    context: &EglContext,
+    window: Rc<EglWindow>,
+    overrides: &serde_json::Value,
+) -> Result<Box<dyn WallpaperRenderer>> {
+    let has_overrides = !overrides
+        .as_object()
+        .context("Properties must be an object")?
+        .is_empty();
     let root = if path.is_dir() {
         Some(path)
     } else {
@@ -156,6 +178,10 @@ pub fn create_renderer(
         }
         match item.wallpaper_type {
             WallpaperType::Scene => {
+                anyhow::ensure!(
+                    !has_overrides,
+                    "Scene property overrides are not available in current delivery"
+                );
                 let project = item.project.context("Scene project source missing")?;
                 let resources = ProjectResources::new(&project)?;
                 let renderer = RustSceneRenderer::new_with_properties(
@@ -183,7 +209,7 @@ pub fn create_renderer(
                     output.width,
                     output.height,
                     config,
-                    &project.properties,
+                    &crate::properties::merge(&project.properties, overrides)?,
                 )?));
             }
             WallpaperType::Video | WallpaperType::Image | WallpaperType::Gif => {
@@ -192,6 +218,10 @@ pub fn create_renderer(
             WallpaperType::Unsupported => bail!("Unsupported project type"),
         }
     }
+    anyhow::ensure!(
+        !has_overrides,
+        "This wallpaper does not support project properties"
+    );
     std::ffi::CString::new(media_path.to_string_lossy().as_bytes())?;
     let extension = media_path
         .extension()

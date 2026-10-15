@@ -537,73 +537,7 @@ impl WallpaperRenderer for WebRenderer {
         true
     }
     fn set_properties(&mut self, updates: &Value) -> Result<()> {
-        let updates = updates
-            .as_object()
-            .context("Properties must be an object")?;
-        for (name, update) in updates {
-            let declared = self
-                .properties
-                .get(name)
-                .context("Undeclared wallpaper property")?;
-            let value = update.get("value").context("Property value missing")?;
-            let original = declared
-                .get("value")
-                .context("Declared property value missing")?;
-            ensure!(
-                (original.is_boolean() && value.is_boolean())
-                    || (original.is_number() && value.is_number())
-                    || (original.is_string() && value.is_string()),
-                "Wallpaper property value has incorrect type"
-            );
-            if declared.get("type").and_then(Value::as_str) == Some("color") {
-                let components = value
-                    .as_str()
-                    .context("Color must be a string")?
-                    .split_whitespace()
-                    .map(str::parse::<f32>)
-                    .collect::<std::result::Result<Vec<_>, _>>()?;
-                ensure!(
-                    components.len() == 3
-                        && components
-                            .iter()
-                            .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
-                    "Color requires three values in 0..1"
-                );
-            }
-            if let Some(options) = declared.get("options").and_then(Value::as_array) {
-                ensure!(
-                    options
-                        .iter()
-                        .any(
-                            |option| option.get("value").is_some_and(|allowed| allowed == value
-                                || (allowed.is_number()
-                                    && value.is_number()
-                                    && allowed.as_f64() == value.as_f64()))
-                        ),
-                    "Property choice is not declared"
-                );
-            }
-            if let Some(number) = value.as_f64() {
-                ensure!(
-                    number.is_finite(),
-                    "Wallpaper property value must be finite"
-                );
-                if let Some(min) = declared.get("min").and_then(Value::as_f64) {
-                    ensure!(number >= min, "Property below minimum");
-                }
-                if let Some(max) = declared.get("max").and_then(Value::as_f64) {
-                    ensure!(number <= max, "Property above maximum");
-                }
-            }
-            ensure!(
-                update.as_object().is_some_and(|obj| obj.len() == 1),
-                "Only property values may be updated"
-            );
-        }
-        let mut merged = self.properties.clone();
-        for (name, update) in updates {
-            merged[name]["value"] = update["value"].clone();
-        }
+        let merged = crate::properties::merge(&self.properties, updates)?;
         let mut command = self.command("properties");
         command["properties"] = merged.clone();
         self.host.borrow_mut().call(command)?;

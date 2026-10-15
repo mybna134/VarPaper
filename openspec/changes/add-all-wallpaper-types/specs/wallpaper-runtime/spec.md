@@ -27,7 +27,7 @@ The system SHALL apply pause/resume, static-frame retention, mute/volume, suppor
 - **AND** resume SHALL restore their playback without losing assignments
 
 ### Requirement: Assignment persistence and truthful status
-The system SHALL persist sufficient project/type/property information to restore each supported assignment. Existing path-only media assignments SHALL remain restorable. Success SHALL be reported and persisted only after renderer initialization and first-frame readiness.
+The system SHALL persist sufficient project/type/property information to restore each supported assignment. Only the current versioned source-description format SHALL be saved and restored. Existing path-only assignments SHALL NOT be read or migrated; users must reapply their wallpapers. Success SHALL be reported and persisted only after renderer initialization and first-frame readiness.
 
 #### Scenario: Restart with project assignments
 - **WHEN** the application restarts with saved Scene/Web assignments and property overrides and their required components are installed

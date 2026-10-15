@@ -337,17 +337,10 @@ class WayvidController extends ChangeNotifier {
             FileSystemEntityType.notFound) {
           continue;
         }
-        await service.applyWallpaper(
-          path: assignment.sourcePath,
-          output: output,
-        );
-        final matching = wallpapers.where(
-          (item) => item.sourcePath == assignment.sourcePath,
-        );
-        final id =
-            assignment.sourceId ??
-            (matching.isEmpty ? null : matching.first.id);
-        if (id != null) appliedByOutput[output] = id;
+        final source = assignment.sourceDescription;
+        if (source == null) continue;
+        await service.applyWallpaperSource(source: source, output: output);
+        appliedByOutput[output] = source.sourceId;
       } catch (exception) {
         error = _errorMessage(exception);
       }
@@ -355,7 +348,11 @@ class WayvidController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> apply(String wallpaperId, {String? output}) async {
+  Future<void> apply(
+    String wallpaperId, {
+    String? output,
+    String propertyOverridesJson = '{}',
+  }) async {
     await _run(() async {
       final wallpaper = wallpapers.firstWhere((item) => item.id == wallpaperId);
       if (wallpaper.wallpaperType == 'web' &&
@@ -373,32 +370,35 @@ class WayvidController extends ChangeNotifier {
         await service.createEngine(config: settings.toEngineConfig());
         engineRunning = true;
       }
-      await service.applyWallpaper(path: wallpaper.sourcePath, output: output);
+      final source = WallpaperSourceDto(
+        version: 1,
+        sourceId: wallpaper.id,
+        sourcePath: wallpaper.sourcePath,
+        wallpaperType: wallpaper.wallpaperType,
+        projectSourceJson: wallpaper.projectSourceJson,
+        propertyOverridesJson: propertyOverridesJson,
+      );
+      await service.applyWallpaperSource(source: source, output: output);
       if (manuallyPaused) await service.pause(output: output);
       if (output == null) {
-        await settingsStore.saveDefaultAssignment(
-          sourcePath: wallpaper.sourcePath,
-          sourceId: wallpaper.id,
-        );
+        await settingsStore.saveDefaultAssignment(source: source);
         _assignments.clear();
         _assignments['all'] = WallpaperAssignmentRecord()
           ..output = 'all'
           ..sourcePath = wallpaper.sourcePath
-          ..sourceId = wallpaper.id;
+          ..sourceId = wallpaper.id
+          ..setSourceDescription(source);
         appliedByOutput.clear();
         for (final monitor in monitors) {
           appliedByOutput[monitor.name] = wallpaper.id;
         }
       } else {
-        await settingsStore.saveAssignment(
-          output: output,
-          sourcePath: wallpaper.sourcePath,
-          sourceId: wallpaper.id,
-        );
+        await settingsStore.saveAssignment(output: output, source: source);
         _assignments[output] = WallpaperAssignmentRecord()
           ..output = output
           ..sourcePath = wallpaper.sourcePath
-          ..sourceId = wallpaper.id;
+          ..sourceId = wallpaper.id
+          ..setSourceDescription(source);
         appliedByOutput[output] = wallpaper.id;
       }
     });
@@ -413,7 +413,7 @@ class WayvidController extends ChangeNotifier {
         appliedByOutput.clear();
       } else {
         if (_assignments.containsKey('all')) {
-          await settingsStore.saveAssignment(output: output, sourcePath: '');
+          await settingsStore.saveAssignment(output: output, source: null);
           _assignments[output] = WallpaperAssignmentRecord()
             ..output = output
             ..sourcePath = '';

@@ -1,6 +1,6 @@
 # Steam Workshop
 
-Import video wallpapers from Wallpaper Engine.
+Use locally installed Wallpaper Engine projects and standalone media.
 
 ## Project discovery
 
@@ -34,7 +34,7 @@ entries are not sent to the video thumbnail extractor.
 
 The easiest way to use Workshop wallpapers is through the GUI:
 
-1. Open `wayvid-gui`
+1. Open `varpaper`
 2. Go to **Folders** tab
 3. Add your Workshop content folder:
    ```
@@ -64,7 +64,7 @@ The workshop content is typically at:
 - Video wallpapers (.mp4, .webm, .mkv)
 - Image and GIF media
 - Local Web HTML/CSS/JS, Canvas/WebGL after installing **Web wallpaper support**
-- Web initial project properties and system-playback audio listener callbacks
+- Web initial/updated project properties and system-playback audio listener callbacks
 - Rust Scene image layers, multipass effects, animated textures, core sprite
   particles, text, once/loop sound and basic SceneScript hooks
 
@@ -76,18 +76,27 @@ assignment fails, its error is shown and it can be reapplied to retry; a failed
 candidate preserves the current wallpaper.
 
 **Not supported:**
-- Editing/persisting project property overrides in the GUI (still in development)
+- GUI project property editing and Scene property overrides (deferred)
 - Advanced Scene particles, system-audio visualization and injected clock bindings
 - Full Wallpaper Engine SceneScript compatibility and alternate Scene layout modes
 - Interactive wallpapers
 
-Look for "Video" tag in Workshop.
+Saved assignments retain versioned project descriptions and Web overrides supplied
+through the service API. The GUI currently uses declared initial properties and
+has no property editor. Old path-only assignments are not read or migrated; reapply wallpapers to save the current format.
+A missing Web component or failed replacement preserves the saved assignment;
+install/repair the component and retry with **Restore last wallpaper** enabled.
+
+For the supported script, audio and time contracts and their fixtures, see
+[Rust Scene checks](../dev/rust-scene.md#script-properties-audio-and-time-contracts).
 
 ## Troubleshooting
 
-**"No video file found":**
-- The wallpaper may not be a video type
-- Check the folder for actual video files: `ls ~/.steam/.../431960/<id>/`
+**Project cannot be applied:**
+- Check the compatibility reason in wallpaper details and any application error.
+- Keep `project.json`, its entry and resources together; do not import only a preview.
+- Install or repair **Web wallpaper support** for Web projects.
+- For Scene, check the named missing asset or unsupported feature against the Rust support table.
 
 **Workshop folder not found:**
 - Ensure Steam and Wallpaper Engine are installed

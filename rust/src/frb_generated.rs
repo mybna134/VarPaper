@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1368566935;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1460887577;
 
 // Section: executor
 
@@ -98,6 +98,68 @@ fn wire__crate__bridge__WayvidService_apply_wallpaper_impl(
                         let output_ok = crate::bridge::WayvidService::apply_wallpaper(
                             &*api_that_guard,
                             api_path,
+                            api_output,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bridge__WayvidService_apply_wallpaper_source_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_apply_wallpaper_source",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            let api_source = <crate::bridge::WallpaperSourceDto>::sse_decode(&mut deserializer);
+            let api_output = <Option<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::bridge::WayvidService::apply_wallpaper_source(
+                            &*api_that_guard,
+                            api_source,
                             api_output,
                         )
                         .await?;
@@ -285,6 +347,59 @@ fn wire__crate__bridge__WayvidService_create_engine_impl(
                     })()
                     .await,
                 )
+            }
+        },
+    )
+}
+fn wire__crate__bridge__WayvidService_describe_wallpaper_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_describe_wallpaper",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::bridge::BridgeError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::bridge::WayvidService::describe_wallpaper(
+                        &*api_that_guard,
+                        api_path,
+                    )?;
+                    Ok(output_ok)
+                })())
             }
         },
     )
@@ -1118,6 +1233,70 @@ fn wire__crate__bridge__WayvidService_update_engine_config_impl(
         },
     )
 }
+fn wire__crate__bridge__WayvidService_update_wallpaper_properties_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_async::<flutter_rust_bridge::for_generated::SseCodec, _, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "WayvidService_update_wallpaper_properties",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<WayvidService>,
+            >>::sse_decode(&mut deserializer);
+            let api_output = <String>::sse_decode(&mut deserializer);
+            let api_source_path = <String>::sse_decode(&mut deserializer);
+            let api_properties_json = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| async move {
+                transform_result_sse::<_, crate::bridge::BridgeError>(
+                    (move || async move {
+                        let mut api_that_guard = None;
+                        let decode_indices_ =
+                            flutter_rust_bridge::for_generated::lockable_compute_decode_order(
+                                vec![flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                    &api_that, 0, false,
+                                )],
+                            );
+                        for i in decode_indices_ {
+                            match i {
+                                0 => {
+                                    api_that_guard =
+                                        Some(api_that.lockable_decode_async_ref().await)
+                                }
+                                _ => unreachable!(),
+                            }
+                        }
+                        let api_that_guard = api_that_guard.unwrap();
+                        let output_ok = crate::bridge::WayvidService::update_wallpaper_properties(
+                            &*api_that_guard,
+                            api_output,
+                            api_source_path,
+                            api_properties_json,
+                        )
+                        .await?;
+                        Ok(output_ok)
+                    })()
+                    .await,
+                )
+            }
+        },
+    )
+}
 fn wire__crate__bridge__WayvidService_web_support_status_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1461,6 +1640,18 @@ impl SseDecode for crate::bridge::ServiceEvent {
                     message: var_message,
                 };
             }
+            6 => {
+                let mut var_output = <String>::sse_decode(deserializer);
+                let mut var_path = <String>::sse_decode(deserializer);
+                let mut var_code = <String>::sse_decode(deserializer);
+                let mut var_message = <String>::sse_decode(deserializer);
+                return crate::bridge::ServiceEvent::WallpaperFailed {
+                    output: var_output,
+                    path: var_path,
+                    code: var_code,
+                    message: var_message,
+                };
+            }
             _ => {
                 unimplemented!("");
             }
@@ -1573,6 +1764,26 @@ impl SseDecode for crate::bridge::WallpaperMetadataDto {
     }
 }
 
+impl SseDecode for crate::bridge::WallpaperSourceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_version = <u32>::sse_decode(deserializer);
+        let mut var_sourceId = <String>::sse_decode(deserializer);
+        let mut var_sourcePath = <String>::sse_decode(deserializer);
+        let mut var_wallpaperType = <String>::sse_decode(deserializer);
+        let mut var_projectSourceJson = <Option<String>>::sse_decode(deserializer);
+        let mut var_propertyOverridesJson = <String>::sse_decode(deserializer);
+        return crate::bridge::WallpaperSourceDto {
+            version: var_version,
+            source_id: var_sourceId,
+            source_path: var_sourcePath,
+            wallpaper_type: var_wallpaperType,
+            project_source_json: var_projectSourceJson,
+            property_overrides_json: var_propertyOverridesJson,
+        };
+    }
+}
+
 impl SseDecode for crate::bridge::WebSupportDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1612,67 +1823,85 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        2 => wire__crate__bridge__WayvidService_cancel_web_support_install_impl(
+        2 => wire__crate__bridge__WayvidService_apply_wallpaper_source_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        3 => wire__crate__bridge__WayvidService_clear_wallpaper_impl(
+        3 => wire__crate__bridge__WayvidService_cancel_web_support_install_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        4 => {
+        4 => wire__crate__bridge__WayvidService_clear_wallpaper_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        5 => {
             wire__crate__bridge__WayvidService_create_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        5 => wire__crate__bridge__WayvidService_initialize_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__bridge__WayvidService_install_web_support_impl(
+        6 => wire__crate__bridge__WayvidService_describe_wallpaper_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        7 => {
+        7 => wire__crate__bridge__WayvidService_initialize_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__bridge__WayvidService_install_web_support_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        9 => {
             wire__crate__bridge__WayvidService_load_preview_impl(port, ptr, rust_vec_len, data_len)
         }
-        8 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
-        11 => {
+        10 => wire__crate__bridge__WayvidService_new_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__bridge__WayvidService_open_url_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__bridge__WayvidService_pause_impl(port, ptr, rust_vec_len, data_len),
+        13 => {
             wire__crate__bridge__WayvidService_poll_events_impl(port, ptr, rust_vec_len, data_len)
         }
-        12 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
+        14 => wire__crate__bridge__WayvidService_refresh_monitors_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        13 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
-        14 => {
+        15 => wire__crate__bridge__WayvidService_resume_impl(port, ptr, rust_vec_len, data_len),
+        16 => {
             wire__crate__bridge__WayvidService_scan_folder_impl(port, ptr, rust_vec_len, data_len)
         }
-        15 => {
+        17 => {
             wire__crate__bridge__WayvidService_scan_workshop_impl(port, ptr, rust_vec_len, data_len)
         }
-        16 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
-        17 => {
+        18 => wire__crate__bridge__WayvidService_shutdown_impl(port, ptr, rust_vec_len, data_len),
+        19 => {
             wire__crate__bridge__WayvidService_stop_engine_impl(port, ptr, rust_vec_len, data_len)
         }
-        18 => wire__crate__bridge__WayvidService_uninstall_web_support_impl(
+        20 => wire__crate__bridge__WayvidService_uninstall_web_support_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        19 => wire__crate__bridge__WayvidService_update_engine_config_impl(
+        21 => wire__crate__bridge__WayvidService_update_engine_config_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        20 => wire__crate__bridge__WayvidService_web_support_status_impl(
+        22 => wire__crate__bridge__WayvidService_update_wallpaper_properties_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        23 => wire__crate__bridge__WayvidService_web_support_status_impl(
             port,
             ptr,
             rust_vec_len,
@@ -1823,6 +2052,19 @@ impl flutter_rust_bridge::IntoDart for crate::bridge::ServiceEvent {
                 message.into_into_dart().into_dart(),
             ]
             .into_dart(),
+            crate::bridge::ServiceEvent::WallpaperFailed {
+                output,
+                path,
+                code,
+                message,
+            } => [
+                6.into_dart(),
+                output.into_into_dart().into_dart(),
+                path.into_into_dart().into_dart(),
+                code.into_into_dart().into_dart(),
+                message.into_into_dart().into_dart(),
+            ]
+            .into_dart(),
             _ => {
                 unimplemented!("");
             }
@@ -1907,6 +2149,31 @@ impl flutter_rust_bridge::IntoIntoDart<crate::bridge::WallpaperMetadataDto>
     for crate::bridge::WallpaperMetadataDto
 {
     fn into_into_dart(self) -> crate::bridge::WallpaperMetadataDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::bridge::WallpaperSourceDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.version.into_into_dart().into_dart(),
+            self.source_id.into_into_dart().into_dart(),
+            self.source_path.into_into_dart().into_dart(),
+            self.wallpaper_type.into_into_dart().into_dart(),
+            self.project_source_json.into_into_dart().into_dart(),
+            self.property_overrides_json.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::bridge::WallpaperSourceDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::bridge::WallpaperSourceDto>
+    for crate::bridge::WallpaperSourceDto
+{
+    fn into_into_dart(self) -> crate::bridge::WallpaperSourceDto {
         self
     }
 }
@@ -2150,6 +2417,18 @@ impl SseEncode for crate::bridge::ServiceEvent {
                 <String>::sse_encode(code, serializer);
                 <String>::sse_encode(message, serializer);
             }
+            crate::bridge::ServiceEvent::WallpaperFailed {
+                output,
+                path,
+                code,
+                message,
+            } => {
+                <i32>::sse_encode(6, serializer);
+                <String>::sse_encode(output, serializer);
+                <String>::sse_encode(path, serializer);
+                <String>::sse_encode(code, serializer);
+                <String>::sse_encode(message, serializer);
+            }
             _ => {
                 unimplemented!("");
             }
@@ -2232,6 +2511,18 @@ impl SseEncode for crate::bridge::WallpaperMetadataDto {
         <Option<u32>>::sse_encode(self.resolution_height, serializer);
         <Option<u64>>::sse_encode(self.file_size, serializer);
         <Option<u64>>::sse_encode(self.workshop_id, serializer);
+    }
+}
+
+impl SseEncode for crate::bridge::WallpaperSourceDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.version, serializer);
+        <String>::sse_encode(self.source_id, serializer);
+        <String>::sse_encode(self.source_path, serializer);
+        <String>::sse_encode(self.wallpaper_type, serializer);
+        <Option<String>>::sse_encode(self.project_source_json, serializer);
+        <String>::sse_encode(self.property_overrides_json, serializer);
     }
 }
 

@@ -601,6 +601,33 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             }
         }
         EngineCommand::ApplyWallpaper { path, output } => {
+            handle_command(
+                EngineCommand::ApplyWithProperties {
+                    path,
+                    output,
+                    properties: serde_json::json!({}),
+                },
+                state,
+            );
+        }
+        EngineCommand::SetProperties {
+            path,
+            output,
+            properties,
+            reply,
+        } => {
+            let result = state
+                .sessions
+                .get_mut(&output)
+                .context("Output has no wallpaper")
+                .and_then(|session| session.set_properties(&path, &properties));
+            let _ = reply.send(result.map_err(|error| format!("{error:#}")));
+        }
+        EngineCommand::ApplyWithProperties {
+            path,
+            output,
+            properties,
+        } => {
             debug!("ApplyWallpaper: {:?} to {:?}", path, output);
 
             let outputs_to_apply: Vec<String> = match output {
@@ -621,7 +648,8 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
             };
 
             for output_name in outputs_to_apply {
-                match apply_wallpaper_to_output(state, &path, &output_name, &qh) {
+                match apply_with_properties_to_output(state, &path, &output_name, &qh, &properties)
+                {
                     Ok(()) => {}
                     Err(e) => {
                         error!("Failed to apply wallpaper to {}: {}", output_name, e);
@@ -742,16 +770,27 @@ fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
 }
 
 /// Apply wallpaper to a specific output
+#[cfg(test)]
 fn apply_wallpaper_to_output(
     state: &mut EngineState,
     path: &std::path::Path,
     output_name: &str,
     qh: &QueueHandle<EngineState>,
 ) -> Result<()> {
+    apply_with_properties_to_output(state, path, output_name, qh, &serde_json::json!({}))
+}
+
+fn apply_with_properties_to_output(
+    state: &mut EngineState,
+    path: &std::path::Path,
+    output_name: &str,
+    qh: &QueueHandle<EngineState>,
+    properties: &serde_json::Value,
+) -> Result<()> {
     // Reuse even a surface waiting for configure: only its source changes.
     if state.layer_surfaces.contains_key(output_name) {
         if let Some(session) = state.sessions.get_mut(output_name) {
-            session.load_new_wallpaper(path)?;
+            session.load_with_properties(path, properties)?;
             return Ok(());
         }
     }
@@ -821,8 +860,12 @@ fn apply_wallpaper_to_output(
     );
 
     // Create wallpaper session
-    let session =
-        WallpaperSession::new(path.to_path_buf(), output_info, state.config.video.clone())?;
+    let session = WallpaperSession::new_with_properties(
+        path.to_path_buf(),
+        output_info,
+        state.config.video.clone(),
+        properties.clone(),
+    )?;
     state.sessions.insert(output_name.to_string(), session);
 
     info!("Wallpaper session created for {}", output_name);
