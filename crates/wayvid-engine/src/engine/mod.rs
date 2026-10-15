@@ -5,6 +5,9 @@
 //! communicates with the GUI via channels.
 
 mod command;
+#[cfg(test)]
+mod output_tests;
+mod scheduling;
 mod session;
 mod x11;
 
@@ -294,6 +297,7 @@ fn run_engine_thread(
 
     // Main event loop with power management
     let battery_check_interval = std::time::Duration::from_secs(10);
+    let mut last_frame = std::time::Instant::now();
 
     while !shutdown.load(Ordering::Relaxed) && state.running {
         // Periodically check battery status
@@ -304,19 +308,15 @@ fn run_engine_thread(
         state.power_paused = state.config.pause_on_battery && state.on_battery;
 
         // Calculate frame duration based on power state
-        let frame_duration = if state.power_paused {
-            // When paused, use longer sleep to save power
-            std::time::Duration::from_millis(100)
-        } else {
-            state
-                .config
-                .fps_limit
-                .map(|fps| std::time::Duration::from_micros(1_000_000 / fps as u64))
-                .unwrap_or(std::time::Duration::from_millis(16)) // Default 60fps
-        };
+        let frame_duration = scheduling::frame_interval(state.config.fps_limit, state.power_paused);
 
         event_loop
-            .dispatch(frame_duration, &mut state)
+            .dispatch(
+                frame_duration
+                    .saturating_sub(last_frame.elapsed())
+                    .min(std::time::Duration::from_millis(100)),
+                &mut state,
+            )
             .context("Event loop dispatch failed")?;
 
         // Paused sessions can still prepare a candidate's first static frame.
@@ -324,7 +324,14 @@ fn run_engine_thread(
         for session in state.sessions.values_mut() {
             session.set_power_paused(state.power_paused);
         }
-        render_all_surfaces(&mut state);
+        // A command or a compositor callback may wake dispatch early. Keep
+        // pending callbacks until the frame deadline rather than bypassing it.
+        if last_frame.elapsed()
+            >= scheduling::frame_interval(state.config.fps_limit, state.power_paused)
+        {
+            last_frame = std::time::Instant::now();
+            render_all_surfaces(&mut state);
+        }
     }
 
     info!("PlaybackEngine shutting down");
@@ -355,7 +362,7 @@ fn render_all_surfaces(state: &mut EngineState) {
     let outputs: Vec<String> = state
         .layer_surfaces
         .iter()
-        .filter(|(_, info)| info.configured && info.frame_pending)
+        .filter(|(_, info)| info.configured)
         .map(|(name, _)| name.clone())
         .collect();
 
@@ -366,7 +373,10 @@ fn render_all_surfaces(state: &mut EngineState) {
             None => continue,
         };
 
-        // Clear frame pending flag
+        // Readiness polling must continue even when the compositor withholds
+        // callbacks for an unchanged surface (e.g. Web had no fresh paint).
+        // Only request another callback after the previous one has completed.
+        let request_callback = surface_info.frame_pending;
         surface_info.frame_pending = false;
 
         // Get session for this output
@@ -375,13 +385,20 @@ fn render_all_surfaces(state: &mut EngineState) {
             None => continue,
         };
 
+        let (width, height) = match surface_info.pixel_size() {
+            Ok(size) => size,
+            Err(error) => {
+                let _ = state
+                    .events_tx
+                    .send(EngineEvent::Error(format!("{output_name}: {error}")));
+                continue;
+            }
+        };
+
         // Render frame
-        if let Err(e) = session.render_frame_to_surface(
-            egl_context,
-            &surface_info.wl_surface,
-            surface_info.width as i32,
-            surface_info.height as i32,
-        ) {
+        if let Err(e) =
+            session.render_frame_to_surface(egl_context, &surface_info.wl_surface, width, height)
+        {
             warn!("Frame render error for {}: {}", output_name, e);
             if let Some(path) = session.take_failed_source() {
                 let _ = state.events_tx.send(EngineEvent::WallpaperFailed {
@@ -403,8 +420,15 @@ fn render_all_surfaces(state: &mut EngineState) {
             });
         }
 
+        // An unmapped surface need not receive frame callbacks. Poll readiness
+        // at the frame limit until a renderer can attach its first buffer.
+        if session.awaiting_first_frame() {
+            surface_info.frame_pending = true;
+            continue;
+        }
+
         // Request next frame callback
-        if let Some(qh) = state.queue_handle.as_ref() {
+        if let Some(qh) = state.queue_handle.as_ref().filter(|_| request_callback) {
             let _callback = surface_info.wl_surface.frame(
                 qh,
                 SurfaceIdentity {
@@ -522,10 +546,28 @@ struct LayerSurfaceInfo {
     width: u32,
     /// Configured height  
     height: u32,
+    /// Integer buffer scale; configure dimensions are logical surface units.
+    scale: i32,
     /// Whether surface is configured
     configured: bool,
     /// Frame callback pending
     frame_pending: bool,
+}
+
+impl LayerSurfaceInfo {
+    fn pixel_size(&self) -> Result<(i32, i32)> {
+        let scale = u32::try_from(self.scale)?;
+        let width = self
+            .width
+            .checked_mul(scale)
+            .context("Output width overflow")?;
+        let height = self
+            .height
+            .checked_mul(scale)
+            .context("Output height overflow")?;
+        anyhow::ensure!(width > 0 && height > 0, "Output has an empty buffer size");
+        Ok((width.try_into()?, height.try_into()?))
+    }
 }
 
 impl Drop for LayerSurfaceInfo {
@@ -573,6 +615,16 @@ impl Drop for PendingOutput {
 /// Handle incoming command from GUI
 fn handle_command(cmd: EngineCommand, state: &mut EngineState) {
     match cmd {
+        #[cfg(test)]
+        EngineCommand::InspectSessions(reply) => {
+            let _ = reply.send(
+                state
+                    .sessions
+                    .iter()
+                    .map(|(name, session)| (name.clone(), session.snapshot()))
+                    .collect(),
+            );
+        }
         #[cfg(test)]
         EngineCommand::ResourceCounts(reply) => {
             let _ = reply.send(crate::egl::native_counts());
@@ -805,6 +857,8 @@ fn apply_with_properties_to_output(
 
     // Create wl_surface
     let wl_surface = compositor.create_surface(qh, identity.clone());
+    let scale = (output_info.scale as i32).max(1);
+    wl_surface.set_buffer_scale(scale);
 
     // Create layer surface on background layer
     let layer_surface = layer_shell.get_layer_surface(
@@ -837,6 +891,7 @@ fn apply_with_properties_to_output(
             layer_surface,
             width: output_info.width as u32,
             height: output_info.height as u32,
+            scale,
             configured: false,
             frame_pending: false,
         },
@@ -1003,6 +1058,15 @@ impl Dispatch<WlOutput, u32> for EngineState {
                     active: true,
                     hdr_capabilities: crate::types::OutputHdrCapabilities::default(),
                 };
+                if let Some(session) = state.sessions.get_mut(&output_name) {
+                    session.update_output_info(info.clone());
+                }
+                if let Some(surface) = state.layer_surfaces.get_mut(&output_name) {
+                    surface.scale = pending.scale.max(1);
+                    surface.wl_surface.set_buffer_scale(surface.scale);
+                    surface.frame_pending = true;
+                    surface.wl_surface.commit();
+                }
                 let _ = state.events_tx.send(EngineEvent::OutputAdded(info));
             }
             _ => {}

@@ -104,6 +104,9 @@ pub struct MpvPlayer {
     frame_available: Arc<AtomicBool>,
     pending_source: Option<String>,
     source_loaded: bool,
+    rendered_size: Option<(i32, i32)>,
+    static_image: bool,
+    redraw_requested: bool,
     // Box keeps the get-proc-address callback context stable across moves.
     render_egl: Option<Box<EglContext>>,
 }
@@ -278,34 +281,35 @@ impl MpvPlayer {
             frame_available: Arc::new(AtomicBool::new(false)),
             pending_source: Some(config.source.clone()),
             source_loaded: false,
+            rendered_size: None,
+            static_image: matches!(
+                extension.as_str(),
+                "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif"
+            ),
+            redraw_requested: true,
             render_egl: None,
         })
     }
 
+    fn layout_options(layout: LayoutMode) -> [(&'static str, &'static str); 5] {
+        let (keep_aspect, panscan, unscaled) = match layout {
+            LayoutMode::Fill | LayoutMode::Cover => ("yes", "1.0", "no"),
+            LayoutMode::Stretch => ("no", "0.0", "no"),
+            LayoutMode::Contain => ("yes", "0.0", "no"),
+            LayoutMode::Centre => ("yes", "0.0", "yes"),
+        };
+        [
+            ("keepaspect", keep_aspect),
+            ("panscan", panscan),
+            ("video-unscaled", unscaled),
+            ("video-align-x", "0"),
+            ("video-align-y", "0"),
+        ]
+    }
+
     fn configure_layout(set_option: &impl Fn(&str, &str), layout: LayoutMode) {
-        match layout {
-            LayoutMode::Fill | LayoutMode::Cover => {
-                set_option("keepaspect", "yes");
-                set_option("panscan", "1.0");
-                set_option("video-align-x", "0");
-                set_option("video-align-y", "0");
-            }
-            LayoutMode::Stretch => {
-                set_option("keepaspect", "no");
-                set_option("video-unscaled", "no");
-            }
-            LayoutMode::Contain => {
-                set_option("keepaspect", "yes");
-                set_option("panscan", "0.0");
-                set_option("video-align-x", "0");
-                set_option("video-align-y", "0");
-            }
-            LayoutMode::Centre => {
-                set_option("keepaspect", "yes");
-                set_option("video-unscaled", "yes");
-                set_option("video-align-x", "0");
-                set_option("video-align-y", "0");
-            }
+        for (name, value) in Self::layout_options(layout) {
+            set_option(name, value);
         }
     }
 
@@ -381,6 +385,17 @@ impl MpvPlayer {
     }
 
     fn load_source(&mut self, path: &str) -> Result<()> {
+        let extension = std::path::Path::new(path)
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        self.static_image = matches!(
+            extension.as_str(),
+            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif"
+        );
+        self.rendered_size = None;
+        self.redraw_requested = true;
         info!("  📁 Loading source: {}", path);
 
         let cmd = CString::new("loadfile").unwrap();
@@ -509,6 +524,9 @@ impl MpvPlayer {
 
     /// Check if a new frame is available for rendering
     pub fn has_frame(&self) -> bool {
+        if self.static_image && self.rendered_size.is_some() && !self.redraw_requested {
+            return false;
+        }
         // Check if render context update callback was triggered
         if self.frame_available.load(Ordering::Acquire) {
             return true;
@@ -541,8 +559,25 @@ impl MpvPlayer {
         let callback_frame = self.frame_available.swap(false, Ordering::AcqRel);
         let has_new_frame = (update_flags & MPV_RENDER_UPDATE_FRAME) != 0 || callback_frame;
 
-        if !has_new_frame {
+        if self.static_image
+            && self.rendered_size == Some((width, height))
+            && !self.redraw_requested
+        {
             return Ok(false);
+        }
+
+        let redraw = self
+            .rendered_size
+            .is_some_and(|size| size != (width, height) || self.redraw_requested);
+        if !has_new_frame && !redraw {
+            return Ok(false);
+        }
+
+        unsafe {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo as u32);
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl::Viewport(0, 0, width, height);
         }
 
         debug!(
@@ -582,6 +617,8 @@ impl MpvPlayer {
             return Ok(false);
         }
 
+        self.rendered_size = Some((width, height));
+        self.redraw_requested = false;
         Ok(true)
     }
 
@@ -794,6 +831,12 @@ impl MpvPlayer {
             &format!("{}", config.playback_rate.clamp(0.1, 10.0)),
         )?;
         self.set_runtime_option("loop-file", if config.loop_playback { "inf" } else { "no" })?;
+        // Apply the same complete layout state on updates as at startup.
+        for (name, value) in Self::layout_options(config.layout) {
+            self.set_runtime_option(name, value)?;
+        }
+        self.frame_available.store(true, Ordering::Release);
+        self.redraw_requested = true;
         Ok(())
     }
 
@@ -864,7 +907,7 @@ mod tests {
             loop_playback: false,
             ..Default::default()
         };
-        let image = MpvPlayer::new(&config, &output).unwrap();
+        let mut image = MpvPlayer::new(&config, &output).unwrap();
         assert_eq!(
             image
                 .get_property_string("image-display-duration")
@@ -875,6 +918,31 @@ mod tests {
             image.get_property_string("keep-open").as_deref(),
             Some("yes")
         );
+        for layout in [
+            LayoutMode::Centre,
+            LayoutMode::Stretch,
+            LayoutMode::Fill,
+            LayoutMode::Contain,
+            LayoutMode::Cover,
+        ] {
+            image
+                .update_config(&VideoConfig {
+                    layout,
+                    ..config.clone()
+                })
+                .unwrap();
+            for (name, expected) in MpvPlayer::layout_options(layout) {
+                let actual = image.get_property_string(name).unwrap();
+                if name == "panscan" || name.starts_with("video-align") {
+                    assert_eq!(
+                        actual.parse::<f64>().unwrap(),
+                        expected.parse::<f64>().unwrap()
+                    );
+                } else {
+                    assert_eq!(actual, expected, "{layout:?}: {name}");
+                }
+            }
+        }
         drop(image);
         let gif = MpvPlayer::new(
             &VideoConfig {

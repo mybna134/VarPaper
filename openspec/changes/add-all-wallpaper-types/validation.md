@@ -160,3 +160,16 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - 按已确认的范围修订，GUI 属性编辑继续留待后续；本 Task 不计入属性编辑或 Scene 属性覆盖的完成证据。
 - `flutter test test/shell_widgets_test.dart test/controller_logic_test.dart`：47 项通过，其中新增 20 项覆盖两种语言下的五类型过滤/详情/指定输出、兼容错误、Web 组件缺失和损坏预览。设置回归改为向上滚动查找已被 ListView 回收的音量滑块。
 - `flutter analyze lib/main.dart lib/src/l10n.dart test/shell_widgets_test.dart` 无问题。未执行完整 CI quality；未提交或 push。完成本 Task 后暂停等待用户提交。
+
+## 2026-10-15：多输出渲染调度（6.1）
+
+- Wayland/X11 共用安全帧间隔计算：`fps_limit` 为零或过大值不会除零；事件唤醒不能绕过帧率上限。电池暂停使用统一低频调度。
+- Wayland 输出使用实际 buffer scale 计算像素尺寸，resize 后更新 session 的 OutputInfo；X11 监听 RandR resource 变化并周期性检查逻辑显示器变化。Video、Rust Scene、Web 在各自输出独立首帧、暂停、恢复和尺寸更新。
+- Scene/Web 暂停时保留最后一帧，但尺寸变化仍会重绘一次；Image 首帧和尺寸变化后只绘制一次，GIF 继续动画。媒体布局配置在运行时更新并覆盖 Fill/Cover/Stretch/Contain/Centre。
+- 新增 `scripts/fixtures/mixed_outputs.py`、`output_control.py` 及 Rust `output_tests`。在私有三输出 Wayland（Sway headless）和 X11（Xvfb）环境验证 Video/Scene/Web 混合、单输出暂停、800×600/scale 2 resize、输出背景窗口属性、Image 静态停留、GIF 动画和 20 FPS 上限；Web 使用已安装临时 CEF 组件，不触发下载。
+- `scripts/check-wayland.sh`：嵌套 Wayland backend 4 项通过。三输出 Wayland/X11 mixed fixture 各 1 项通过。`xvfb-run cargo test -p wayvid-engine --locked --offline -- --test-threads=1`：87 项通过；`cargo test -p wayvid-engine --locked --offline`：87 项通过；workspace check、workspace clippy `-D warnings`、fmt 和 `git diff --check` 通过。Fontconfig/Mesa 的软件渲染 warning 不影响结果。
+- 本 Task 完成后暂停等待用户提交；未提交或 push。完整 CI quality 尚未执行。
+
+复现混合输出：构建 `build/native-web/varpaper-web-host` 并提供已存在的扁平 CEF runtime，设置 `VARPAPER_CEF_RUNTIME=/path/to/runtime` 后执行 `python3 scripts/fixtures/mixed_outputs.py x11` 或 `python3 scripts/fixtures/mixed_outputs.py wayland`。X11 需要 Xvfb/xrandr；Wayland 需要 sway/swaymsg，始终创建私有 runtime 与 headless 输出。本次 Wayland 使用临时容器内的 Sway 1.12 / wlroots 0.20.1，GL 在主机使用 Mesa 软件渲染；临时容器和镜像已删除。Scene 仍使用已声明的 stretch 布局，未扩展后续布局范围。
+
+首次未固定 `LIBGL_ALWAYS_SOFTWARE=1` 的全量原生回归中，一个 Web 候选在 100 次切换测试中首帧超时；固定软件 GL 后重新执行 87 项全部通过（186.11 秒）。该结果不替代 Task 8.x 的真实桌面、安装包或完整资源 soak 验收。

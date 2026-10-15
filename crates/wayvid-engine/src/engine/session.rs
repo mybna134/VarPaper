@@ -27,6 +27,15 @@ pub enum PlaybackState {
     Paused,
 }
 
+#[cfg(test)]
+#[derive(Debug, Clone)]
+pub struct SessionSnapshot {
+    pub path: Option<PathBuf>,
+    pub state: PlaybackState,
+    pub buffer_size: Option<(i32, i32)>,
+    pub presented_frames: u64,
+}
+
 /// A wallpaper playback session for a single output
 pub struct WallpaperSession {
     /// Output information
@@ -42,6 +51,7 @@ pub struct WallpaperSession {
     committed: Option<PathBuf>,
     failed_source: Option<PathBuf>,
     first_frame: bool,
+    redraw_requested: bool,
     terminal_failure: bool,
     initialized_at: Option<Instant>,
     /// EGL window for this surface
@@ -58,9 +68,29 @@ pub struct WallpaperSession {
     initialized: bool,
     /// Whether OpenGL functions are loaded
     gl_loaded: bool,
+    #[cfg(test)]
+    presented_frames: u64,
 }
 
 impl WallpaperSession {
+    pub(super) fn awaiting_first_frame(&self) -> bool {
+        !self.first_frame && !self.terminal_failure
+    }
+    #[cfg(test)]
+    pub(super) fn snapshot(&self) -> SessionSnapshot {
+        SessionSnapshot {
+            path: self.wallpaper_path.clone(),
+            state: self.state,
+            buffer_size: self
+                .egl_window
+                .as_ref()
+                .map(|window| (window.width(), window.height())),
+            presented_frames: self.presented_frames,
+        }
+    }
+    pub(super) fn update_output_info(&mut self, output: OutputInfo) {
+        self.output_info = output;
+    }
     #[cfg(test)]
     pub(super) fn surface_identity(&self) -> Option<khronos_egl::Surface> {
         self.egl_window
@@ -103,6 +133,7 @@ impl WallpaperSession {
             committed: None,
             failed_source: None,
             first_frame: false,
+            redraw_requested: false,
             terminal_failure: false,
             initialized_at: None,
             egl_window: None,
@@ -113,6 +144,8 @@ impl WallpaperSession {
             volume: 0.0,
             initialized: false,
             gl_loaded: false,
+            #[cfg(test)]
+            presented_frames: 0,
         })
     }
 
@@ -182,11 +215,7 @@ impl WallpaperSession {
         };
 
         // Commit both resources only after the complete initialization succeeds.
-        let mut player = player;
         let start_paused = self.state == PlaybackState::Paused;
-        if start_paused {
-            let _ = player.pause();
-        }
         self.egl_context = Some(egl_context.clone());
         self.egl_window = Some(egl_window);
         self.player = Some(player);
@@ -255,7 +284,16 @@ impl WallpaperSession {
         width: i32,
         height: i32,
     ) -> Result<()> {
-        if self.state != PlaybackState::Playing && self.first_frame && self.candidate.is_none() {
+        let resized = self
+            .egl_window
+            .as_ref()
+            .is_some_and(|window| window.width() != width || window.height() != height);
+        if self.state != PlaybackState::Playing
+            && self.first_frame
+            && self.candidate.is_none()
+            && !resized
+            && !self.redraw_requested
+        {
             return Ok(());
         }
 
@@ -277,6 +315,10 @@ impl WallpaperSession {
             match candidate.render(width, height, 0) {
                 Ok(true) => {
                     egl_context.swap_buffers(egl_window)?;
+                    #[cfg(test)]
+                    {
+                        self.presented_frames += 1;
+                    }
                     candidate.update_config(&self.video_config)?;
                     if self.state == PlaybackState::Paused {
                         candidate.pause()?;
@@ -304,6 +346,7 @@ impl WallpaperSession {
             }
         }
         if let Some(player) = self.player.as_mut() {
+            self.redraw_requested = false;
             let rendered = match player.render(width, height, 0) {
                 Ok(rendered) => rendered,
                 Err(error) => {
@@ -324,8 +367,15 @@ impl WallpaperSession {
             }
             if rendered {
                 egl_context.swap_buffers(egl_window)?;
+                #[cfg(test)]
+                {
+                    self.presented_frames += 1;
+                }
                 if !self.first_frame {
                     player.update_config(&self.video_config)?;
+                    if self.state == PlaybackState::Paused {
+                        player.pause()?;
+                    }
                     self.first_frame = true;
                     self.committed = self.wallpaper_path.clone();
                 }
@@ -362,8 +412,10 @@ impl WallpaperSession {
         let paused = self.manually_paused || self.power_paused;
         if paused && self.state != PlaybackState::Paused {
             debug!("Pausing session for {}", self.output_info.name);
-            if let Some(player) = &mut self.player {
-                let _ = player.pause();
+            if self.first_frame {
+                if let Some(player) = &mut self.player {
+                    let _ = player.pause();
+                }
             }
             self.state = PlaybackState::Paused;
         } else if !paused && self.state == PlaybackState::Paused {
@@ -385,6 +437,7 @@ impl WallpaperSession {
 
     /// Update settings supplied by Flutter without recreating the surface.
     pub fn update_config(&mut self, config: VideoConfig) {
+        self.redraw_requested = true;
         self.volume = config.volume.clamp(0.0, 1.0) as f32;
         self.video_config = config;
         if let Some(player) = &mut self.player {
@@ -643,6 +696,7 @@ mod control_tests {
                 !matches!(kind, "scene" | "web"),
             )));
             session.state = PlaybackState::Playing;
+            session.first_frame = true;
             session.pause();
             session.set_power_paused(true);
             session.set_power_paused(false);

@@ -237,6 +237,7 @@ pub struct WebRenderer {
     program: u32,
     vao: u32,
     presented: bool,
+    drawn_size: Option<(i32, i32)>,
     paused: bool,
     closed: bool,
     config: VideoConfig,
@@ -269,6 +270,7 @@ impl WebRenderer {
             program: 0,
             vao: 0,
             presented: false,
+            drawn_size: None,
             paused: false,
             closed: false,
             config: config.clone(),
@@ -453,6 +455,11 @@ impl WallpaperRenderer for WebRenderer {
             "Web viewport exceeds GPU texture limits"
         );
         if self.paused {
+            if self.presented && self.drawn_size != Some((width, height)) {
+                self.draw(&[], width, height, framebuffer)?;
+                self.drawn_size = Some((width, height));
+                return Ok(true);
+            }
             return Ok(false);
         }
         let mut command = self.command("frame");
@@ -482,6 +489,7 @@ impl WallpaperRenderer for WebRenderer {
         self.width = width;
         self.height = height;
         self.presented = true;
+        self.drawn_size = Some((width, height));
         Ok(true)
     }
     fn pause(&mut self) -> Result<()> {

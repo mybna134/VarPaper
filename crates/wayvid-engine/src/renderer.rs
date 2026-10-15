@@ -39,12 +39,6 @@ pub trait WallpaperRenderer {
 
 impl WallpaperRenderer for MpvPlayer {
     fn render(&mut self, w: i32, h: i32, fbo: i32) -> Result<bool> {
-        unsafe {
-            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo as u32);
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl::Viewport(0, 0, w, h);
-        }
         MpvPlayer::render(self, w, h, fbo)
     }
     fn pause(&mut self) -> Result<()> {
@@ -72,11 +66,12 @@ struct Scene {
     renderer: RustSceneRenderer,
     paused: bool,
     presented: bool,
+    rendered_size: Option<(i32, i32)>,
     config: VideoConfig,
 }
 impl WallpaperRenderer for Scene {
     fn render(&mut self, width: i32, height: i32, framebuffer: i32) -> Result<bool> {
-        if self.paused && self.presented {
+        if self.paused && self.presented && self.rendered_size == Some((width, height)) {
             return Ok(false);
         }
         self.renderer.render(
@@ -85,6 +80,7 @@ impl WallpaperRenderer for Scene {
             framebuffer.try_into()?,
         )?;
         self.presented = true;
+        self.rendered_size = Some((width, height));
         Ok(true)
     }
     fn pause(&mut self) -> Result<()> {
@@ -196,6 +192,7 @@ pub fn create_renderer_with_properties(
                     renderer,
                     paused: false,
                     presented: false,
+                    rendered_size: None,
                     config: config.clone(),
                 };
                 scene.update_config(config)?;
@@ -206,8 +203,8 @@ pub fn create_renderer_with_properties(
                 return Ok(Box::new(crate::web::WebRenderer::new(
                     &project.root,
                     project.entry.as_deref().context("Web entry missing")?,
-                    output.width,
-                    output.height,
+                    window.width(),
+                    window.height(),
                     config,
                     &crate::properties::merge(&project.properties, overrides)?,
                 )?));

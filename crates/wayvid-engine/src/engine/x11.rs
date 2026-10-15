@@ -223,7 +223,8 @@ pub(super) fn run(
             xrandr::RRScreenChangeNotifyMask
                 | xrandr::RRCrtcChangeNotifyMask
                 | xrandr::RROutputChangeNotifyMask
-                | xrandr::RROutputPropertyNotifyMask,
+                | xrandr::RROutputPropertyNotifyMask
+                | xrandr::RRResourceChangeNotifyMask,
         );
     }
     let mut outputs: HashMap<String, OutputInfo> = display
@@ -242,7 +243,9 @@ pub(super) fn run(
     );
     let mut last_battery = Instant::now();
     let mut on_battery = check_battery_status();
+    let mut last_output_check = Instant::now();
     while !shutdown.load(Ordering::Relaxed) {
+        let frame_started = Instant::now();
         while let Ok(command) = commands.try_recv() {
             if matches!(command, EngineCommand::Shutdown) {
                 shutdown.store(true, Ordering::Relaxed);
@@ -259,7 +262,9 @@ pub(super) fn run(
             );
         }
         let changed = unsafe { xlib::XPending(display.raw) } > 0;
-        if changed {
+        // RandR logical monitor changes do not always generate output events.
+        if changed || last_output_check.elapsed() >= Duration::from_secs(1) {
+            last_output_check = Instant::now();
             while unsafe { xlib::XPending(display.raw) } > 0 {
                 let mut event = std::mem::MaybeUninit::<xlib::XEvent>::uninit();
                 unsafe {
@@ -310,16 +315,8 @@ pub(super) fn run(
                 }
             }
         }
-        let frame = config
-            .fps_limit
-            .filter(|fps| *fps > 0)
-            .map(|fps| Duration::from_micros(1_000_000 / fps as u64))
-            .unwrap_or(Duration::from_millis(16));
-        std::thread::sleep(if power_paused {
-            Duration::from_millis(100)
-        } else {
-            frame
-        });
+        let frame = super::scheduling::frame_interval(config.fps_limit, power_paused);
+        std::thread::sleep(frame.saturating_sub(frame_started.elapsed()));
     }
     for (_, wallpaper) in active.drain() {
         destroy_wallpaper(&display, &egl, wallpaper);
@@ -374,6 +371,7 @@ fn update_outputs(
                     || old.height != output.height =>
             {
                 if let Some(wallpaper) = active.get_mut(name) {
+                    wallpaper.session.update_output_info(output.clone());
                     unsafe {
                         xlib::XMoveResizeWindow(
                             display.raw,
@@ -406,6 +404,15 @@ fn handle_command(
     events: &Sender<EngineEvent>,
 ) {
     match command {
+        #[cfg(test)]
+        EngineCommand::InspectSessions(reply) => {
+            let _ = reply.send(
+                active
+                    .iter()
+                    .map(|(name, wallpaper)| (name.clone(), wallpaper.session.snapshot()))
+                    .collect(),
+            );
+        }
         #[cfg(test)]
         EngineCommand::ResourceCounts(reply) => {
             let _ = reply.send(crate::egl::native_counts());
@@ -1309,6 +1316,41 @@ mod tests {
         let output = &outputs[0];
         let egl = EglContext::new_x11(display.raw.cast(), display.visual_id()).unwrap();
         let window = display.create_desktop_window(output).unwrap();
+        let property = |name: &str| unsafe {
+            let (mut actual_type, mut format, mut count, mut remaining) = (0, 0, 0, 0);
+            let mut data = ptr::null_mut();
+            assert_eq!(
+                xlib::XGetWindowProperty(
+                    display.raw,
+                    window,
+                    display.atom(name),
+                    0,
+                    16,
+                    0,
+                    xlib::AnyPropertyType as xlib::Atom,
+                    &mut actual_type,
+                    &mut format,
+                    &mut count,
+                    &mut remaining,
+                    &mut data,
+                ),
+                0
+            );
+            assert_eq!(format, 32);
+            assert!(!data.is_null());
+            let values =
+                std::slice::from_raw_parts(data.cast::<xlib::Atom>(), count as usize).to_vec();
+            xlib::XFree(data.cast());
+            values
+        };
+        assert_eq!(
+            property("_NET_WM_WINDOW_TYPE"),
+            vec![display.atom("_NET_WM_WINDOW_TYPE_DESKTOP")]
+        );
+        assert_eq!(property("_NET_WM_DESKTOP")[0] as u32, u32::MAX);
+        let states = property("_NET_WM_STATE");
+        assert!(states.contains(&display.atom("_NET_WM_STATE_SKIP_TASKBAR")));
+        assert!(states.contains(&display.atom("_NET_WM_STATE_SKIP_PAGER")));
         let surface = egl
             .create_x11_window(window, output.width, output.height)
             .unwrap();

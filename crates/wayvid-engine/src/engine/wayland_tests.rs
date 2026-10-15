@@ -63,7 +63,11 @@ requests!(sc::WlCompositor, state, request, init, {
 });
 requests!(shell::ZwlrLayerShellV1, state, request, init, {
     match request {
-        shell::Request::GetLayerSurface { id, .. } => {
+        shell::Request::GetLayerSurface { id, layer, .. } => {
+            assert_eq!(
+                layer,
+                wayland_server::WEnum::Value(shell::Layer::Background)
+            );
             init.init(id, ());
             state.0.lock().unwrap().push("layer-created");
         }
@@ -77,12 +81,24 @@ requests!(ss::WlSurface, state, request, init, {
         ss::Request::Frame { callback } => {
             state.1.push(init.init(callback, ()));
         }
+        ss::Request::SetBufferScale { scale } => {
+            assert!(scale > 0);
+            state.0.lock().unwrap().push("buffer-scale");
+        }
         _ => {}
     }
 });
 requests!(layer::ZwlrLayerSurfaceV1, state, request, _init, {
-    if let layer::Request::Destroy = request {
-        state.0.lock().unwrap().push("layer-destroyed");
+    match request {
+        layer::Request::Destroy => state.0.lock().unwrap().push("layer-destroyed"),
+        layer::Request::SetExclusiveZone { zone } => assert_eq!(zone, -1),
+        layer::Request::SetKeyboardInteractivity {
+            keyboard_interactivity,
+        } => assert_eq!(
+            keyboard_interactivity,
+            wayland_server::WEnum::Value(layer::KeyboardInteractivity::None)
+        ),
+        _ => {}
     }
 });
 requests!(so::WlOutput, state, request, _init, {

@@ -12,6 +12,8 @@ pub enum EngineCommand {
     /// Query native acquisitions on the engine thread during lifecycle tests.
     #[cfg(test)]
     ResourceCounts(std::sync::mpsc::Sender<(usize, usize)>),
+    #[cfg(test)]
+    InspectSessions(std::sync::mpsc::Sender<HashMap<String, super::session::SessionSnapshot>>),
     /// Apply wallpaper to output(s)
     ApplyWallpaper {
         /// Path to video/image file
@@ -128,7 +130,7 @@ pub struct EngineConfig {
     pub video: VideoConfig,
     /// Auto-start playback when wallpaper is applied
     pub auto_play: bool,
-    /// FPS limit (None = vsync/unlimited)
+    /// FPS limit (None or zero uses default backend pacing).
     pub fps_limit: Option<u32>,
     /// Pause playback when on battery power
     pub pause_on_battery: bool,
