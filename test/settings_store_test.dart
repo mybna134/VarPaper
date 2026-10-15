@@ -4,8 +4,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
+import 'package:varpaper/main.dart';
 import 'package:varpaper/src/storage/settings_store.dart';
 import 'package:varpaper/src/bridge_generated.dart/bridge.dart';
+
+import 'support/fakes.dart';
 
 Future<void> _initIsarCore() async {
   final configFile = File('.dart_tool/package_config.json').absolute;
@@ -29,6 +32,7 @@ WallpaperSourceDto _source(String path, String id, {String type = 'video'}) =>
     );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Directory directory;
   late Isar isar;
   late SettingsStore store;
@@ -47,6 +51,182 @@ void main() {
   tearDown(() async {
     await isar.close(deleteFromDisk: true);
     await directory.delete(recursive: true);
+  });
+
+  test(
+    'controller persists defaults before initializing the service',
+    () async {
+      expect(await isar.appSettingsRecords.get(0), isNull);
+      final service = _PersistedConfigService(store);
+      final controller = await WayvidController.create(
+        store,
+        serviceOverride: service,
+      );
+      controller.eventTimer?.cancel();
+      try {
+        expect(service.initializedWithRecord, isTrue);
+        expect(service.configs, [SettingsDto.defaults().toEngineConfig()]);
+        expect(await isar.appSettingsRecords.count(), 1);
+      } finally {
+        await controller.shutdown();
+        controller.dispose();
+      }
+    },
+  );
+
+  test('reopened settings supply the complete engine configuration', () async {
+    final defaults = SettingsDto.defaults();
+    await store.save(
+      SettingsDto(
+        gui: defaults.gui.copyWith(language: 'zh', windowWidth: 1440),
+        playback: defaults.playback.copyWith(
+          volume: 0.35,
+          fpsLimit: 48,
+          loopMode: false,
+          layout: 'contain',
+          hwdec: 'no',
+          mute: false,
+          startTime: 2,
+          playbackRate: 1.25,
+          hdrMode: 'off',
+          toneMappingAlgorithm: 'reinhard',
+          toneMappingParam: 0.5,
+          toneMappingMode: 'rgb',
+          toneMappingComputePeak: false,
+        ),
+        autostartEnabled: false,
+        restoreLastWallpaper: false,
+        power: defaults.power.copyWith(pauseOnBattery: true),
+        libraryFolders: const ['/saved-wallpapers'],
+      ),
+    );
+    await isar.close();
+    isar = await Isar.open(
+      [AppSettingsRecordSchema, WallpaperAssignmentRecordSchema],
+      directory: directory.path,
+      name: 'store_test',
+    );
+    store = SettingsStore(isar);
+    final service = _PersistedConfigService(store);
+    final controller = await WayvidController.create(
+      store,
+      serviceOverride: service,
+    );
+    controller.eventTimer?.cancel();
+    try {
+      expect(controller.settings.gui.language, 'zh');
+      expect(controller.settings.gui.windowWidth, 1440);
+      expect(service.calls, contains('scan:/saved-wallpapers'));
+      expect(service.configs, [
+        const EngineConfigDto(
+          volume: 0.35,
+          fpsLimit: 48,
+          loopPlayback: false,
+          layout: 'contain',
+          hwdec: 'no',
+          mute: false,
+          startTime: 2,
+          playbackRate: 1.25,
+          hdrMode: 'off',
+          toneMappingAlgorithm: 'reinhard',
+          toneMappingParam: 0.5,
+          toneMappingMode: 'rgb',
+          toneMappingComputePeak: false,
+          autoPlay: true,
+          pauseOnBattery: true,
+        ),
+      ]);
+    } finally {
+      await controller.shutdown();
+      controller.dispose();
+    }
+  });
+
+  test(
+    'runtime config is committed to Isar before each service update',
+    () async {
+      final service = _PersistedConfigService(store);
+      final controller = await WayvidController.create(
+        store,
+        serviceOverride: service,
+      );
+      controller.eventTimer?.cancel();
+      try {
+        service.configs.clear();
+        await controller.update(const SettingsPatch(theme: 'dark'));
+        expect((await store.load()).gui.theme, 'dark');
+        expect(service.configs, isEmpty);
+
+        for (final patch in [
+          const SettingsPatch(volume: 0.6),
+          const SettingsPatch(loopMode: false),
+          const SettingsPatch(mute: false),
+          const SettingsPatch(fpsLimit: FpsLimitPatch(value: 24)),
+          const SettingsPatch(pauseOnBattery: true),
+          const SettingsPatch(fpsLimit: FpsLimitPatch.unlimited()),
+        ]) {
+          final before = service.configs.length;
+          await controller.update(patch);
+          expect(controller.error, isNull);
+          expect(service.configs, hasLength(before + 1));
+          expect(service.configs.last, (await store.load()).toEngineConfig());
+        }
+        expect(service.configs.last.volume, 0.6);
+        expect(service.configs.last.loopPlayback, isFalse);
+        expect(service.configs.last.mute, isFalse);
+        expect(service.configs.last.pauseOnBattery, isTrue);
+        expect(service.configs.last.fpsLimit, isNull);
+
+        service.events.add(const ServiceEvent.engineStopped());
+        await controller.pollEvents();
+        final before = service.configs.length;
+        await controller.update(const SettingsPatch(volume: 0.2));
+        expect((await store.load()).playback.volume, 0.2);
+        expect(service.configs, hasLength(before));
+      } finally {
+        await controller.shutdown();
+        controller.dispose();
+      }
+    },
+  );
+
+  test('invalid engine settings never reach Isar or the service', () async {
+    final service = _PersistedConfigService(store);
+    final controller = await WayvidController.create(
+      store,
+      serviceOverride: service,
+    );
+    controller.eventTimer?.cancel();
+    try {
+      final original = (await store.load()).toEngineConfig();
+      service.configs.clear();
+      for (final patch in const [
+        SettingsPatch(volume: -0.1),
+        SettingsPatch(volume: 1.1),
+        SettingsPatch(volume: double.nan, theme: 'dark'),
+        SettingsPatch(volume: double.infinity),
+        SettingsPatch(volume: -double.infinity),
+        SettingsPatch(fpsLimit: FpsLimitPatch(value: 0)),
+        SettingsPatch(fpsLimit: FpsLimitPatch(value: -1)),
+        SettingsPatch(fpsLimit: FpsLimitPatch(value: 0x100000000)),
+      ]) {
+        await controller.update(patch);
+        expect(controller.error, isNotNull);
+        expect(controller.settings.toEngineConfig(), original);
+        expect((await store.load()).toEngineConfig(), original);
+        expect((await store.load()).gui.theme, 'system');
+        expect(service.configs, isEmpty);
+      }
+      // Valid boundary values still persist and reach the engine.
+      for (final volume in [0.0, 1.0]) {
+        await controller.update(SettingsPatch(volume: volume));
+        expect(controller.error, isNull);
+        expect(service.configs.last.volume, volume);
+      }
+    } finally {
+      await controller.shutdown();
+      controller.dispose();
+    }
   });
 
   test('start minimized defaults to false and survives reopening', () async {
@@ -206,4 +386,35 @@ void main() {
     // Fields not in the patch are left untouched.
     expect(unlimited.gui.theme, 'dark');
   });
+}
+
+/// Read the real database at the service boundary, before recording each call.
+class _PersistedConfigService extends FakeService {
+  _PersistedConfigService(this.store) : super(engineRunning: false);
+
+  final SettingsStore store;
+  bool initializedWithRecord = false;
+
+  @override
+  Future<ServiceInfo> initialize() async {
+    initializedWithRecord = await store.isar.appSettingsRecords.get(0) != null;
+    return super.initialize();
+  }
+
+  Future<void> _expectPersisted(EngineConfigDto config) async {
+    expect(initializedWithRecord, isTrue);
+    expect((await store.load()).toEngineConfig(), config);
+  }
+
+  @override
+  Future<void> createEngine({required EngineConfigDto config}) async {
+    await _expectPersisted(config);
+    await super.createEngine(config: config);
+  }
+
+  @override
+  Future<void> updateEngineConfig({required EngineConfigDto config}) async {
+    await _expectPersisted(config);
+    await super.updateEngineConfig(config: config);
+  }
 }

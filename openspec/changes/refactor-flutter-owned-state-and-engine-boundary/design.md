@@ -9,7 +9,7 @@ The current runtime is Flutter plus a Rust service, but settings, library persis
 - Make Flutter/Isar the source of truth for user settings.
 - Keep Rust responsible for Wayland, libmpv, scanning, and preview extraction.
 - Make Flutter the owner of engine lifecycle, configuration, tray, and single-instance behavior.
-- Prevent `wayvid-engine` and `wayvid-library` from importing or calling each other.
+- Allow `wayvid-engine` to call stateless project/resource APIs in `wayvid-library`; keep `wayvid-library` independent of `wayvid-engine`.
 - Remove all legacy CLI, IPC, SQLite, YAML settings, and `wayvid-core` dependencies.
 - Preserve existing visible GUI workflows: scan, preview, apply, pause, resume, clear, monitor display, and settings changes.
 
@@ -60,16 +60,16 @@ The Rust service exposes operations such as:
 
 The service may keep short-lived runtime handles and scan results, but it must not own persistent application settings.
 
-### 4. Library and engine are sibling modules
+### 4. Engine may depend on library project/resource APIs
 
 The dependency direction is:
 
 ```text
 Flutter → Rust service → wayvid-library
-                      → wayvid-engine
+                      → wayvid-engine → wayvid-library
 ```
 
-`wayvid-library` must not depend on `wayvid-engine`. `wayvid-engine` must not depend on `wayvid-library`. DTO conversion and application orchestration happen in the Rust service or Flutter layer.
+`wayvid-library` must not depend on `wayvid-engine`. As approved by the user on 2026-10-16, `wayvid-engine` may depend on `wayvid-library` to discover/parse selected projects, locate shared assets, and read project/package resources. The Rust service or Flutter layer still owns FRB DTO conversion, displayed library state, source selection, and engine lifecycle commands. Engine/library do not own persistent application settings or wallpaper assignments.
 
 Each crate owns its own types:
 
@@ -85,7 +85,7 @@ Thumbnail/preview files may still be cached on the filesystem. This cache is not
 
 ### 6. Engine configuration is explicit
 
-Flutter builds an engine configuration from Isar-backed settings and sends it during engine creation. Configuration changes are persisted by Flutter first, then sent through FRB to the running engine. The engine applies updates to existing sessions without reading settings or library state.
+Flutter builds an engine configuration from Isar-backed settings and sends it during engine creation. Configuration changes are persisted by Flutter first, then sent through FRB to the running engine. The engine applies updates to existing sessions without reading persistent application settings. Its library dependency supplies project resources, not configuration persistence.
 
 The configuration boundary should include at least:
 
@@ -116,6 +116,7 @@ Flutter Isar
     ├─ settings/config ──> FRB ──> Rust service ──> wayvid-engine
     │                                      │
     │                                      └─> engine sessions / Wayland / MPV
+    │                                             └─> library project/resource APIs
     │
     └─ scan request ─────> FRB ──> Rust service ──> wayvid-library
                                                 │

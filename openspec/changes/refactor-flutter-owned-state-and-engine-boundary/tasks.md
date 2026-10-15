@@ -20,7 +20,7 @@
 - [x] 3.1 Replace YAML/settings-based service initialization with explicit Flutter DTOs.
 - [x] 3.2 Add scan-folder, scan-Workshop, monitor, preview, and source metadata APIs.
 - [x] 3.3 Add create-engine, update-engine-config, apply, pause, resume, clear, and stop APIs.
-- [x] 3.4 Ensure the service is the only orchestrator between library and engine.
+- [x] 3.4 Ensure the service owns library UI requests and engine lifecycle orchestration; engine may use library project/resource APIs.
 - [x] 3.5 Regenerate Dart and Rust FRB bindings.
 
 ## 4. wayvid-library refactor
@@ -37,7 +37,7 @@
 - [x] 5.2 Accept complete configuration during engine creation.
 - [x] 5.3 Add runtime configuration update commands and apply them to sessions.
 - [x] 5.4 Ensure engine only consumes engine configuration and source paths/IDs supplied by the service.
-- [x] 5.5 Ensure `wayvid-engine` has no dependency on `wayvid-library`.
+- [x] 5.5 Allow `wayvid-engine` to depend on library project/resource APIs while keeping `wayvid-library` independent of `wayvid-engine`.
 - [x] 5.6 Preserve EGL cleanup and MPV locale fixes.
 
 ## 6. Remove legacy components
@@ -50,10 +50,14 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Add Flutter tests for Isar settings load/save and engine config updates.
-- [ ] 7.2 Add Rust tests for scan DTOs, preview results, engine config, and update commands.
+- [x] 7.1 Add Flutter tests for Isar settings load/save and engine config updates.
+- [x] 7.2 Add Rust tests for scan DTOs, preview results, engine config, and update commands.
 - [x] 7.3 Run Dart format/analyze/test and Isar code generation.
 - [x] 7.4 Run Cargo format/check/test for the remaining workspace.
 - [x] 7.5 Build the Linux debug and release bundles.
-- [ ] 7.6 Run Wayland smoke tests for scan, preview, engine creation, config update, apply, pause, resume, and clear.
-- [ ] 7.7 Update this task list after implementation and validate the final OpenSpec state.
+- [x] 7.6 Run Wayland smoke tests for scan, preview, engine creation, config update, apply, pause, resume, and clear.
+- [x] 7.7 Update this task list after implementation and validate the final OpenSpec state.
+
+## 2026-10-16 verification note
+
+Task 7.1 now includes real Isar/controller integration tests; see validation.md. Task 5.5 was reopened when the direct engine-to-library dependency was found. On 2026-10-16 the user explicitly approved this dependency; proposal, design and specs now allow project/resource API reuse, and 5.5 is complete under the revised contract. No engine boundary implementation changed.

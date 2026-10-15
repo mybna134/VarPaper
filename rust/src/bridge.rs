@@ -889,6 +889,10 @@ fn preview_cache_path(id: &str) -> PathBuf {
 mod web_lifecycle_tests;
 
 #[cfg(test)]
+#[path = "boundary_tests.rs"]
+mod boundary_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use wayvid_engine::types::ToneMappingAlgorithm;
@@ -938,6 +942,9 @@ mod tests {
         assert_eq!(config.video.tone_mapping.mode, "rgb");
         assert!(!config.video.tone_mapping.compute_peak);
         assert_eq!(config.video.volume, 0.5);
+        assert!(config.video.loop_playback);
+        assert!(!config.video.mute);
+        assert_eq!(config.video.start_time, 2.0);
         assert_eq!(config.video.playback_rate, 1.5);
         assert_eq!(config.fps_limit, Some(30));
         assert!(!config.auto_play);

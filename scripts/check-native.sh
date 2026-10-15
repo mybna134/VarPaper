@@ -35,7 +35,7 @@ from pathlib import Path
 import sys
 output = Path(sys.argv[1]).read_text()
 required = [
-    "x11_scene_fixture_tests::",
+    "engine::x11::scene_fixture_tests::textured_scene_loose_packed_shared_and_missing_resources",
     "web_lifecycle_tests::live_uninstall_failure_retry_reinstall_and_restart_preserve_user_sources",
 ]
 assert all(name in output for name in required), "Native workspace fixtures were not selected"

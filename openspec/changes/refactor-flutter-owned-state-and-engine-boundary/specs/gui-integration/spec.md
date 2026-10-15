@@ -8,7 +8,11 @@
 
 **Reason**: Engine lifecycle is owned by the Flutter application and the engine runs inside the Rust service.
 
-## MODIFIED Requirements
+### Requirement: Settings Persistence
+
+**Reason**: YAML-backed GUI settings are replaced by Flutter-owned Isar persistence without legacy migration.
+
+## ADDED Requirements
 
 ### Requirement: Flutter-Owned Settings Persistence
 

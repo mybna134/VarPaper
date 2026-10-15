@@ -334,36 +334,57 @@ class SettingsDto {
     pauseOnBattery: power.pauseOnBattery,
   );
 
-  SettingsDto apply(SettingsPatch patch) => SettingsDto(
-    gui: gui.copyWith(
-      windowWidth: patch.windowWidth,
-      windowHeight: patch.windowHeight,
-      minimizeToTray: patch.minimizeToTray,
-      startMinimized: patch.startMinimized,
-      theme: patch.theme,
-      themeColor: patch.themeColor,
-      customThemeColors: patch.customThemeColors,
-      colorSchemeVariant: patch.colorSchemeVariant,
-      language: patch.language,
-      renderer: patch.renderer,
-      sidebarCollapsed: patch.sidebarCollapsed,
-      detailPanelVisible: patch.detailPanelVisible,
-    ),
-    playback: playback.copyWith(
-      volume: patch.volume,
-      loopMode: patch.loopMode,
-      mute: patch.mute,
-      clearFpsLimit: patch.fpsLimit?.isUnlimited ?? false,
-      fpsLimit: patch.fpsLimit?.value,
-    ),
-    autostartEnabled: patch.autostartEnabled ?? autostartEnabled,
-    restoreLastWallpaper: patch.restoreLastWallpaper ?? restoreLastWallpaper,
-    power: power.copyWith(
-      pauseOnBattery: patch.pauseOnBattery,
-      pauseOnFullscreen: patch.pauseOnFullscreen,
-    ),
-    libraryFolders: patch.libraryFolders ?? libraryFolders,
-  );
+  SettingsDto apply(SettingsPatch patch) {
+    final volume = patch.volume;
+    if (volume != null && (!volume.isFinite || volume < 0 || volume > 1)) {
+      throw ArgumentError.value(
+        volume,
+        'volume',
+        'Must be finite and within 0–1',
+      );
+    }
+    final fps = patch.fpsLimit;
+    if (fps != null &&
+        !fps.isUnlimited &&
+        fps.value != null &&
+        (fps.value! <= 0 || fps.value! > 0xffffffff)) {
+      throw ArgumentError.value(
+        fps.value,
+        'fpsLimit',
+        'Must be a positive u32 or unlimited',
+      );
+    }
+    return SettingsDto(
+      gui: gui.copyWith(
+        windowWidth: patch.windowWidth,
+        windowHeight: patch.windowHeight,
+        minimizeToTray: patch.minimizeToTray,
+        startMinimized: patch.startMinimized,
+        theme: patch.theme,
+        themeColor: patch.themeColor,
+        customThemeColors: patch.customThemeColors,
+        colorSchemeVariant: patch.colorSchemeVariant,
+        language: patch.language,
+        renderer: patch.renderer,
+        sidebarCollapsed: patch.sidebarCollapsed,
+        detailPanelVisible: patch.detailPanelVisible,
+      ),
+      playback: playback.copyWith(
+        volume: patch.volume,
+        loopMode: patch.loopMode,
+        mute: patch.mute,
+        clearFpsLimit: patch.fpsLimit?.isUnlimited ?? false,
+        fpsLimit: patch.fpsLimit?.value,
+      ),
+      autostartEnabled: patch.autostartEnabled ?? autostartEnabled,
+      restoreLastWallpaper: patch.restoreLastWallpaper ?? restoreLastWallpaper,
+      power: power.copyWith(
+        pauseOnBattery: patch.pauseOnBattery,
+        pauseOnFullscreen: patch.pauseOnFullscreen,
+      ),
+      libraryFolders: patch.libraryFolders ?? libraryFolders,
+    );
+  }
 }
 
 class SettingsPatch {

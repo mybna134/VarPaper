@@ -259,6 +259,75 @@ mod tests {
     use super::*;
 
     #[test]
+    fn config_update_commands_preserve_live_assignment_and_reach_status_barrier() {
+        if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+            return;
+        }
+        assert_eq!(std::env::var("XDG_SESSION_TYPE").as_deref(), Ok("x11"));
+        assert!(std::env::var_os("WAYLAND_DISPLAY").is_none());
+        let mut controller = EngineController::new();
+        controller.start(EngineConfig::default()).unwrap();
+        controller.wait_for_outputs(Duration::from_secs(5)).unwrap();
+        let output = controller.outputs()[0].name.clone();
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packaging/varpaper.png");
+        controller
+            .apply_wallpaper(Some(output.clone()), path.clone())
+            .unwrap();
+        controller.poll_events();
+        for fps_limit in [Some(24), None] {
+            let config = EngineConfig {
+                video: wayvid_engine::VideoConfig {
+                    volume: 0.25,
+                    mute: false,
+                    loop_playback: false,
+                    ..Default::default()
+                },
+                fps_limit,
+                pause_on_battery: true,
+                ..Default::default()
+            };
+            controller.update_config(config).unwrap();
+            // FIFO commands: the status reply follows processing UpdateConfig.
+            controller.send_command(EngineCommand::GetStatus).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(5);
+            loop {
+                let mut received_status = false;
+                for event in controller.poll_events() {
+                    match event {
+                        EngineEvent::Status(status) => {
+                            assert!(status.running);
+                            assert_eq!(
+                                status.active_wallpapers.get(&output),
+                                Some(&Some(path.clone()))
+                            );
+                            received_status = true;
+                        }
+                        EngineEvent::Error(error) => panic!("config update failed: {error}"),
+                        EngineEvent::WallpaperFailed { error, .. } => {
+                            panic!("active assignment failed: {error}")
+                        }
+                        _ => {}
+                    }
+                }
+                if received_status {
+                    break;
+                }
+                assert!(
+                    Instant::now() < deadline,
+                    "UpdateConfig/status barrier timed out"
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+        controller.stop();
+        assert!(!controller.is_running());
+        assert_eq!(
+            controller.update_config(EngineConfig::default()),
+            Err("Engine is not running".into())
+        );
+    }
+
+    #[test]
     fn apply_returns_after_first_frame_and_keeps_correlated_events() {
         if std::env::var_os("VARPAPER_TEST_X11").is_none() {
             return;

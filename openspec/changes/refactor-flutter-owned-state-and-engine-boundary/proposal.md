@@ -11,8 +11,8 @@ The current application still contains the legacy `wayvid-core`, SQLite library 
 - **BREAKING** Remove SQLite from `wayvid-library`; library scans return in-memory results to Flutter.
 - Move system tray integration to a Flutter desktop plugin.
 - Move single-instance handling to Flutter; it must not depend on IPC.
-- Make Flutter/Rust service the only orchestrator between library scanning and the rendering engine.
-- Make `wayvid-engine` independent of `wayvid-library` and independent of `wayvid-core`.
+- Keep Flutter/Rust service responsible for library UI requests and engine lifecycle; allow the engine to use library project/resource APIs for rendering.
+- Allow `wayvid-engine` to depend on `wayvid-library` for project discovery, parsing, shared-asset lookup, and resource access. Keep `wayvid-library` independent of `wayvid-engine`, and remove `wayvid-core`.
 - Send an explicit engine configuration from Flutter whenever an engine is created.
 - Send configuration updates to the engine when Flutter settings change.
 - Keep wallpaper scanning and preview generation in Rust, requested by Flutter through FRB.
