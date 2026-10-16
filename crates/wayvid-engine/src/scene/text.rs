@@ -293,3 +293,156 @@ impl SceneResources for CachedOnly {
         anyhow::bail!("Scene font not cached: '{name}'")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::fixtures::{image_resources, Resources};
+    use serde_json::json;
+
+    const FONT: &[u8] = include_bytes!("testdata/minimal.ttf");
+    fn object() -> Object {
+        let mut object = super::super::assets::Assets::load("scene.json", &image_resources())
+            .unwrap()
+            .objects
+            .remove(0);
+        object.size = [100.0, 80.0];
+        object.properties = json!({"font":"fixture.ttf", "pointsize":20, "padding":2,
+            "text":{"value":"A V"}, "horizontalalign":"left", "verticalalign":"top"});
+        object
+    }
+    fn resources() -> Resources {
+        Resources(BTreeMap::from([("fixture.ttf".into(), FONT.to_vec())]))
+    }
+    fn ink(texture: &Texture) -> (u32, u32, u32, u32) {
+        let mut bounds = (texture.width, texture.height, 0, 0);
+        for (i, pixel) in texture.images[0][0]
+            .rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            if pixel[3] > 0 {
+                assert_eq!(&pixel[..3], &[255; 3]);
+                let (x, y) = (i as u32 % texture.width, i as u32 / texture.width);
+                bounds = (
+                    bounds.0.min(x),
+                    bounds.1.min(y),
+                    bounds.2.max(x),
+                    bounds.3.max(y),
+                );
+            }
+        }
+        assert!(bounds.0 <= bounds.2 && bounds.1 <= bounds.3);
+        bounds
+    }
+
+    #[test]
+    fn embedded_font_raster_alignment_wrapping_and_cached_updates() {
+        let mut object = object();
+        let resources = resources();
+        let mut fonts = Fonts::default();
+        assert_eq!(value(&object).unwrap(), "A V");
+        let first = raster(&object, "AV", &resources, &mut fonts).unwrap();
+        let left = ink(&first);
+        assert_eq!((first.width, first.height), (100, 80));
+        assert_eq!(fonts.bytes, FONT.len());
+        for (horizontal, vertical) in [("center", "center"), ("right", "bottom")] {
+            object.properties["horizontalalign"] = json!({"value":horizontal});
+            object.properties["verticalalign"] = json!(vertical);
+            let next = raster(&object, "AV", &CachedOnly, &mut fonts).unwrap();
+            let aligned = ink(&next);
+            assert!(aligned.0 > left.0 && aligned.1 > left.1);
+        }
+        assert_eq!(fonts.cache.len(), 1);
+        object.size = [0.0; 2];
+        object.properties["horizontalalign"] = json!("left");
+        object.properties["verticalalign"] = json!("top");
+        let single = raster(&object, "AV", &CachedOnly, &mut fonts).unwrap();
+        let multiline = raster(&object, "A\r\nV", &CachedOnly, &mut fonts).unwrap();
+        assert!(multiline.height > single.height && multiline.width < single.width);
+        object.size = [16.0, 0.0];
+        let wrapped = raster(&object, "AVAV", &CachedOnly, &mut fonts).unwrap();
+        assert!(wrapped.height > single.height);
+        object.size = [1.0, 1.0];
+        let clipped = raster(&object, "A", &CachedOnly, &mut fonts).unwrap();
+        assert_eq!(clipped.images[0][0].rgba.len(), 4);
+        object.size = [0.0; 2];
+        let blank = raster(&object, "", &CachedOnly, &mut fonts).unwrap();
+        assert!(blank.images[0][0].rgba.iter().all(|v| *v == 0));
+        assert!(CachedOnly.read("missing.ttf").is_err());
+    }
+
+    #[test]
+    fn font_resolution_cache_and_resource_limits_fail_closed() {
+        let mut object = object();
+        for name in [
+            "fixture.ttf",
+            "materials/fonts/fixture.ttf",
+            "fonts/fixture.ttf",
+        ] {
+            let resources = Resources(BTreeMap::from([(name.into(), FONT.to_vec())]));
+            let mut fonts = Fonts::default();
+            fonts.select(&object, &resources).unwrap();
+            fonts.select(&object, &CachedOnly).unwrap();
+            assert_eq!(fonts.bytes, FONT.len());
+        }
+        let mut fonts = Fonts::default();
+        fonts.retain("system:sans".into(), FONT.to_vec()).unwrap();
+        object.properties["font"] = json!("not-found.ttf");
+        fonts.select(&object, &CachedOnly).unwrap();
+        object.properties["font"] = json!("");
+        fonts.select(&object, &CachedOnly).unwrap();
+        for invalid in [
+            json!(false),
+            json!("../escape.ttf"),
+            json!("a".repeat(4097)),
+        ] {
+            object.properties["font"] = invalid;
+            assert!(fonts.select(&object, &CachedOnly).is_err());
+        }
+        let mut fonts = Fonts::default();
+        assert!(fonts.retain("broken".into(), vec![0; 16]).is_err());
+        assert_eq!(fonts.bytes, 0);
+        fonts.bytes = FONT_BUDGET;
+        assert!(fonts.retain("too-big".into(), FONT.to_vec()).is_err());
+        fonts.bytes = usize::MAX;
+        assert!(fonts.retain("overflow".into(), FONT.to_vec()).is_err());
+    }
+
+    #[test]
+    fn invalid_text_dimensions_and_properties_are_rejected_without_a_display() {
+        let resources = resources();
+        let mut fonts = Fonts::default();
+        let mut object = object();
+        for text in ["A".repeat(4097), "A".repeat(65537)] {
+            assert!(raster(&object, &text, &resources, &mut fonts).is_err());
+        }
+        for (key, invalid) in [
+            ("pointsize", json!(0)),
+            ("pointsize", json!(513)),
+            ("padding", json!(-1)),
+            ("padding", json!(1025)),
+            ("horizontalalign", json!(3)),
+            ("horizontalalign", json!("diagonal")),
+            ("verticalalign", json!(false)),
+            ("verticalalign", json!("diagonal")),
+        ] {
+            let mut candidate = object.clone();
+            candidate.properties[key] = invalid;
+            assert!(
+                raster(&candidate, "A", &resources, &mut fonts).is_err(),
+                "{key}"
+            );
+        }
+        for size in [[-1.0, 10.0], [4097.0, 10.0], [f32::NAN, 10.0]] {
+            object.size = size;
+            assert!(raster(&object, "A", &resources, &mut fonts).is_err());
+        }
+        object.size = [1.0, 0.0];
+        assert!(raster(&object, &"A\n".repeat(2048), &resources, &mut fonts).is_err());
+        object.properties["text"] = json!(123);
+        assert!(value(&object).is_err());
+    }
+}

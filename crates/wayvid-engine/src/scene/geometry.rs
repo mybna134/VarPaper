@@ -196,3 +196,146 @@ impl Geometry {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scene::fixtures::image_resources;
+    use serde_json::json;
+
+    fn assets() -> Assets {
+        Assets::load("scene.json", &image_resources()).unwrap()
+    }
+    fn point(matrix: Mat4, expected: [f32; 3]) {
+        assert!(matrix
+            .transform_point3(Vec3::ZERO)
+            .abs_diff_eq(Vec3::from_array(expected), 0.0001));
+    }
+
+    #[test]
+    fn parent_rotation_scale_visibility_and_projection_are_cpu_only() {
+        let mut assets = assets();
+        assets.objects[0].origin = [10.0, 20.0, 0.0];
+        assets.objects[0].scale = [2.0, 2.0, 1.0];
+        assets.objects[0].angles = [0.0, 0.0, std::f32::consts::FRAC_PI_2];
+        assets.objects[0].properties["visible"] = json!({"value": false});
+        assets.objects[1].parent = Some(assets.objects[0].id);
+        assets.objects[1].origin = [3.0, 0.0, 0.0];
+        let (model, projection, visible) =
+            Geometry::layer_transform(&assets.objects[1], &assets).unwrap();
+        point(model, [10.0, 26.0, 0.0]);
+        assert!(!visible);
+        assert!(projection.is_finite());
+        let left = projection.transform_point3(Vec3::ZERO);
+        let right = projection.transform_point3(Vec3::new(64.0, 64.0, 0.0));
+        assert!((left.x + 1.0).abs() < 0.0001 && (left.y - 1.0).abs() < 0.0001);
+        assert!((right.x - 1.0).abs() < 0.0001 && (right.y + 1.0).abs() < 0.0001);
+        assets.objects[0].properties["visible"] = json!("invalid");
+        assert!(Geometry::layer_transform(&assets.objects[1], &assets).is_err());
+        assets.objects[1].parent = Some(9999);
+        assert!(Geometry::layer_transform(&assets.objects[1], &assets).is_err());
+        assets.objects[1].parent = Some(assets.objects[1].id);
+        assert!(Geometry::layer_transform(&assets.objects[1], &assets).is_err());
+        assets.objects[1].parent = None;
+        assets.objects[1].scale[0] = f32::INFINITY;
+        assert!(Geometry::layer_transform(&assets.objects[1], &assets).is_err());
+    }
+
+    #[test]
+    fn image_alignment_color_uv_and_dimension_fallbacks() {
+        let mut assets = assets();
+        for (alignment, shift) in [
+            ("center", [0.0, 0.0]),
+            ("left", [16.0, 0.0]),
+            ("right", [-16.0, 0.0]),
+            ("top", [0.0, 32.0]),
+            ("bottom", [0.0, -32.0]),
+            ("topleft", [16.0, 32.0]),
+            ("bottomright", [-16.0, -32.0]),
+        ] {
+            let mut object = assets.objects[0].clone();
+            object.origin = [0.0; 3];
+            object.properties["alignment"] = json!(alignment);
+            object.properties["color"] = json!([0.2, 0.4, 0.6, 0.5]);
+            object.properties["alpha"] = json!(0.4);
+            object.properties["brightness"] = json!(2.0);
+            let geometry = Geometry::image(&object, "image.json", &assets).unwrap();
+            point(geometry.model, [shift[0], shift[1], 0.0]);
+            assert_eq!(geometry.size, [32.0, 64.0]);
+            assert_eq!(geometry.color, [0.2, 0.4, 0.6]);
+            assert!((geometry.alpha - 0.2).abs() < 0.0001);
+            assert_eq!(geometry.brightness, 2.0);
+            assert!(geometry.visible && geometry.projection.is_finite());
+        }
+        let mut object = assets.objects[0].clone();
+        object.size = [0.0; 2];
+        assets
+            .textures
+            .get_mut("materials/fixture.tex")
+            .unwrap()
+            .logical_width = 2;
+        let geometry = Geometry::image(&object, "image.json", &assets).unwrap();
+        assert_eq!(geometry.size, [2.0, 4.0]);
+        assert_eq!(geometry.uv, [0.5, 1.0]);
+        assets
+            .textures
+            .get_mut("materials/fixture.tex")
+            .unwrap()
+            .frames
+            .push(super::super::texture::Frame {
+                image: 0,
+                seconds: 1.0,
+                rect: [0.0; 6],
+            });
+        assert_eq!(
+            Geometry::image(&object, "image.json", &assets).unwrap().uv,
+            [1.0; 2]
+        );
+        assets.textures.clear();
+        assert_eq!(
+            Geometry::image(&object, "image.json", &assets)
+                .unwrap()
+                .size,
+            [4.0; 2]
+        );
+        let model = assets.models.get_mut("image.json").unwrap();
+        model.width = None;
+        model.height = None;
+        assert_eq!(
+            Geometry::image(&object, "image.json", &assets)
+                .unwrap()
+                .size,
+            [64.0; 2]
+        );
+        assets.models.get_mut("image.json").unwrap().properties["fullscreen"] = json!(true);
+        let geometry = Geometry::image(&object, "image.json", &assets).unwrap();
+        assert_eq!(geometry.size, [64.0; 2]);
+        point(geometry.model, [32.0, 32.0, 0.0]);
+    }
+
+    #[test]
+    fn image_rejects_invalid_size_alignment_and_color() {
+        let assets = assets();
+        for (key, value) in [
+            ("alignment", json!(false)),
+            ("alignment", json!("diagonal")),
+            ("color", json!([1, 1, 1, 2])),
+            ("color", json!([2, 0, 0])),
+            ("alpha", json!(-1)),
+            ("brightness", json!(-1)),
+        ] {
+            let mut object = assets.objects[0].clone();
+            object.properties[key] = value;
+            assert!(
+                Geometry::image(&object, "image.json", &assets).is_err(),
+                "{key}"
+            );
+        }
+        let mut object = assets.objects[0].clone();
+        for size in [[-1.0, 1.0], [f32::NAN, 1.0], [f32::MAX, f32::MAX]] {
+            object.size = size;
+            object.scale = [2.0; 3];
+            assert!(Geometry::image(&object, "image.json", &assets).is_err());
+        }
+    }
+}

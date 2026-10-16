@@ -32,6 +32,12 @@ ignore:
   - crates/wayvid-engine/src/scene/particle_draw.rs
   - crates/wayvid-engine/src/scene/program.rs
   - crates/wayvid-engine/src/scene/runtime.rs
+  # Native CEF launch/presentation and sound-server/decoder adapters.
+  # IPC validation and CPU audio analysis remain included.
+  - crates/wayvid-engine/src/web/native_host.rs
+  - crates/wayvid-engine/src/web/renderer.rs
+  - crates/wayvid-engine/src/audio/pulse.rs
+  - crates/wayvid-engine/src/scene/sound.rs
   # Generated bridge and database code is not maintained or tested directly.
   - rust/src/frb_generated.rs
   - lib/src/bridge_generated.dart/**
