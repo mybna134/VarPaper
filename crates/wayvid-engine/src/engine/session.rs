@@ -385,12 +385,6 @@ impl WallpaperSession {
         Ok(())
     }
 
-    /// Render a frame (legacy method for compatibility)
-    pub fn render_frame(&mut self) -> Result<()> {
-        // This method is no longer used - rendering is done via render_frame_to_surface
-        Ok(())
-    }
-
     /// Change the manual pause reason without overriding power policy.
     pub fn pause(&mut self) {
         self.manually_paused = true;

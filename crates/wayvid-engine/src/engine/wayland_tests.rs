@@ -256,6 +256,139 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn output_manager_ready_updates_replacement_and_removal() {
+    let fixture = Fixture::new(true);
+    let output = fixture.state.outputs.get(&fixture.name()).unwrap();
+    let mut manager = OutputManager::new();
+    manager.add_output("left".into(), output.wl_output.clone());
+    manager.add_output("right".into(), output.wl_output.clone());
+    assert_eq!(manager.len(), 2);
+    assert!(!manager.is_empty());
+    assert_eq!(manager.ready_outputs().count(), 0);
+    let names: std::collections::HashSet<_> = manager.output_names().collect();
+    assert_eq!(names, std::collections::HashSet::from(["left", "right"]));
+
+    manager.update_geometry("left", -1920, 120);
+    manager.update_mode("left", 1920, 1080);
+    manager.update_scale("left", 2);
+    assert_eq!(manager.ready_outputs().count(), 0);
+    manager.mark_ready("left");
+    manager.mark_ready("left");
+    let (name, info) = manager.ready_outputs().next().unwrap();
+    assert_eq!(name, "left");
+    assert_eq!(info.name, "left");
+    assert_eq!(info.position, (-1920, 120));
+    assert_eq!((info.width, info.height, info.scale), (1920, 1080, 2.0));
+    assert!(info.active);
+    assert_eq!(manager.ready_outputs().count(), 1);
+    let right = manager.get("right").unwrap();
+    assert!(!right.ready);
+    assert_eq!(right.info.position, (0, 0));
+    assert_eq!(
+        (right.info.width, right.info.height, right.info.scale),
+        (0, 0, 1.0)
+    );
+
+    manager.add_output("left".into(), output.wl_output.clone());
+    assert_eq!(manager.len(), 2);
+    assert_eq!(manager.ready_outputs().count(), 0);
+    let replaced = manager.get("left").unwrap();
+    assert!(!replaced.ready);
+    assert_eq!(replaced.info.position, (0, 0));
+    assert_eq!(
+        (
+            replaced.info.width,
+            replaced.info.height,
+            replaced.info.scale
+        ),
+        (0, 0, 1.0)
+    );
+    manager.mark_ready("left");
+    let removed = manager.remove_output("left").unwrap();
+    assert!(removed.ready);
+    assert_eq!(removed.info.name, "left");
+    assert_eq!(removed.wl_output.id(), output.wl_output.id());
+    assert!(manager.get("left").is_none());
+    assert!(manager.remove_output("left").is_none());
+    assert_eq!(manager.ready_outputs().count(), 0);
+    assert_eq!(manager.len(), 1);
+    manager.remove_output("right").unwrap();
+    assert!(manager.is_empty());
+    assert_eq!(manager.output_names().count(), 0);
+}
+
+#[test]
+fn protocol_output_updates_become_visible_after_done() {
+    let mut fixture = Fixture::new(true);
+    let name = fixture.name();
+    let global = *fixture.state.pending_outputs.keys().next().unwrap();
+    let output = fixture.state.outputs.get(&name).unwrap().wl_output.clone();
+    let connection = fixture.state.connection.clone();
+    let qh = fixture.queue.handle();
+    let events = [
+        wl_output::Event::Geometry {
+            x: -1920,
+            y: 120,
+            physical_width: 500,
+            physical_height: 300,
+            subpixel: wayland_client::WEnum::Value(wl_output::Subpixel::Unknown),
+            make: "fixture".into(),
+            model: "output".into(),
+            transform: wayland_client::WEnum::Value(wl_output::Transform::Normal),
+        },
+        wl_output::Event::Mode {
+            flags: wayland_client::WEnum::Value(wl_output::Mode::Current),
+            width: 1920,
+            height: 1080,
+            refresh: 60000,
+        },
+        wl_output::Event::Mode {
+            flags: wayland_client::WEnum::Value(wl_output::Mode::Preferred),
+            width: 3840,
+            height: 2160,
+            refresh: 60000,
+        },
+        wl_output::Event::Scale { factor: 2 },
+    ];
+    fixture.events.try_iter().for_each(drop);
+    for event in events {
+        <EngineState as Dispatch<WlOutput, u32>>::event(
+            &mut fixture.state,
+            &output,
+            event,
+            &global,
+            &connection,
+            &qh,
+        );
+    }
+    let before = &fixture.state.outputs.get(&name).unwrap().info;
+    assert_eq!((before.width, before.height, before.scale), (640, 360, 1.0));
+    assert_eq!(before.position, (0, 0));
+    assert!(fixture.events.try_recv().is_err());
+    <EngineState as Dispatch<WlOutput, u32>>::event(
+        &mut fixture.state,
+        &output,
+        wl_output::Event::Done,
+        &global,
+        &connection,
+        &qh,
+    );
+    let updated = fixture.state.outputs.get(&name).unwrap();
+    assert!(updated.ready);
+    assert_eq!(
+        (updated.info.width, updated.info.height, updated.info.scale),
+        (1920, 1080, 2.0)
+    );
+    assert_eq!(updated.info.position, (-1920, 120));
+    assert!(fixture.events.try_iter().any(|event| matches!(
+        event,
+        EngineEvent::OutputAdded(info)
+            if info.name == name && info.position == (-1920, 120)
+                && (info.width, info.height, info.scale) == (1920, 1080, 2.0)
+    )));
+}
+
+#[test]
 fn protocol_clear_replace_and_stale_events() {
     let mut fixture = Fixture::new(true);
     let name = fixture.name();

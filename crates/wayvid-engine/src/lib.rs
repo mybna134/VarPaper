@@ -9,12 +9,13 @@
 //! # Architecture
 //!
 //! ```text
-//! PlaybackEngine (main API)
-//!     ├── WallpaperSession (per-output)
-//!     │   ├── LayerSurface (wlr-layer-shell)
-//!     │   ├── EglContext (OpenGL rendering)
-//!     │   └── MpvPlayer (video decoding)
-//!     └── OutputManager (output tracking)
+//! EngineHandle (commands and lifecycle)
+//!     └── EngineState / X11 backend
+//!         ├── Native surfaces (Wayland layer-shell / X11 windows)
+//!         ├── EglContext (shared rendering context)
+//!         ├── WallpaperSession (per-output)
+//!         │   └── WallpaperRenderer (MPV / Rust Scene / Web)
+//!         └── Output tracking (OutputManager / XRandR)
 //! ```
 
 pub mod audio;
@@ -42,7 +43,7 @@ pub use calloop::channel::Sender as CommandSender;
 pub use egl::{EglContext, EglWindow};
 pub use frame_timing::FrameTiming;
 pub use mpv::{MpvPlayer, VideoConfig};
-pub use wayland::{LayerSurface, OutputManager};
+pub use wayland::OutputManager;
 
 pub use types::{
     calculate_layout, HdrMetadata, HdrMode, HwdecMode, LayoutMode, LayoutTransform,

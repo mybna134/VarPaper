@@ -1,13 +1,7 @@
-//! Wayland backend for layer-shell surface management
+//! Wayland output tracking shared by the engine.
 //!
-//! This module handles Wayland protocol interactions for creating
-//! background wallpaper surfaces using wlr-layer-shell.
+//! The engine module owns layer-shell protocol dispatch and native surfaces.
 
-// TODO: Migrate full implementation from src/backend/wayland/
-// For now, this is a placeholder module structure
-
-pub mod layer_shell;
 pub mod output;
 
-pub use layer_shell::LayerSurface;
 pub use output::OutputManager;

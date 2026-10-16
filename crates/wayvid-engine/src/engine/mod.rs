@@ -589,10 +589,7 @@ impl Drop for LayerSurfaceInfo {
 }
 
 /// Pending output information during enumeration
-#[allow(dead_code)]
 struct PendingOutput {
-    /// Global name
-    name: u32,
     /// WlOutput object
     wl_output: WlOutput,
     /// Output name (from name event)
@@ -607,8 +604,6 @@ struct PendingOutput {
     y: i32,
     /// Scale factor
     scale: i32,
-    /// Done event received
-    done: bool,
 }
 
 impl Drop for PendingOutput {
@@ -966,7 +961,6 @@ impl Dispatch<WlRegistry, ()> for EngineState {
                         state.pending_outputs.insert(
                             name,
                             PendingOutput {
-                                name,
                                 wl_output: output,
                                 output_name: None,
                                 width: 0,
@@ -974,7 +968,6 @@ impl Dispatch<WlRegistry, ()> for EngineState {
                                 x: 0,
                                 y: 0,
                                 scale: 1,
-                                done: false,
                             },
                         );
                     }
@@ -1034,7 +1027,6 @@ impl Dispatch<WlOutput, u32> for EngineState {
                 pending.output_name = Some(name);
             }
             wl_output::Event::Done => {
-                pending.done = true;
                 // Finalize the output
                 let output_name = pending
                     .output_name

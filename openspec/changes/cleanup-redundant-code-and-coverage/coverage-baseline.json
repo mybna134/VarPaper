@@ -1,0 +1,710 @@
+{
+  "metadata": {
+    "head": "092f1e1c375d2bb8ab1e251caa452520189de818",
+    "status": "?? openspec/changes/cleanup-redundant-code-and-coverage/\n",
+    "utc": "2026-10-16T12:31:32Z",
+    "opt_ins": {},
+    "rustflags": null
+  },
+  "toolchain": {
+    "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+    "cargo": "1.97.1 (c980f4866 2026-06-30)",
+    "cargo-llvm-cov": "0.9.1",
+    "flutter": "3.47.4 (9584c6713b)",
+    "dart": "3.13.3"
+  },
+  "ignore_patterns": [
+    "crates/wayvid-engine/src/egl.rs",
+    "crates/wayvid-engine/src/engine/mod.rs",
+    "crates/wayvid-engine/src/engine/session.rs",
+    "crates/wayvid-engine/src/engine/x11.rs",
+    "crates/wayvid-engine/src/mpv.rs",
+    "crates/wayvid-engine/src/wayland/**",
+    "rust/src/frb_generated.rs",
+    "lib/src/bridge_generated.dart/**",
+    "lib/src/storage/settings_store.g.dart",
+    "lib/**/*.g.dart",
+    "lib/**/*.freezed.dart",
+    "lib/l10n/app_localizations*.dart"
+  ],
+  "method": "LCOV DA records merged by repository-relative path and line; hit if sum of counts > 0. Filtered view uses fnmatchcase against existing codecov.yml ignore patterns. Rust test code remains included when emitted by llvm-cov. Local line view; not remote Codecov region/branch calculation.",
+  "rust": {
+    "report_sha256": "df08a686bc4e1046a98ee6475127f55fd2193fa73cc33391dd849442fca766f7",
+    "raw": {
+      "covered": 7265,
+      "total": 14941,
+      "uncovered": 7676,
+      "percent": 48.6246
+    },
+    "filtered": {
+      "covered": 6574,
+      "total": 10854,
+      "uncovered": 4280,
+      "percent": 60.5675
+    },
+    "files": [
+      {
+        "path": "crates/wayvid-engine/src/audio.rs",
+        "covered": 282,
+        "total": 306,
+        "uncovered": 24,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/audio/pulse.rs",
+        "covered": 0,
+        "total": 184,
+        "uncovered": 184,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/egl.rs",
+        "covered": 16,
+        "total": 436,
+        "uncovered": 420,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/command.rs",
+        "covered": 8,
+        "total": 22,
+        "uncovered": 14,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/mod.rs",
+        "covered": 310,
+        "total": 892,
+        "uncovered": 582,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/scheduling.rs",
+        "covered": 15,
+        "total": 15,
+        "uncovered": 0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/session.rs",
+        "covered": 242,
+        "total": 551,
+        "uncovered": 309,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/x11.rs",
+        "covered": 40,
+        "total": 1256,
+        "uncovered": 1216,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/frame_timing.rs",
+        "covered": 145,
+        "total": 147,
+        "uncovered": 2,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/mpv.rs",
+        "covered": 18,
+        "total": 635,
+        "uncovered": 617,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/properties.rs",
+        "covered": 84,
+        "total": 84,
+        "uncovered": 0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/renderer.rs",
+        "covered": 0,
+        "total": 187,
+        "uncovered": 187,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/assets.rs",
+        "covered": 466,
+        "total": 823,
+        "uncovered": 357,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/clock.rs",
+        "covered": 42,
+        "total": 45,
+        "uncovered": 3,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/draw.rs",
+        "covered": 0,
+        "total": 431,
+        "uncovered": 431,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/fixtures.rs",
+        "covered": 114,
+        "total": 171,
+        "uncovered": 57,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/geometry.rs",
+        "covered": 0,
+        "total": 150,
+        "uncovered": 150,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/gpu.rs",
+        "covered": 0,
+        "total": 266,
+        "uncovered": 266,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/mod.rs",
+        "covered": 0,
+        "total": 9,
+        "uncovered": 9,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/model.rs",
+        "covered": 119,
+        "total": 132,
+        "uncovered": 13,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/particle.rs",
+        "covered": 316,
+        "total": 420,
+        "uncovered": 104,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/particle_draw.rs",
+        "covered": 0,
+        "total": 154,
+        "uncovered": 154,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/program.rs",
+        "covered": 0,
+        "total": 283,
+        "uncovered": 283,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/resources.rs",
+        "covered": 3,
+        "total": 6,
+        "uncovered": 3,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/runtime.rs",
+        "covered": 0,
+        "total": 348,
+        "uncovered": 348,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/script.rs",
+        "covered": 347,
+        "total": 357,
+        "uncovered": 10,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/script_timers.rs",
+        "covered": 58,
+        "total": 66,
+        "uncovered": 8,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/shader.rs",
+        "covered": 274,
+        "total": 302,
+        "uncovered": 28,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/sound.rs",
+        "covered": 4,
+        "total": 221,
+        "uncovered": 217,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/text.rs",
+        "covered": 0,
+        "total": 231,
+        "uncovered": 231,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/texture.rs",
+        "covered": 552,
+        "total": 575,
+        "uncovered": 23,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/types.rs",
+        "covered": 260,
+        "total": 260,
+        "uncovered": 0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/wayland/layer_shell.rs",
+        "covered": 0,
+        "total": 237,
+        "uncovered": 237,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/wayland/output.rs",
+        "covered": 65,
+        "total": 80,
+        "uncovered": 15,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/web.rs",
+        "covered": 152,
+        "total": 594,
+        "uncovered": 442,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/model.rs",
+        "covered": 81,
+        "total": 88,
+        "uncovered": 7,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/project.rs",
+        "covered": 347,
+        "total": 354,
+        "uncovered": 7,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/scanner.rs",
+        "covered": 490,
+        "total": 578,
+        "uncovered": 88,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/thumbnail.rs",
+        "covered": 496,
+        "total": 513,
+        "uncovered": 17,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/workshop.rs",
+        "covered": 408,
+        "total": 422,
+        "uncovered": 14,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/bridge.rs",
+        "covered": 643,
+        "total": 907,
+        "uncovered": 264,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/engine.rs",
+        "covered": 115,
+        "total": 303,
+        "uncovered": 188,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/web_component.rs",
+        "covered": 753,
+        "total": 900,
+        "uncovered": 147,
+        "excluded": false
+      }
+    ]
+  },
+  "flutter": {
+    "report_sha256": "f864020b1c3bbe30fd468826020ea5b326daa2c20a5d1af5b6171d61232337cd",
+    "raw": {
+      "covered": 1512,
+      "total": 2656,
+      "uncovered": 1144,
+      "percent": 56.9277
+    },
+    "filtered": {
+      "covered": 1475,
+      "total": 1525,
+      "uncovered": 50,
+      "percent": 96.7213
+    },
+    "files": [
+      {
+        "path": "lib/main.dart",
+        "covered": 1206,
+        "total": 1238,
+        "uncovered": 32,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/bridge.dart",
+        "covered": 37,
+        "total": 175,
+        "uncovered": 138,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/frb_generated.dart",
+        "covered": 0,
+        "total": 944,
+        "uncovered": 944,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/frb_generated.io.dart",
+        "covered": 0,
+        "total": 12,
+        "uncovered": 12,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/l10n.dart",
+        "covered": 11,
+        "total": 11,
+        "uncovered": 0,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/preview_cache.dart",
+        "covered": 39,
+        "total": 39,
+        "uncovered": 0,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/storage/settings_store.dart",
+        "covered": 219,
+        "total": 237,
+        "uncovered": 18,
+        "excluded": false
+      }
+    ]
+  },
+  "commands": {
+    "rust": "RUSTFLAGS='-D warnings' cargo llvm-cov --workspace --ignore-filename-regex frb_generated --lcov --output-path BASELINE_DIR/lcov-rust.info",
+    "flutter": "puro flutter test --coverage; copy coverage/lcov.info to BASELINE_DIR/lcov-flutter.info"
+  },
+  "raw_artifact_directory": "/tmp/varpaper-cleanup-baseline-hyewzuit",
+  "configuration_sha256": {
+    "codecov.yml": "b9ef057b09460e30c6240349dd0f7de4b3de49a5d35a0ff519e86bb3ee146391",
+    ".github/workflows/ci.yml": "455387d176cbb3e407894248c170cbd5e80bcb4d40375cc7d990f329ed222f53",
+    "Cargo.lock": "4ca8d9dd90b5aca750688537fbdc02e6765466ac7062d750b739840445333db8",
+    "pubspec.lock": "1b515f10d220ff8fbe19135dd6110719a61c71f1128c2913d393222b3b088c0d"
+  },
+  "test_results": {
+    "engine": 88,
+    "library": 40,
+    "service": 39,
+    "flutter": 86,
+    "rust_opt_in_early_returns": [
+      {
+        "file": "crates/wayvid-engine/src/audio.rs",
+        "test": "real_playback_monitor_if_requested",
+        "gates": [
+          "VARPAPER_TEST_PULSE"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/egl.rs",
+        "test": "native_surface_drop_and_explicit_release_destroy_handles_once",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/egl.rs",
+        "test": "surfaces_keep_context_alive_and_foreign_contexts_are_rejected",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/egl.rs",
+        "test": "initialization_failures_release_display_and_context_guards",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/egl.rs",
+        "test": "externally_initialized_display_survives_engine_teardown",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/mpv.rs",
+        "test": "static_images_remain_open_without_loop_and_gif_keeps_loop_policy",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11_scene_fixture_tests.rs",
+        "test": "textured_scene_loose_packed_shared_and_missing_resources",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/mod.rs",
+        "test": "live_engine_repeated_playback_and_restart",
+        "gates": [
+          "VARPAPER_TEST_ENGINE_CYCLES"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/mod.rs",
+        "test": "nested_wayland_scene_media_failure_clear_and_restart",
+        "gates": [
+          "VARPAPER_TEST_NESTED_WAYLAND"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/mod.rs",
+        "test": "wayland_backend_enumerates_outputs",
+        "gates": [
+          "VARPAPER_TEST_WAYLAND"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "gif_renderer_produces_repeating_red_and_blue_frames",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "web_texture_orientation_first_frame_and_stop_preserve_media_and_scene",
+        "gates": [
+          "VARPAPER_TEST_X11",
+          "VARPAPER_WEB_HOST"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "candidate_scene_commits_after_frame_and_failed_replacement_keeps_source",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "playback_initialization_failure_preserves_error_and_rolls_back",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "consecutive_session_cleanup_rebinds_and_recovers",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "repeated_apply_swap_clear_releases_native_resources",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "x11_window_and_egl_lifecycle",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "x11_wallpaper_session_renders_and_cleans_up",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "monitor_geometry_and_removal_release_windows",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/x11.rs",
+        "test": "x11_engine_apply_clear_and_shutdown",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/engine/output_tests.rs",
+        "test": "mixed_outputs_first_frames_scale_resize_pause_and_frame_limit",
+        "gates": [
+          "VARPAPER_TEST_MIXED_OUTPUTS",
+          "VARPAPER_WEB_HOST"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_audio_shader_channels_silence_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_multipass_pingpong_parameters_and_failure_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_effect_files_named_targets_copy_bindings_overrides_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_animated_images_atlas_rotation_pause_resume_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_particle_sprites_seeded_frames_parent_visibility_pause_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_text_font_fallback_layout_budget_visibility_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_script_property_and_text_pixels_isolation_pause_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_layer_camera_parent_radian_rotation_blending_and_uv_crop",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_shader_material_uniforms_defaults_and_driver_failure_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_loose_package_shared_frames_and_include_compilation",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_twelve_texture_formats_shared_upload_and_shader_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/runtime_tests.rs",
+        "test": "rust_scene_first_frame_state_and_failed_allocation_cleanup",
+        "gates": [
+          "VARPAPER_TEST_X11",
+          "VARPAPER_EXPECT_SCENE_GL_UNAVAILABLE"
+        ]
+      },
+      {
+        "file": "crates/wayvid-engine/src/scene/sound.rs",
+        "test": "private_sound_controls_pcm_pause_mute_volume_and_cleanup",
+        "gates": [
+          "VARPAPER_TEST_SCENE_SOUND"
+        ]
+      },
+      {
+        "file": "rust/src/web_lifecycle_tests.rs",
+        "test": "live_uninstall_failure_retry_reinstall_and_restart_preserve_user_sources",
+        "gates": [
+          "VARPAPER_TEST_CEF_SDK"
+        ]
+      },
+      {
+        "file": "rust/src/engine.rs",
+        "test": "config_update_commands_preserve_live_assignment_and_reach_status_barrier",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "rust/src/engine.rs",
+        "test": "apply_returns_after_first_frame_and_keeps_correlated_events",
+        "gates": [
+          "VARPAPER_TEST_X11"
+        ]
+      },
+      {
+        "file": "rust/src/web_component.rs",
+        "test": "official_runtime_fixture_if_requested",
+        "gates": [
+          "VARPAPER_TEST_CEF_ARCHIVE"
+        ]
+      },
+      {
+        "file": "rust/src/boundary_tests.rs",
+        "test": "wayland_service_scan_preview_and_playback_lifecycle",
+        "gates": [
+          "VARPAPER_TEST_NESTED_WAYLAND"
+        ]
+      }
+    ]
+  }
+}

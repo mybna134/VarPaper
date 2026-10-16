@@ -87,11 +87,6 @@ impl OutputManager {
         self.outputs.get(name)
     }
 
-    /// Get mutable output by name
-    pub fn get_mut(&mut self, name: &str) -> Option<&mut OutputState> {
-        self.outputs.get_mut(name)
-    }
-
     /// Get all output names
     pub fn output_names(&self) -> impl Iterator<Item = &str> {
         self.outputs.keys().map(|s| s.as_str())
@@ -105,11 +100,6 @@ impl OutputManager {
             .map(|(name, state)| (name.as_str(), &state.info))
     }
 
-    /// Get all ready output states
-    pub fn get_all_ready(&self) -> impl Iterator<Item = &OutputState> {
-        self.outputs.values().filter(|state| state.ready)
-    }
-
     /// Get output count
     pub fn len(&self) -> usize {
         self.outputs.len()
@@ -118,13 +108,6 @@ impl OutputManager {
     /// Check if empty
     pub fn is_empty(&self) -> bool {
         self.outputs.is_empty()
-    }
-
-    /// Find output containing a point (for multi-monitor layouts)
-    pub fn output_at(&self, _x: i32, _y: i32) -> Option<&str> {
-        // TODO: Implement proper hit testing with output positions
-        // For now, return the first output
-        self.outputs.keys().next().map(|s| s.as_str())
     }
 }
 
@@ -138,13 +121,28 @@ impl Default for OutputManager {
 mod tests {
     use super::*;
 
-    // Note: WlOutput requires Wayland connection, so we can't test
-    // add_output without mocking. Test the basic structure instead.
+    // Registered output transitions use the in-process Wayland protocol fixture
+    // in engine::wayland_tests; empty/unknown-output operations need no proxy.
 
     #[test]
     fn test_output_manager_new() {
         let manager = OutputManager::new();
         assert!(manager.is_empty());
         assert_eq!(manager.len(), 0);
+    }
+
+    #[test]
+    fn unknown_output_updates_leave_manager_empty() {
+        let mut manager = OutputManager::default();
+        manager.update_geometry("missing", -1920, 0);
+        manager.update_mode("missing", 1920, 1080);
+        manager.update_scale("missing", 2);
+        manager.mark_ready("missing");
+        assert!(manager.get("missing").is_none());
+        assert!(manager.remove_output("missing").is_none());
+        assert!(manager.is_empty());
+        assert_eq!(manager.len(), 0);
+        assert_eq!(manager.output_names().count(), 0);
+        assert_eq!(manager.ready_outputs().count(), 0);
     }
 }
