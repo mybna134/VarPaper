@@ -319,9 +319,74 @@ scripts/check-scene-package.sh dist/varpaper-VERSION-1-x86_64.pkg.tar.zst
 scripts/check-scene-package.sh dist/varpaper_VERSION_x86_64.flatpak
 ```
 
+Run `flutter pub get` before these checks; the runner uses `test --no-pub`.
 Set `VARPAPER_TEST_FLUTTER` to a Flutter executable when it is not on PATH.
 Debian extraction needs dpkg-deb, Arch extraction needs tar/zstd, and Flatpak
 extraction needs flatpak/ostree. This does not install or activate a package;
 the smoke test loads its library against the host libraries. Flatpak's separate
 build-time link check runs inside the GNOME runtime. These checks supplement
 full installation and desktop qualification.
+
+### Explicit component Settings acceptance on extracted packages
+
+After the offline Scene package check, opt in to the real installer and Settings
+buttons using the same package runner:
+
+```bash
+VARPAPER_TEST_COMPONENT_INSTALL=1 scripts/check-scene-package.sh /path/to/package
+```
+
+This fixture loads the package's actual Rust library and Web helper, uses the
+real Settings widget/controller (only settings storage is in memory), and
+checks missing-component discovery/application, media and Scene without CEF,
+explicit official download, five-type application, typed initial/updated Web
+properties and 128-band audio callbacks checked through X11 pixels, active Web uninstall,
+zero component disk usage and preserved project files. It runs in an owned
+Xvfb display with private data/cache, no desktop playback monitor and dummy
+SDL output. This opt-in downloads the pinned CEF archive; normal package/CI
+checks never enable it. The runner deletes its temporary files after shutdown.
+
+An extracted Flatpak payload runs against host libraries with this command;
+it does not establish Flatpak sandbox/portal acceptance. Likewise an extracted
+Debian payload does not establish Debian package installation or ABI support.
+Record installed-distribution and sandbox checks separately before marking
+Task 8.3 complete.
+
+
+### Installed package acceptance
+
+Install the package with the target distribution's package manager, then run
+against that installed bundle (not an extracted payload):
+
+```bash
+VARPAPER_TEST_COMPONENT_INSTALL=1 scripts/check-scene-package.sh --installed /usr/lib/varpaper
+```
+
+`VARPAPER_TEST_PACKAGE_DEFAULT_ONLY=1` stops after the missing-component and
+four-type checks. Disconnect the test container's network, or use Flatpak's
+`--unshare=network`, for this phase; the flag itself does not isolate networking.
+No CEF files may be present in the base package, and the default phase must not
+create a component installation. The delivered Scene subset is exercised; live
+Scene system audio and injected local clock bindings remain unavailable.
+
+To test nonzero Web spectrum callbacks, run the same check through the private
+null-sink fixture. It never discovers hardware or connects to desktop audio:
+
+```bash
+VARPAPER_TEST_COMPONENT_INSTALL=1 python3 scripts/fixtures/scene_audio_monitor.py \
+  --backend pulseaudio --command scripts/check-scene-package.sh --installed /usr/lib/varpaper
+```
+
+Without this wrapper, package checks use a nonexistent private Pulse socket and
+assert zero spectrum callbacks. Both cases also check property updates, pause
+and resume, active Web uninstall, zero disk usage and preserved user projects.
+
+For Flatpak, run in the installed app's Platform sandbox with the bundle at
+`/app/lib/varpaper`. Supply the Flutter test SDK, Git and readelf as test tools;
+they are not application dependencies. An outer owned Xvfb can pass
+`VARPAPER_TEST_PACKAGE_DISPLAY=1` to reuse that private display. Set `TMPDIR` to
+a test directory under the app's persistent cache: portal children cannot reuse
+files from the parent sandbox's private `/tmp`. For available audio, expose only
+the private fixture socket directory, preserve its `PULSE_SERVER` and disable
+the normal desktop Pulse socket. Keep installation, sandbox and audio results
+separate from host extraction results in the change's validation record.

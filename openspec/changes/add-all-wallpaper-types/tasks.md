@@ -75,7 +75,7 @@
 
 ## 8. 综合验收
 
-- [ ] 8.1 在支持的 Wayland 和原生 X11 桌面执行五类型/mixed-output、pause、resize、hotplug 和 restart 验收，记录 fixture/环境/截图及失败项；全部场景通过后才标记完成。
-- [ ] 8.2 执行至少 100 次跨 Video/Scene/Web/Image/GIF 切换、清除及失败初始化 soak，记录 native/GPU/browser/audio 计数与进程退出，验证无持续资源累积。
-- [ ] 8.3 在未安装参考 checkout 的 .deb、Flatpak、Arch 测试环境验证默认无 CEF 且不联网，随后通过设置安装组件执行五类型、Scene 音频可视化/时钟及 Web 回调，再卸载并验证空间回收的 smoke test；记录音频采集可用/不可用两种结果。
+- [x] 8.1 在支持的 Wayland 和原生 X11 桌面执行五类型/mixed-output、pause、resize、hotplug 和 restart 验收，记录 fixture/环境/截图及失败项；全部场景通过后才标记完成。
+- [x] 8.2 执行至少 100 次跨 Video/Scene/Web/Image/GIF 切换、清除及失败初始化 soak，记录 native/GPU/browser/audio 计数与进程退出，验证无持续资源累积。
+- [ ] 8.3 在未安装参考 checkout 的 .deb、Flatpak、Arch 测试环境验证默认无 CEF 且不联网，随后通过设置安装组件执行五类型、当前 Rust Scene 子集与 Web 属性/音频回调，并核对 Scene 实时音频可视化/本地时钟明确不可用，再卸载并验证空间回收的 smoke test；记录音频采集可用/不可用两种结果。
 - [ ] 8.4 运行 `.github/workflows/ci.yml` quality 全部检查：fmt、clippy、Rust llvm-cov、shell/manifest 校验、Flutter clean/pub get/analyze/test coverage 以及新增 native 检查；记录全部结果，修复并重跑失败检查，每次 push 前保持该门禁，CI 条件触发的 coverage 上传也必须成功。

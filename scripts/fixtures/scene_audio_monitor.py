@@ -32,7 +32,11 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sound",action="store_true",help="Run the supported Rust Scene sound fixture (also the default)")
     parser.add_argument("--backend", choices=("pipewire", "pulseaudio"), default="pipewire")
+    parser.add_argument('--command', nargs=argparse.REMAINDER,
+                        help='Run a package fixture against the private sink')
     args = parser.parse_args()
+    if args.command == []:
+        parser.error("--command requires a command")
     processes = []
     logs = []
     with tempfile.TemporaryDirectory(prefix="varpaper-audio-check-") as directory:
@@ -109,8 +113,11 @@ def main():
             if result.returncode or len(rows) != 1 or rows[0].split()[1] != "varpaper-fixture":
                 raise RuntimeError("Unexpected sink in private audio graph: " + result.stdout)
             fixture="scene::sound::tests::private_sound_controls_pcm_pause_mute_volume_and_cleanup"
-            test = spawn("test", ["xvfb-run", "-a", "cargo", "test", "-p", "wayvid-engine", fixture, "--locked", "--", "--exact", "--nocapture"])
-            deadline = time.monotonic() + 180
+            if args.command:
+                env['VARPAPER_TEST_AUDIO_AVAILABLE'] = '1'
+            command = args.command or ["xvfb-run", "-a", "cargo", "test", "-p", "wayvid-engine", fixture, "--locked", "--", "--exact", "--nocapture"]
+            test = spawn("test", command)
+            deadline = time.monotonic() + (900 if args.command else 180)
             while test.poll() is None:
                 if any(p.poll() is not None for p in services):
                     raise RuntimeError("Private audio service exited early")
@@ -119,7 +126,7 @@ def main():
                 time.sleep(0.05)
             output = (root / "test.log").read_text()
             print(output)
-            if test.returncode or "test result: ok. 1 passed;" not in output:
+            if test.returncode or (not args.command and "test result: ok. 1 passed;" not in output):
                 raise RuntimeError("Scene audio fixture failed")
         except Exception:
             for log in root.glob("*.log"):
@@ -140,7 +147,7 @@ def main():
                     process.wait()
             for log in logs:
                 log.close()
-    print("Private Scene sound playback/control/cleanup passed")
+    print("Private audio command passed" if args.command else "Private Scene sound playback/control/cleanup passed")
 
 
 if __name__ == "__main__":

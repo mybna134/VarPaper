@@ -242,5 +242,49 @@ Scene 音频接入（4.3 部分实现，仍为 26/48）：Scene ABI 升为 2，�
 - `quality` 已将 native gate 前置到 Flutter 检查前，并安装 PulseAudio/pactl、D-Bus、CEF helper 运行所需的 NSS/NSPR/ALSA/CUPS/GBM/X11 库及 Xvfb。新增 Python AST、JSON manifest 和 Arch recipe 语法检查。
 - `scripts/check-native.sh` 现在固定软件 GL、临时 data/config/state、私有不存在的 Pulse socket，先执行 Rust Scene 解析/脚本/GL fixture，再执行私有音频 fixture、CEF helper fixture 和 workspace X11/生命周期测试。workspace 输出必须包含 X11 Scene fixture 与 Web install/uninstall/restart fixture，失败不会被“无测试执行”吞掉。
 - `scripts/fixtures/scene_audio_monitor.py` 增加 `--backend pulseaudio|pipewire`。CI 使用无默认配置、无硬件发现的 PulseAudio daemon，仅创建 `module-null-sink`；检查 Scene sound PCM、mute/volume、pause/resume 和 cleanup。现有 PipeWire/WirePlumber fixture 保留用于本地环境。mpv 属性读取增加有限异步等待，避免加载事件和属性查询竞态。
-- 本地 `VARPAPER_TEST_AUDIO_BACKEND=pipewire scripts/check-native.sh` 的 Rust Scene、12 项 GL、私有音频、CEF helper 和 workspace engine 88 项均通过；首次完整 workspace 在共享 target 下因并行构建导致已生成测试二进制被移除，改用独立 `CARGO_TARGET_DIR=/tmp/varpaper-target-7.5 cargo test --workspace --locked -- --test-threads=1` 后所有 workspace crate/doc tests 通过。CI 单 job 不共享此并行状态。系统未安装 pulseaudio，因此本机未声称 CI PulseAudio backend 已执行；独立的虚拟 PulseAudio 运行曾验证 Scene sound fixture 1 项通过。
+- 本地 `VARPAPER_TEST_AUDIO_BACKEND=pipewire scripts/check-native.sh` 的 Rust Scene、12 项 GL、私有音频、CEF helper 和 workspace engine 88 项均通过；首次完整 workspace 在共享 target 下遇到已生成测试二进制消失（原因未证实），改用独立 `CARGO_TARGET_DIR=/tmp/varpaper-target-7.5 cargo test --workspace --locked -- --test-threads=1` 后所有 workspace crate/doc tests 通过。独立 target 重跑通过，未据此断言首次失败的根因。系统未安装 pulseaudio，因此本机未声称 CI PulseAudio backend 已执行；独立的虚拟 PulseAudio 运行曾验证 Scene sound fixture 1 项通过。
 - `cargo clippy --workspace --all-targets -- -D warnings`（独立 target）和 `cargo fmt --all -- --check` 通过；shell/Python/JSON、`git diff --check` 通过。干净源码副本 `/tmp/varpaper-ci-clean-7.5-lnni13tw/source` 不含 `native/wallpaperengine`，构建不读取参考 checkout 或 Scene 动态库。Task 7.1–7.5 完成；8.x 桌面、soak、三包安装和完整 coverage 仍未完成。本 Task 完成后暂停供用户提交，未暂存、提交或 push。
+
+
+## 2026-10-15：Wayland/X11 桌面验收（8.1）
+
+- X11 私有 Xvfb 重新执行 `VARPAPER_CEF_RUNTIME=/tmp/varpaper-controls-runtime python3 scripts/fixtures/mixed_outputs.py x11`：三输出 Video/Scene/Web 首帧、多输出独立暂停、帧率上限、800×600/scale 2 resize、Image 静态帧、GIF 动画、Web 清除/重建、断屏/重连及五类型逐类生命周期均通过；Rust fixture 1 项通过（20.69 秒）。日志 `/tmp/varpaper-8.1-x11.log`。
+- Wayland 私有 nested niri（独立 XDG_RUNTIME_DIR、软件 Mesa、dummy audio）执行 `scripts/check-wayland.sh`：输出枚举、native session 优先级、Scene/media 失败清除恢复、20 次重启与清理共 4 项通过（62.93 秒）。日志 `/tmp/varpaper-8.1-wayland.log`。此前使用临时 Sway headless compositor 的三输出 mixed fixture 已在 7.1 验证记录中通过；其环境和复现命令保留在该记录，未连接用户 compositor。
+- 验收 fixture 在私有显示服务器中直接断言 framebuffer 尺寸、presented frame、播放状态、类型路径和 renderer/native 计数，没有生成不可复现的桌面截图；软件渲染和 Fontconfig warning 不影响断言。未发现失败项。真实物理热插拔、不同 compositor/显卡和完整发行版安装仍不由此项覆盖；8.2–8.4 保持未完成。本 Task 完成后暂停供用户提交，未暂存、提交或 push。
+
+
+## 2026-10-16：五类型资源 soak（8.2）
+
+- 扩展原生 X11 `web_texture_orientation_first_frame_and_stop_preserve_media_and_scene`，每轮依次应用 Image → Video → Scene → Web → GIF，每次成功后尝试损坏 Scene 候选并验证旧赋值保留，再暂停/恢复、resize，最后清除。共 100 轮、500 次类型应用及 500 次失败候选初始化。
+- 私有 Xvfb、Mesa 软件 GL、dummy SDL、不可用的私有 Pulse socket；CEF 使用已固定并校验的外部 SDK runtime，helper 使用独立 `/tmp/varpaper-8-web-host`，不连接用户桌面/音频。测试在 `target/quality-native-8.4` 的实际 engine 测试二进制执行，指定完整测试名及 `--exact --nocapture`。
+- `/tmp/varpaper-8.2-counts.log`：1 项通过（233.40 秒）。每轮断言全部计数回到基线，每 10 轮打印：native `(1, 0)`（保留测试 EGL display，无 window）、Scene `((0, 0), (0, 0), 0, 0, 0)`、Web `[0, 0, 0, 0, 0]`、audio `(0, 0)`；Web 宿主均已退出。最后 drop EGL 后 native 也回到测试前基线。无持续资源累积；这是引擎所有权计数，不是进程 RSS 或驱动显存测量。
+- 此前短测试名配 `--exact` 的零项运行、未固定软件 CEF 的首帧失败，以及 SDK 被 Flutter clean 删除/运行库资源路径不完整的失败均不作为通过证据。修正隔离目录和 runtime 布局后，上述完整测试与 native gate 中同一 100 轮测试均通过。
+
+
+## 2026-10-16：quality 本地验收（8.4，待当前提交 CI）
+
+- Rust 1.88.0 `check --workspace --all-targets --locked`、workspace Clippy `-D warnings`、`cargo fmt --all -- --check` 全部通过。编译命令设置 `RUSTFLAGS=-D warnings`，使用隔离 target；日志 `/tmp/varpaper-8.4-msrv.log`、`/tmp/varpaper-8.4-clippy.log`。
+- `cargo llvm-cov --workspace --ignore-filename-regex frb_generated --lcov --output-path lcov-rust.info` 通过：engine 88、library 40、GUI 34 项。普通 coverage 环境不启用原生 fixture，相关测试的提前返回不算真实原生验收；下面独立 native gate 提供该证据。日志 `/tmp/varpaper-8.4-rust-cov.log`；生成的报告另存 `/tmp/varpaper-8.4-lcov-rust.info`，不提交覆盖率产物。
+- `scripts/check-native.sh` 使用外部固定 CEF SDK/helper、独立 target、Mesa 软件 GL、私有 PulseAudio（仅 null sink，无硬件发现）、Xvfb 执行成功。24 项 CPU/script、12 项真实 GL、1 项 OpenGL 3.0 拒绝、1 项真实私有音频及 Web helper fixture 通过，随后 workspace 88 + 40 + 34 项通过，包括完整五类型 100 轮 soak 及真实 uninstall/restart。日志 `/tmp/varpaper-8.4-native.log`；本机未安装 PulseAudio，使用临时提取的官方 Arch PulseAudio 二进制/模块，不修改系统服务。
+- 修复 native gate 末尾的测试选择断言：原字符串 `x11_scene_fixture_tests::` 与实际模块名不符，改为完整 `engine::x11::scene_fixture_tests::textured_scene_loose_packed_shared_and_missing_resources`。重新执行整个 gate 后最终选择断言通过。
+- 与 workflow 一致的全部 shell/Arch recipe 语法、三个 JSON manifest 和 Python AST 校验通过。新 Settings package fixture 纳入 CI analyze，默认不启用网络下载；未设置 opt-in 的两个 package fixture 测试均跳过。
+- 原工作区 Flutter clean 因旧 build 内部分文件权限报告清理失败；未忽略该验收缺口。将当前源码（包括新 fixture，不含 build/target/参考 checkout）复制到 `/tmp/varpaper-8.4-clean-0hnqzgng/source`，完整执行 clean → pub get → workflow 指定 analyze → test --coverage，全部成功，82 项测试通过。日志 `/tmp/varpaper-8.4-clean-flutter.log`，实际 Flutter lcov 位于该副本 `coverage/lcov.info`。Flutter 3.47.4；最终原工作区 analyze 亦通过（`/tmp/varpaper-8.4-final-analyze.log`）。
+- Task 8.4 保持未完成：用户已明确批准先完成本地验收、当前工作区提交推送后再检查 CI/Codecov。历史成功 run 38118275488 属于其他提交，不能证明本次改动上传成功。未暂存、提交、推送或触发远程工作流；每次 push 前仍须遵守 AGENTS.md 的完整 quality 门禁。
+
+
+## 2026-10-16：设置安装/卸载的三包本地验收（8.3，部分完成）
+
+- 按用户批准，8.3 验收范围调整为当前 Rust Scene 子集；实时 Scene 系统音频可视化及可注入本地时钟仍明确延期，不以内部手动 spectrum/单调动画时钟 fixture 冒充上述能力。Task 8.3 保持未完成。
+- 新增 opt-in `scripts/fixtures/component_package_smoke_test.dart`，实际加载包内 Rust service 与 helper，使用真实 Settings widget/controller，只有存储由内存 FakeStore 替代。测试先确认组件缺失、Web 可发现但应用失败且没有创建组件目录，执行无 CEF 的 Video/Image/GIF/clear-color Scene，再点击 Install 触发官方固定归档下载、SHA/清单校验及原子安装，执行五类型与暂停/恢复，Web 活跃时点击 Uninstall，确认状态 not_installed、diskBytes=0、runtime 删除而项目文件保留。
+- 复现：`VARPAPER_TEST_FLUTTER=/tmp/varpaper-flutter-ci/bin/flutter VARPAPER_TEST_COMPONENT_INSTALL=1 scripts/check-scene-package.sh PACKAGE`。私有 Xvfb/data/cache、软件 GL/dummy SDL、不可用的私有 Pulse socket；自动清理临时安装及解包目录。只在显式 opt-in 时下载 CEF。修复临时目录名称断言，并为显式 helper override 提供相邻 runtime manifest 的临时链接布局；不更改包内清单。
+- 三种既有 Task 7 验证包分别成功：Arch `/tmp/varpaper-8.3-arch-settings.log`（75 秒）、Debian `/tmp/varpaper-8.3-deb-settings.log`（132 秒）、Flatpak `/tmp/varpaper-8.3-flatpak-settings.log`（128 秒），各 1 项通过。它们均使用主机动态库和测试窗口，未安装为用户桌面应用；Flatpak 解包执行也没有进入其 sandbox。
+- 这些通过结果不等于完整 8.3：默认阶段没有隔离网络或抓包，未以运行断言证明零联网；Web 页面注册了属性/音频回调，但此 package fixture 没有断言回调结果。当前只覆盖音频采集不可用时仍可渲染；私有 PulseAudio 采集可用的证据来自独立 native gate，不能替代三包各自的两种音频状态。延期 Scene 能力的 GUI/资产诊断也仍需专门的 package 断言。
+- 后续验收所需环境/产物：三发行包实际安装和 Flatpak sandbox 内的完整 Settings 流程；现有验证 `.deb` 在 Arch 构建并声明 `libc6 >= 2.44`，不能用它宣称支持较早 Debian/Ubuntu，需在支持的最低发行版构建基线上重新产包。此轮不放宽这些验收条件、不将 8.3 标记完成。现有 7.3 sandbox browser 通过记录仍保留，但不当作 sandbox 中设置安装器的通过证据。
+
+
+## 2026-10-16：Task 8.3 package installation follow-up
+
+- Rebuilt and installed Debian on Ubuntu 24.04 and Arch in isolated containers. Both disconnected default phases passed Video/Image/GIF/Rust Scene without CEF or a component directory. Settings install, typed Web property pixel checks, five-type pause/resume, active Web uninstall, zero disk usage, and project preservation passed with unavailable audio and with private PulseAudio null-sink audio (nonzero spectrum).
+- Built the Flatpak with GNOME 50 and pinned Zypak. Its installed Platform sandbox default phase passed with `--unshare=network`, no reference checkout, no CEF in `/app`, and the four delivered types. A direct Platform service probe completed Web helper IPC. The full Settings loop remains unstable after Web uninstall: the sandbox helper intermittently exits with `ECONNRESET`/`EAGAIN`, and a sandbox download can correctly remain in `error`; this is not marked as Task 8.3 completion.
+- The opt-in fixture now asserts typed Web properties and 128-band audio callback pixels, and explicitly reports live Scene system-audio visualization and injected local-clock bindings as unavailable. Flatpak portal children require `TMPDIR` under an app-visible persistent directory; parent private `/tmp` is not reusable.
+- 8.3 remains unchecked pending stable Flatpak Settings install/apply/uninstall. 8.4 remains unchecked pending CI/Codecov on the submitted commit.

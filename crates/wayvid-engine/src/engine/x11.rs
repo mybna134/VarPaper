@@ -983,11 +983,39 @@ mod tests {
         )
         .unwrap();
         std::fs::write(broken.join("scene.json"), "{}").unwrap();
+        let video = authored.path().join("soak.mp4");
+        assert!(std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=red:s=64x32:r=20",
+                "-t",
+                "1",
+                "-c:v",
+                "mpeg4"
+            ])
+            .arg(&video)
+            .status()
+            .unwrap()
+            .success());
+        let gif = authored.path().join("soak.gif");
+        assert!(std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(&video)
+            .arg(&gif)
+            .status()
+            .unwrap()
+            .success());
+        let web_project = project.path().to_path_buf();
+        let web_baseline = crate::web::live_counts();
         for cycle in 0..100 {
             let window = display.create_desktop_window(&output).unwrap();
             let mut session =
                 WallpaperSession::new(image.clone(), output.clone(), Default::default()).unwrap();
-            for path in [&image, &scene_project, &project.path().to_path_buf()] {
+            for path in [&image, &video, &scene_project, &web_project, &gif] {
                 if path != &image {
                     session.load_new_wallpaper(path).unwrap();
                 }
@@ -1021,6 +1049,17 @@ mod tests {
             assert_eq!(crate::scene::live_counts(), scene_baseline, "cycle {cycle}");
             assert_eq!(crate::audio::live_counts(), audio_baseline, "cycle {cycle}");
             assert!(!crate::web::host_is_alive(), "cycle {cycle}");
+            assert_eq!(crate::web::live_counts(), web_baseline, "cycle {cycle}");
+            if cycle % 10 == 9 {
+                eprintln!(
+                    "Soak cycles={}: native={:?} Scene={:?} Web={:?} audio={:?}",
+                    cycle + 1,
+                    crate::egl::native_counts(),
+                    crate::scene::live_counts(),
+                    crate::web::live_counts(),
+                    crate::audio::live_counts()
+                );
+            }
         }
         drop(egl);
         assert_eq!(crate::egl::native_counts(), baseline);

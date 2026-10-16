@@ -76,7 +76,7 @@ pub fn available() -> bool {
 pub fn validate_host_installation() -> Result<()> {
     validated_host_path().map(|_| ())
 }
-fn validate_host(host: &Path, manifest: &Path) -> Result<()> {
+fn validate_host(host: &Path, manifest: &Path) -> Result<PathBuf> {
     use std::os::unix::fs::PermissionsExt;
     let executable = std::fs::metadata(host).context("Web host is missing")?;
     ensure!(
@@ -96,7 +96,9 @@ fn validate_host(host: &Path, manifest: &Path) -> Result<()> {
         expected["ipc_version"] == IPC_VERSION && actual == expected,
         "Web host version or ABI mismatch; reinstall the application"
     );
-    Ok(())
+    // Zypak re-launches this executable in a child sandbox. A temporary
+    // alias may only exist in the parent, so launch the verified real path.
+    std::fs::canonicalize(host).context("Cannot resolve Web host executable")
 }
 fn validated_host_path() -> Result<PathBuf> {
     let host = host_path()?;
@@ -109,8 +111,7 @@ fn validated_host_path() -> Result<PathBuf> {
             .context("Missing application directory")?
             .join("data/runtime.json")
     };
-    validate_host(&host, &manifest)?;
-    Ok(host)
+    validate_host(&host, &manifest)
 }
 struct Host {
     socket: UnixStream,
@@ -667,7 +668,10 @@ mod tests {
             .to_string()
             .contains("budget"));
         std::fs::write(&manifest, RUNTIME_MANIFEST).unwrap();
-        validate_host(&host, &manifest).unwrap();
+        assert_eq!(validate_host(&host, &manifest).unwrap(), host);
+        let alias = directory.path().join("host-alias");
+        std::os::unix::fs::symlink(&host, &alias).unwrap();
+        assert_eq!(validate_host(&alias, &manifest).unwrap(), host);
         std::fs::set_permissions(&host, std::fs::Permissions::from_mode(0o644)).unwrap();
         assert!(validate_host(&host, &manifest)
             .unwrap_err()

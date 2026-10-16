@@ -107,7 +107,7 @@ jobs:
         run: |
           flutter clean
           flutter pub get
-          flutter analyze lib/main.dart lib/src/l10n.dart lib/src/storage/settings_store.dart test scripts/fixtures/scene_package_smoke_test.dart
+          flutter analyze lib/main.dart lib/src/l10n.dart lib/src/storage/settings_store.dart test scripts/fixtures/scene_package_smoke_test.dart scripts/fixtures/component_package_smoke_test.dart
           flutter test --coverage
 
       - name: Upload Rust coverage to Codecov
