@@ -509,7 +509,9 @@ fn rust_scene_text_font_fallback_layout_budget_visibility_and_cleanup() {
             let pixels = frame();
             assert!(
                 pixels
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .filter(|v| v[0] > 20 && v[1] > 20)
                     .count()
                     > 40,
@@ -562,7 +564,11 @@ fn rust_scene_text_font_fallback_layout_budget_visibility_and_cleanup() {
     );
     scene.set_text(2, "", &resources).unwrap();
     scene.render(64, 64, 0).unwrap();
-    assert!(frame().chunks_exact(4).all(|v| v == [0, 0, 255, 255]));
+    assert!(frame()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|v| v == &[0, 0, 255, 255]));
     drop(scene);
     assert_eq!(
         (gpu::counts(), program::counts(), draw::mesh_count()),
@@ -575,7 +581,11 @@ fn rust_scene_text_font_fallback_layout_budget_visibility_and_cleanup() {
     let mut scene =
         RustSceneRenderer::new("scene.json", &resources, context.clone(), window.clone()).unwrap();
     scene.render(64, 64, 0).unwrap();
-    assert!(frame().chunks_exact(4).all(|v| v == [0, 0, 255, 255]));
+    assert!(frame()
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .all(|v| v == &[0, 0, 255, 255]));
     drop(scene);
     for (field, value) in [
         ("text", serde_json::json!("x".repeat(4097))),
@@ -1111,7 +1121,9 @@ fn rust_scene_loose_package_shared_frames_and_include_compilation() {
                 );
             }
             assert!(frame
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .all(|pixel| pixel[0] > 250 && pixel[1] < 3 && pixel[2] < 3));
             frames.push(frame);
             drop(scene);

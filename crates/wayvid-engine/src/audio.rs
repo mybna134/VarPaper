@@ -173,7 +173,7 @@ impl Analyzer {
     fn feed(&mut self, samples: &[f32]) -> Option<([f32; BANDS * 2], [f32; 2])> {
         // Capture chunks are stereo-aligned and bounded before reaching here.
         let mut result = None;
-        for pair in samples.chunks_exact(2) {
+        for pair in samples.as_chunks::<2>().0 {
             self.pending.extend(pair.iter().map(|v| {
                 if v.is_finite() {
                     v.clamp(-1.0, 1.0)

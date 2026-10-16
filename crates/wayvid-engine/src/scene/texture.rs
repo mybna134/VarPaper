@@ -435,7 +435,12 @@ fn decode_pixels(format: Format, width: u32, height: u32, data: &[u8]) -> Result
     let mut out = vec![0; width as usize * height as usize * 4];
     if matches!(format, Format::R | Format::Rg) {
         let stride = if format == Format::R { 1 } else { 2 };
-        for (pixel, source) in out.chunks_exact_mut(4).zip(data.chunks_exact(stride)) {
+        for (pixel, source) in out
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(data.chunks_exact(stride))
+        {
             pixel.copy_from_slice(&[source[0], if stride == 2 { source[1] } else { 0 }, 0, 255]);
         }
         return Ok(out);

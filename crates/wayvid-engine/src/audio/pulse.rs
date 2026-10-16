@@ -320,8 +320,10 @@ impl Capture for Monitor {
                 // PulseAudio owns the buffer until drop; copy bounded bytes,
                 // avoiding assumptions about its float pointer alignment.
                 std::slice::from_raw_parts(bytes.cast::<u8>(), length)
-                    .chunks_exact(4)
-                    .map(|b| f32::from_ne_bytes(b.try_into().unwrap()))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|b| f32::from_ne_bytes(*b))
                     .collect()
             };
             ensure!(

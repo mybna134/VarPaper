@@ -885,8 +885,8 @@ impl Assets {
                             pipeline.steps.push(EffectStep::Draw {
                                 material: key.clone(),
                                 pass: material_pass,
-                                source: pass.get("source").map(&target_name).transpose()?,
-                                target: pass.get("target").map(&target_name).transpose()?,
+                                source: pass.get("source").map(target_name).transpose()?,
+                                target: pass.get("target").map(target_name).transpose()?,
                             });
                         }
                     }
