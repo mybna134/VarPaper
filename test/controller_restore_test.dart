@@ -88,11 +88,6 @@ class _Service implements WayvidService {
   }
 
   @override
-  Future<void> applyWallpaper({required String path, String? output}) async {
-    applied.add(output ?? 'all');
-  }
-
-  @override
   Future<void> applyWallpaperSource({
     required WallpaperSourceDto source,
     String? output,
@@ -101,7 +96,7 @@ class _Service implements WayvidService {
     if (typedFailure != null) {
       throw BridgeError(code: 'apply_failed', message: typedFailure!);
     }
-    await applyWallpaper(path: source.sourcePath, output: output);
+    applied.add(output ?? 'all');
   }
 
   @override
@@ -140,12 +135,15 @@ class _WebRestoreService extends _Service {
   }
 
   @override
-  Future<void> applyWallpaper({required String path, String? output}) async {
-    attempts.add(path);
-    if (path.endsWith('project.json') && failure != null) {
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  }) async {
+    attempts.add(source.sourcePath);
+    if (source.wallpaperType == 'web' && failure != null) {
       throw BridgeError(code: 'requires_renderer', message: failure!);
     }
-    await super.applyWallpaper(path: path, output: output);
+    await super.applyWallpaperSource(source: source, output: output);
   }
 }
 
@@ -170,6 +168,54 @@ WallpaperSourceDto _source(String path, String id, {String type = 'video'}) =>
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('missing and malformed saved sources stay persisted and can restore after repair', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'varpaper-restore-boundary-',
+    );
+    final path = '${directory.path}/wallpaper.mp4';
+    final source = _source(path, 'saved');
+    final store = _Store();
+    await store.saveAssignment(output: _monitor.name, source: source);
+    final saved = store.assignments[_monitor.name]!;
+    final service = _Service([_monitor]);
+    var controller = await WayvidController.create(
+      store,
+      serviceOverride: service,
+    );
+    try {
+      expect(controller.appliedByOutput, isEmpty);
+      expect(service.descriptions, isEmpty);
+      expect(store.assignments[_monitor.name], same(saved));
+      await controller.shutdown();
+      await File(path).writeAsString('fixture');
+      saved.sourceVersion = null;
+      controller = await WayvidController.create(
+        store,
+        serviceOverride: service,
+      );
+      expect(
+        controller.error,
+        contains('Incomplete wallpaper assignment description'),
+      );
+      expect(controller.appliedByOutput, isEmpty);
+      expect(service.descriptions, isEmpty);
+      expect(store.assignments[_monitor.name], same(saved));
+      await controller.shutdown();
+      saved.setSourceDescription(source);
+      controller = await WayvidController.create(
+        store,
+        serviceOverride: service,
+      );
+      expect(controller.error, isNull);
+      expect(service.descriptions, [source]);
+      expect(controller.appliedByOutput, {_monitor.name: 'saved'});
+      expect(store.assignments[_monitor.name], same(saved));
+    } finally {
+      await controller.shutdown();
+      await directory.delete(recursive: true);
+    }
+  });
 
   for (final kind in ['scene', 'web']) {
     test(

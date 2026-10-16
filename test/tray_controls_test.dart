@@ -43,7 +43,7 @@ class _Service implements WayvidService {
     supported: true,
   );
 
-  final applied = <String>[];
+  final applications = <({WallpaperSourceDto source, String? output})>[];
   final paused = <String>[];
   final configs = <EngineConfigDto>[];
 
@@ -100,15 +100,12 @@ class _Service implements WayvidService {
   ];
 
   @override
-  Future<void> applyWallpaper({required String path, String? output}) async {
-    applied.add('${output ?? 'all'}:$path');
-  }
-
-  @override
   Future<void> applyWallpaperSource({
     required WallpaperSourceDto source,
     String? output,
-  }) => applyWallpaper(path: source.sourcePath, output: output);
+  }) async {
+    applications.add((source: source, output: output));
+  }
 
   @override
   Future<void> pause({String? output}) async => paused.add(output ?? 'all');
@@ -145,6 +142,18 @@ void main() {
         await controller.apply('beta', output: 'B');
         await controller.cycleWallpaper(1);
         expect(controller.appliedByOutput, {'A': 'beta', 'B': 'alpha'});
+        expect(
+          service.applications.map(
+            (call) => (call.source.sourceId, call.output),
+          ),
+          [('alpha', 'A'), ('beta', 'B'), ('beta', 'A'), ('alpha', 'B')],
+        );
+        expect(
+          service.applications.every(
+            (call) => call.source.wallpaperType == 'video',
+          ),
+          isTrue,
+        );
 
         await controller.setPaused(true);
         await controller.cycleWallpaper(-1);
@@ -207,6 +216,11 @@ void main() {
             store.assignments['A']!.sourceDescription!.wallpaperType,
             types[i],
           );
+          expect(
+            service.applications.last.source,
+            store.assignments['A']!.sourceDescription,
+          );
+          expect(service.applications.last.output, 'A');
           expect(service.calls.last, 'pause:A');
           await controller.update(
             SettingsPatch(volume: 0.4, mute: false, pauseOnBattery: true),

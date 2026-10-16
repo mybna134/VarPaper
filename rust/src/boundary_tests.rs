@@ -16,6 +16,153 @@ fn image_fixture() -> PathBuf {
 }
 
 #[tokio::test]
+async fn apply_apis_reject_invalid_and_unavailable_sources_before_dispatch() {
+    let root = tempfile::tempdir().unwrap();
+    let service = service(root.path());
+    let invalid = root.path().join("unsupported.txt");
+    std::fs::write(&invalid, "invalid").unwrap();
+    assert_eq!(
+        service
+            .apply_wallpaper(invalid.to_string_lossy().into(), None)
+            .await
+            .unwrap_err()
+            .code,
+        "unsupported"
+    );
+
+    let image = root.path().join("image.png");
+    std::fs::copy(image_fixture(), &image).unwrap();
+    let mut source = service
+        .describe_wallpaper(image.to_string_lossy().into())
+        .unwrap();
+    source.source_id = "forged".into();
+    assert_eq!(
+        service
+            .apply_wallpaper_source(source.clone(), None)
+            .await
+            .unwrap_err()
+            .code,
+        "source_changed"
+    );
+    source.version = 2;
+    assert_eq!(
+        service
+            .apply_wallpaper_source(source, None)
+            .await
+            .unwrap_err()
+            .code,
+        "unsupported_source_version"
+    );
+
+    let web = root.path().join("web");
+    std::fs::create_dir(&web).unwrap();
+    std::fs::write(
+        web.join("project.json"),
+        r#"{"type":"web","file":"index.html"}"#,
+    )
+    .unwrap();
+    std::fs::write(web.join("index.html"), "<body/>").unwrap();
+    let description = service
+        .describe_wallpaper(web.to_string_lossy().into())
+        .unwrap();
+    assert_eq!(
+        service
+            .apply_wallpaper(web.to_string_lossy().into(), None)
+            .await
+            .unwrap_err()
+            .code,
+        "requires_renderer"
+    );
+    assert_eq!(
+        service
+            .apply_wallpaper_source(description, None)
+            .await
+            .unwrap_err()
+            .code,
+        "requires_renderer"
+    );
+    // Exercise the shared recheck after preparation: no engine may be started
+    // or called when Web availability is lost before locked dispatch.
+    service.web_component.prepare_uninstall().unwrap();
+    assert_eq!(
+        apply_prepared_source(
+            &service,
+            web.join("project.json"),
+            serde_json::json!({}),
+            None
+        )
+        .unwrap_err()
+        .code,
+        "requires_renderer"
+    );
+    service.web_component.finish_uninstall();
+    assert!(service.poll_events().unwrap().is_empty());
+    assert!(!service.lock().unwrap().engine.is_running());
+    assert!(!root.path().join("component").exists());
+}
+
+#[tokio::test]
+async fn x11_apply_apis_acknowledge_frames_and_preserve_failed_assignment() {
+    if std::env::var_os("VARPAPER_TEST_X11").is_none() {
+        return;
+    }
+    let root = tempfile::tempdir().unwrap();
+    let service = service(root.path());
+    service
+        .lock()
+        .unwrap()
+        .engine
+        .start(EngineConfig::default())
+        .unwrap();
+    let output = service.refresh_monitors().await.unwrap().remove(0).name;
+    let image = root.path().join("image.png");
+    std::fs::copy(image_fixture(), &image).unwrap();
+    let broken = root.path().join("broken.png");
+    std::fs::write(&broken, "invalid PNG").unwrap();
+    for typed in [false, true] {
+        if typed {
+            let source = service
+                .describe_wallpaper(image.to_string_lossy().into())
+                .unwrap();
+            service
+                .apply_wallpaper_source(source, Some(output.clone()))
+                .await
+                .unwrap();
+        } else {
+            service
+                .apply_wallpaper(image.to_string_lossy().into(), Some(output.clone()))
+                .await
+                .unwrap();
+        }
+        assert!(service.poll_events().unwrap().iter().any(|event| matches!(event,
+            ServiceEvent::WallpaperApplied { output: name, path } if name == &output && Path::new(path) == image)));
+        let failure = if typed {
+            let source = service
+                .describe_wallpaper(broken.to_string_lossy().into())
+                .unwrap();
+            service
+                .apply_wallpaper_source(source, Some(output.clone()))
+                .await
+        } else {
+            service
+                .apply_wallpaper(broken.to_string_lossy().into(), Some(output.clone()))
+                .await
+        }
+        .unwrap_err();
+        assert_eq!(failure.code, "apply_failed");
+        let events = service.poll_events().unwrap();
+        assert!(events.iter().any(|event| matches!(event,
+            ServiceEvent::WallpaperFailed { output: name, path, .. } if name == &output && Path::new(path) == broken)));
+        assert!(!events.iter().any(|event| matches!(
+            event,
+            ServiceEvent::WallpaperApplied { .. } | ServiceEvent::WallpaperCleared { .. }
+        )));
+        expect_assignment(&service, &output, Some(&image)).await;
+    }
+    service.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn folder_scan_returns_stable_serializable_dtos_without_an_engine() {
     let root = tempfile::tempdir().unwrap();
     let folder = root.path().join("wallpapers");

@@ -23,6 +23,15 @@ ignore:
   - crates/wayvid-engine/src/engine/x11.rs
   - crates/wayvid-engine/src/mpv.rs
   - crates/wayvid-engine/src/wayland/**
+  # Native rendering requires an EGL/OpenGL context; exercised by opt-in
+  # display/GPU fixtures rather than the regular CI coverage run.
+  # Keep CPU geometry, text layout, assets, scripts and texture decoding counted.
+  - crates/wayvid-engine/src/renderer.rs
+  - crates/wayvid-engine/src/scene/draw.rs
+  - crates/wayvid-engine/src/scene/gpu.rs
+  - crates/wayvid-engine/src/scene/particle_draw.rs
+  - crates/wayvid-engine/src/scene/program.rs
+  - crates/wayvid-engine/src/scene/runtime.rs
   # Generated bridge and database code is not maintained or tested directly.
   - rust/src/frb_generated.rs
   - lib/src/bridge_generated.dart/**

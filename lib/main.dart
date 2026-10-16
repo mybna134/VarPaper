@@ -118,7 +118,6 @@ class WayvidController extends ChangeNotifier {
   bool engineRunning;
   bool manuallyPaused = false;
   final bool workshopAvailable;
-  bool get anotherInstance => false;
   String? error;
   String search = '';
   bool showLocalWallpapers = true;
@@ -385,8 +384,6 @@ class WayvidController extends ChangeNotifier {
         _assignments.clear();
         _assignments['all'] = WallpaperAssignmentRecord()
           ..output = 'all'
-          ..sourcePath = wallpaper.sourcePath
-          ..sourceId = wallpaper.id
           ..setSourceDescription(source);
         appliedByOutput.clear();
         for (final monitor in monitors) {
@@ -396,8 +393,6 @@ class WayvidController extends ChangeNotifier {
         await settingsStore.saveAssignment(output: output, source: source);
         _assignments[output] = WallpaperAssignmentRecord()
           ..output = output
-          ..sourcePath = wallpaper.sourcePath
-          ..sourceId = wallpaper.id
           ..setSourceDescription(source);
         appliedByOutput[output] = wallpaper.id;
       }
@@ -1256,11 +1251,6 @@ class _ContentState extends State<_Content> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (controller.anotherInstance)
-            const _Notice(
-              icon: Icons.info_outline,
-              text: 'VarPaper is already running; this window is a secondary instance.',
-            ),
           if (controller.error != null)
             _Notice(
               icon: Icons.error_outline,

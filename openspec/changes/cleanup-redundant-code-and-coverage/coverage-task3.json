@@ -1,0 +1,412 @@
+{
+  "metadata": {
+    "head": "2dc69c16634645effbbb7f0a567d618ee14ea14c",
+    "status": " M crates/wayvid-library/src/project.rs\n M crates/wayvid-library/src/scanner.rs\n M openspec/changes/cleanup-redundant-code-and-coverage/tasks.md\n M rust/src/boundary_tests.rs\n M rust/src/bridge.rs\n M rust/src/engine.rs\n M rust/src/web_component.rs\n M rust/src/web_lifecycle_tests.rs\n",
+    "utc": "2026-10-16T13:01:05.436356+00:00",
+    "command": "RUSTFLAGS='-D warnings' cargo llvm-cov --workspace --ignore-filename-regex frb_generated --lcov --output-path /tmp/varpaper-cleanup-task3-lcov.info",
+    "native_opt_ins": false
+  },
+  "method": "LCOV DA records merged by repository-relative path and line; hit if sum of counts > 0. Filtered view uses fnmatchcase against existing codecov.yml ignore patterns. Rust test code remains included when emitted by llvm-cov. Local line view; not remote Codecov region/branch calculation.",
+  "ignore_patterns": [
+    "crates/wayvid-engine/src/egl.rs",
+    "crates/wayvid-engine/src/engine/mod.rs",
+    "crates/wayvid-engine/src/engine/session.rs",
+    "crates/wayvid-engine/src/engine/x11.rs",
+    "crates/wayvid-engine/src/mpv.rs",
+    "crates/wayvid-engine/src/wayland/**",
+    "rust/src/frb_generated.rs",
+    "lib/src/bridge_generated.dart/**",
+    "lib/src/storage/settings_store.g.dart",
+    "lib/**/*.g.dart",
+    "lib/**/*.freezed.dart",
+    "lib/l10n/app_localizations*.dart"
+  ],
+  "rust": {
+    "report_sha256": "4672e5303cda36af60b09ea2ccdf8cc765269fabbe209c0f4ff89a7a0d4c2a79",
+    "raw": {
+      "covered": 7664,
+      "total": 14977,
+      "uncovered": 7313,
+      "percent": 51.1718
+    },
+    "filtered": {
+      "covered": 6947,
+      "total": 11129,
+      "uncovered": 4182,
+      "percent": 62.4225
+    },
+    "files": [
+      {
+        "path": "crates/wayvid-engine/src/audio.rs",
+        "covered": 282,
+        "total": 306,
+        "uncovered": 24,
+        "percent": 92.1569,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/audio/pulse.rs",
+        "covered": 0,
+        "total": 184,
+        "uncovered": 184,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/egl.rs",
+        "covered": 16,
+        "total": 436,
+        "uncovered": 420,
+        "percent": 3.6697,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/command.rs",
+        "covered": 8,
+        "total": 22,
+        "uncovered": 14,
+        "percent": 36.3636,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/mod.rs",
+        "covered": 317,
+        "total": 889,
+        "uncovered": 572,
+        "percent": 35.658,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/scheduling.rs",
+        "covered": 15,
+        "total": 15,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/session.rs",
+        "covered": 242,
+        "total": 548,
+        "uncovered": 306,
+        "percent": 44.1606,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/engine/x11.rs",
+        "covered": 40,
+        "total": 1256,
+        "uncovered": 1216,
+        "percent": 3.1847,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/frame_timing.rs",
+        "covered": 145,
+        "total": 147,
+        "uncovered": 2,
+        "percent": 98.6395,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/mpv.rs",
+        "covered": 18,
+        "total": 635,
+        "uncovered": 617,
+        "percent": 2.8346,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/properties.rs",
+        "covered": 84,
+        "total": 84,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/renderer.rs",
+        "covered": 0,
+        "total": 187,
+        "uncovered": 187,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/assets.rs",
+        "covered": 466,
+        "total": 823,
+        "uncovered": 357,
+        "percent": 56.6221,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/clock.rs",
+        "covered": 42,
+        "total": 45,
+        "uncovered": 3,
+        "percent": 93.3333,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/draw.rs",
+        "covered": 0,
+        "total": 431,
+        "uncovered": 431,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/fixtures.rs",
+        "covered": 114,
+        "total": 171,
+        "uncovered": 57,
+        "percent": 66.6667,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/geometry.rs",
+        "covered": 0,
+        "total": 150,
+        "uncovered": 150,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/gpu.rs",
+        "covered": 0,
+        "total": 266,
+        "uncovered": 266,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/mod.rs",
+        "covered": 0,
+        "total": 9,
+        "uncovered": 9,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/model.rs",
+        "covered": 119,
+        "total": 132,
+        "uncovered": 13,
+        "percent": 90.1515,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/particle.rs",
+        "covered": 316,
+        "total": 420,
+        "uncovered": 104,
+        "percent": 75.2381,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/particle_draw.rs",
+        "covered": 0,
+        "total": 154,
+        "uncovered": 154,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/program.rs",
+        "covered": 0,
+        "total": 283,
+        "uncovered": 283,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/resources.rs",
+        "covered": 3,
+        "total": 6,
+        "uncovered": 3,
+        "percent": 50.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/runtime.rs",
+        "covered": 0,
+        "total": 348,
+        "uncovered": 348,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/script.rs",
+        "covered": 347,
+        "total": 357,
+        "uncovered": 10,
+        "percent": 97.1989,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/script_timers.rs",
+        "covered": 58,
+        "total": 66,
+        "uncovered": 8,
+        "percent": 87.8788,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/shader.rs",
+        "covered": 274,
+        "total": 302,
+        "uncovered": 28,
+        "percent": 90.7285,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/sound.rs",
+        "covered": 4,
+        "total": 221,
+        "uncovered": 217,
+        "percent": 1.81,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/text.rs",
+        "covered": 0,
+        "total": 231,
+        "uncovered": 231,
+        "percent": 0.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/scene/texture.rs",
+        "covered": 552,
+        "total": 575,
+        "uncovered": 23,
+        "percent": 96.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/types.rs",
+        "covered": 260,
+        "total": 260,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-engine/src/wayland/output.rs",
+        "covered": 84,
+        "total": 84,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": true
+      },
+      {
+        "path": "crates/wayvid-engine/src/web.rs",
+        "covered": 152,
+        "total": 594,
+        "uncovered": 442,
+        "percent": 25.5892,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/model.rs",
+        "covered": 82,
+        "total": 88,
+        "uncovered": 6,
+        "percent": 93.1818,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/project.rs",
+        "covered": 471,
+        "total": 473,
+        "uncovered": 2,
+        "percent": 99.5772,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/scanner.rs",
+        "covered": 597,
+        "total": 643,
+        "uncovered": 46,
+        "percent": 92.846,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/thumbnail.rs",
+        "covered": 496,
+        "total": 513,
+        "uncovered": 17,
+        "percent": 96.6862,
+        "excluded": false
+      },
+      {
+        "path": "crates/wayvid-library/src/workshop.rs",
+        "covered": 408,
+        "total": 422,
+        "uncovered": 14,
+        "percent": 96.6825,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/bridge.rs",
+        "covered": 673,
+        "total": 905,
+        "uncovered": 232,
+        "percent": 74.3646,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/engine.rs",
+        "covered": 115,
+        "total": 303,
+        "uncovered": 188,
+        "percent": 37.9538,
+        "excluded": false
+      },
+      {
+        "path": "rust/src/web_component.rs",
+        "covered": 864,
+        "total": 993,
+        "uncovered": 129,
+        "percent": 87.0091,
+        "excluded": false
+      }
+    ]
+  },
+  "unchanged_production_line_comparison": {
+    "crates/wayvid-library/src/project.rs": {
+      "newly_covered_lines": [
+        40,
+        70,
+        116,
+        217,
+        244
+      ],
+      "lost_covered_lines": []
+    },
+    "rust/src/web_component.rs": {
+      "newly_covered_lines": [
+        132,
+        133,
+        135,
+        136,
+        137,
+        138,
+        139,
+        141,
+        142,
+        143,
+        144,
+        145,
+        212,
+        213,
+        392,
+        533,
+        541,
+        552
+      ],
+      "lost_covered_lines": []
+    }
+  }
+}

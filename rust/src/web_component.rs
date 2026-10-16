@@ -889,6 +889,106 @@ mod tests {
         let b = WebComponent::shared(root);
         assert!(Arc::ptr_eq(&a, &b));
     }
+
+    #[test]
+    fn installed_and_busy_operations_never_start_another_download() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("component");
+        fs::create_dir(&root).unwrap();
+        let runtime = root.join("runtime");
+        let input = archive(temp.path(), resources());
+        extract(&input, &runtime, &AtomicBool::new(false)).unwrap();
+        commit(&runtime);
+        let manager = Arc::new(WebComponent::new(root.clone()));
+        manager.install().unwrap();
+        assert!(!manager.busy());
+        assert!(manager.playback_allowed());
+        assert!(!root.join("staging").exists());
+        manager.busy.store(true, Ordering::Release);
+        assert!(manager
+            .install()
+            .unwrap_err()
+            .to_string()
+            .contains("already running"));
+        assert!(manager
+            .uninstall()
+            .unwrap_err()
+            .to_string()
+            .contains("cancellation"));
+        assert!(manager.cancel.load(Ordering::Acquire));
+        assert!(runtime.join("installed.json").exists());
+        manager.busy.store(false, Ordering::Release);
+        manager.prepare_uninstall().unwrap();
+        assert!(!manager.playback_allowed());
+        assert_eq!(manager.status().state, "uninstalling");
+        manager.uninstall().unwrap();
+        manager.finish_uninstall();
+        assert!(!manager.busy());
+        assert_eq!(manager.status().state, "not_installed");
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn uninstall_failure_releases_operation_and_allows_retry() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("component");
+        fs::write(&root, b"obstructing file").unwrap();
+        let manager = WebComponent::new(root.clone());
+        manager.prepare_uninstall().unwrap();
+        assert!(manager.uninstall().is_err());
+        manager.finish_uninstall();
+        assert!(!manager.busy());
+        assert_eq!(manager.status().state, "error");
+        assert!(manager.status().error.is_some());
+        assert!(!manager.playback_allowed());
+        assert_eq!(fs::read(&root).unwrap(), b"obstructing file");
+        fs::remove_file(&root).unwrap();
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("leftover"), b"owned cache").unwrap();
+        manager.prepare_uninstall().unwrap();
+        manager.uninstall().unwrap();
+        manager.finish_uninstall();
+        assert_eq!(manager.status().state, "not_installed");
+        assert_eq!(manager.status().disk_bytes, 0.0);
+        assert!(manager.status().error.is_none());
+        assert!(!root.exists());
+    }
+
+    #[test]
+    fn malformed_installation_records_fail_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("component");
+        let runtime = root.join("runtime");
+        fs::create_dir_all(&runtime).unwrap();
+        let marker = runtime.join("installed.json");
+        for contents in [b"{invalid".as_slice(), b"{}"] {
+            fs::write(&marker, contents).unwrap();
+            let manager = WebComponent::new(root.clone());
+            assert_eq!(manager.status().state, "error");
+            assert!(!manager.playback_allowed());
+        }
+        File::create(&marker)
+            .unwrap()
+            .set_len(1024 * 1024 + 1)
+            .unwrap();
+        assert!(inspect(&root).unwrap_err().to_string().contains("record"));
+        let input = archive(temp.path(), resources());
+        fs::remove_dir_all(&runtime).unwrap();
+        extract(&input, &runtime, &AtomicBool::new(false)).unwrap();
+        let mut installed = manifest(&runtime, &AtomicBool::new(false)).unwrap();
+        installed.files.remove("libcef.so");
+        serde_json::to_writer(File::create(&marker).unwrap(), &installed).unwrap();
+        assert!(inspect(&root)
+            .unwrap_err()
+            .to_string()
+            .contains("Incomplete"));
+        installed = manifest(&runtime, &AtomicBool::new(false)).unwrap();
+        installed
+            .files
+            .insert("../outside".into(), (0, String::new()));
+        serde_json::to_writer(File::create(&marker).unwrap(), &installed).unwrap();
+        assert!(inspect(&root).unwrap_err().to_string().contains("Unsafe"));
+    }
     #[test]
     fn valid_component_restart_verifies_files_and_uninstall_preserves_wallpaper() {
         let temp = tempfile::tempdir().unwrap();

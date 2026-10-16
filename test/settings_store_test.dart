@@ -54,6 +54,73 @@ void main() {
   });
 
   test(
+    'assignment descriptions reject incomplete records and unknown versions',
+    () async {
+      final source = _source('/valid.mp4', 'valid');
+      for (final damage in <void Function(WallpaperAssignmentRecord)>[
+        (record) => record.sourceVersion = null,
+        (record) => record.sourceVersion = 2,
+        (record) => record.sourceId = null,
+        (record) => record.wallpaperType = null,
+        (record) => record.propertyOverridesJson = null,
+      ]) {
+        final record = WallpaperAssignmentRecord()
+          ..setSourceDescription(source);
+        damage(record);
+        expect(() => record.sourceDescription, throwsStateError);
+      }
+      final record = WallpaperAssignmentRecord()..setSourceDescription(source);
+      const unsupported = WallpaperSourceDto(
+        version: 2,
+        sourceId: 'future',
+        sourcePath: '/future.mp4',
+        wallpaperType: 'video',
+        propertyOverridesJson: '{}',
+      );
+      expect(
+        () => record.setSourceDescription(unsupported),
+        throwsArgumentError,
+      );
+      expect(record.sourceDescription, source);
+      await store.saveAssignment(output: 'A', source: source);
+      await expectLater(
+        store.saveAssignment(output: 'A', source: unsupported),
+        throwsArgumentError,
+      );
+      expect((await store.loadAssignments())['A']!.sourceDescription, source);
+      await store.saveAssignment(output: 'A', source: null);
+      final cleared = (await store.loadAssignments())['A']!;
+      expect(cleared.sourceDescription, isNull);
+      expect(cleared.sourcePath, isEmpty);
+      expect([
+        cleared.sourceVersion,
+        cleared.sourceId,
+        cleared.wallpaperType,
+        cleared.projectSourceJson,
+        cleared.propertyOverridesJson,
+      ], everyElement(isNull));
+    },
+  );
+
+  test(
+    'runtime fps patches retain, clear and accept the u32 maximum',
+    () async {
+      final defaults = SettingsDto.defaults();
+      final limited = defaults.apply(
+        SettingsPatch(fpsLimit: FpsLimitPatch(value: 0xffffffff)),
+      );
+      final retained = limited.apply(SettingsPatch(fpsLimit: FpsLimitPatch()));
+      expect(retained.playback.fpsLimit, 0xffffffff);
+      final unlimited = retained.apply(
+        SettingsPatch(fpsLimit: FpsLimitPatch.unlimited()),
+      );
+      expect(unlimited.playback.fpsLimit, isNull);
+      await store.save(unlimited);
+      expect((await store.load()).playback.fpsLimit, isNull);
+    },
+  );
+
+  test(
     'controller persists defaults before initializing the service',
     () async {
       expect(await isar.appSettingsRecords.get(0), isNull);

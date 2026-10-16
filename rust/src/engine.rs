@@ -139,10 +139,6 @@ impl EngineController {
         self.send_command(EngineCommand::UpdateConfig(config))
     }
 
-    pub fn apply_wallpaper(&mut self, output: Option<String>, path: PathBuf) -> Result<(), String> {
-        self.apply_with_properties(output, path, serde_json::json!({}))
-    }
-
     pub fn apply_with_properties(
         &mut self,
         output: Option<String>,
@@ -271,7 +267,7 @@ mod tests {
         let output = controller.outputs()[0].name.clone();
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packaging/varpaper.png");
         controller
-            .apply_wallpaper(Some(output.clone()), path.clone())
+            .apply_with_properties(Some(output.clone()), path.clone(), serde_json::json!({}))
             .unwrap();
         controller.poll_events();
         for fps_limit in [Some(24), None] {
@@ -338,13 +334,13 @@ mod tests {
         let output = controller.outputs()[0].name.clone();
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packaging/varpaper.png");
         controller
-            .apply_wallpaper(Some(output.clone()), path.clone())
+            .apply_with_properties(Some(output.clone()), path.clone(), serde_json::json!({}))
             .unwrap();
         assert!(controller.poll_events().iter().any(|event| matches!(event,
             EngineEvent::WallpaperApplied { output: applied, path: source } if applied == &output && source == &path)));
         let missing = path.with_file_name("missing-candidate.png");
         assert!(controller
-            .apply_wallpaper(Some(output.clone()), missing.clone())
+            .apply_with_properties(Some(output.clone()), missing.clone(), serde_json::json!({}))
             .is_err());
         assert!(controller.poll_events().iter().any(|event| matches!(event,
             EngineEvent::WallpaperFailed { output: failed, path: source, .. } if failed == &output && source == &missing)));
@@ -363,7 +359,11 @@ mod tests {
         assert_eq!(controller.resume(Some("DP-1".into())), not_running);
         assert_eq!(controller.clear_wallpaper(None), not_running);
         assert_eq!(
-            controller.apply_wallpaper(None, PathBuf::from("/tmp/a.mp4")),
+            controller.apply_with_properties(
+                None,
+                PathBuf::from("/tmp/a.mp4"),
+                serde_json::json!({})
+            ),
             not_running
         );
         assert_eq!(

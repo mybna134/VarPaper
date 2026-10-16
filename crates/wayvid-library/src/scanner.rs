@@ -438,10 +438,27 @@ pub enum FileEvent {
     Deleted(PathBuf),
 }
 
+// Keep the two filesystem observations separate: a file can disappear after
+// is_file succeeds. AnyContinuous (and future kinds) retain the old Modified
+// fallback; Any observes that deletion before dispatching.
+fn classify_file_event(
+    path: PathBuf,
+    kind: DebouncedEventKind,
+    is_file: bool,
+    exists: bool,
+) -> Option<FileEvent> {
+    match (is_file, exists) {
+        (false, true) => None,
+        (false, false) => Some(FileEvent::Deleted(path)),
+        (true, false) if kind == DebouncedEventKind::Any => Some(FileEvent::Deleted(path)),
+        (true, _) => Some(FileEvent::Modified(path)),
+    }
+}
+
 /// File system watcher for real-time change detection
 pub struct FileWatcher {
     scanner: FolderScanner,
-    #[allow(dead_code)]
+    // Retain the watcher until FileWatcher is dropped, keeping callbacks alive.
     debouncer: Debouncer<notify::RecommendedWatcher>,
     event_rx: Receiver<FileEvent>,
 }
@@ -461,22 +478,14 @@ impl FileWatcher {
                 for event in events {
                     let path = event.path;
 
-                    // Only process wallpaper files
-                    if path.is_file() && scanner_clone.is_wallpaper_file(&path) {
-                        let file_event = match event.kind {
-                            DebouncedEventKind::Any => {
-                                if path.exists() {
-                                    FileEvent::Modified(path)
-                                } else {
-                                    FileEvent::Deleted(path)
-                                }
-                            }
-                            DebouncedEventKind::AnyContinuous => FileEvent::Modified(path),
-                            _ => FileEvent::Modified(path), // Handle future variants
-                        };
+                    if !scanner_clone.is_wallpaper_file(&path) {
+                        continue;
+                    }
+                    let is_file = path.is_file();
+                    let exists = path.exists();
+                    if let Some(file_event) = classify_file_event(path, event.kind, is_file, exists)
+                    {
                         let _ = event_tx.send(file_event);
-                    } else if !path.exists() && scanner_clone.is_wallpaper_file(&path) {
-                        let _ = event_tx.send(FileEvent::Deleted(path));
                     }
                 }
             }
@@ -578,6 +587,78 @@ mod tests {
     use super::*;
     use std::fs::File;
     use tempfile::TempDir;
+
+    #[test]
+    fn file_event_classification_preserves_deletion_races_and_continuous_updates() {
+        let path = PathBuf::from("wallpaper.png");
+        for kind in [DebouncedEventKind::Any, DebouncedEventKind::AnyContinuous] {
+            assert_eq!(
+                classify_file_event(path.clone(), kind, true, true),
+                Some(FileEvent::Modified(path.clone()))
+            );
+            assert_eq!(
+                classify_file_event(path.clone(), kind, false, false),
+                Some(FileEvent::Deleted(path.clone()))
+            );
+            assert_eq!(classify_file_event(path.clone(), kind, false, true), None);
+        }
+        assert_eq!(
+            classify_file_event(path.clone(), DebouncedEventKind::Any, true, false),
+            Some(FileEvent::Deleted(path.clone()))
+        );
+        assert_eq!(
+            classify_file_event(path.clone(), DebouncedEventKind::AnyContinuous, true, false),
+            Some(FileEvent::Modified(path))
+        );
+    }
+
+    #[test]
+    fn file_watcher_filters_events_and_releases_callback_on_drop() {
+        let root = TempDir::new().unwrap();
+        let watcher =
+            FileWatcher::new(vec![(root.path().into(), false)], Duration::from_millis(20)).unwrap();
+        let ignored = root.path().join("ignored.txt");
+        fs::write(&ignored, "ignored").unwrap();
+        let path = root.path().join("wallpaper.png");
+        fs::write(&path, "fixture").unwrap();
+        let event = watcher
+            .recv_timeout(Duration::from_secs(5))
+            .expect("wallpaper modification event");
+        assert_eq!(event, FileEvent::Modified(path.clone()));
+        assert!(watcher.process_event(&event).is_some());
+        assert!(watcher
+            .process_event(&FileEvent::Created(path.clone()))
+            .is_some());
+        fs::remove_file(&path).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let event = watcher
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .expect("wallpaper deletion event");
+            assert_ne!(event, FileEvent::Modified(ignored.clone()));
+            if event == FileEvent::Deleted(path.clone()) {
+                assert!(watcher.process_event(&event).is_none());
+                break;
+            }
+        }
+        // Keep only the receiver. Dropping the debouncer must terminate its
+        // callback and release the last sender, even without more file changes.
+        let FileWatcher {
+            event_rx,
+            debouncer,
+            scanner,
+        } = watcher;
+        drop(debouncer);
+        drop(scanner);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            match event_rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(error) => panic!("watcher callback survived drop: {error}"),
+                Ok(_) => (),
+            }
+        }
+    }
 
     #[test]
     fn project_scans_prune_assets_and_preserve_types_and_identity() {

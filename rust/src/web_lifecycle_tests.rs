@@ -80,7 +80,7 @@ async fn live_uninstall_failure_retry_reinstall_and_restart_preserve_user_source
     let root = temp.path().join("component");
     let project = temp.path().join("user-project");
     fs::create_dir(&project).unwrap();
-    let manifest = br#"{"type":"web","file":"index.html","general":{"properties":{"caption":{"type":"textinput","value":"saved"}}}}"#;
+    let manifest = br#"{"type":"web","file":"index.html","general":{"properties":{"caption":{"type":"textinput","value":"saved"},"enabled":{"type":"bool","value":false},"speed":{"type":"slider","value":0.5}}}}"#;
     fs::write(project.join("project.json"), manifest).unwrap();
     fs::write(project.join("index.html"), "<body style='background:#264a78'><script>window.wallpaperPropertyListener={applyUserProperties:p=>document.title=p.caption.value};setInterval(()=>document.body.style.opacity='.99',20)</script>").unwrap();
     let assignment = temp.path().join("saved-assignment.json");
@@ -252,7 +252,12 @@ time.sleep(10)
     let mut description = installed
         .describe_wallpaper(project.to_string_lossy().into_owned())
         .unwrap();
-    description.property_overrides_json = r#"{"caption":{"value":"restored override"}}"#.into();
+    description.property_overrides_json = r#"{"caption":{"value":"restored override"},"enabled":{"value":true},"speed":{"value":0.75}}"#.into();
+    let (prepared_path, properties) = prepare_source(&description, true).unwrap();
+    assert_eq!(prepared_path, project.join("project.json"));
+    assert_eq!(properties["caption"]["value"], "restored override");
+    assert_eq!(properties["enabled"]["value"], true);
+    assert_eq!(properties["speed"]["value"], 0.75);
     installed
         .apply_wallpaper_source(description, None)
         .await

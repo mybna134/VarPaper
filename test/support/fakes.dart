@@ -72,6 +72,7 @@ WallpaperDto wallpaper(
   String category = 'video',
   String compatibility = 'ready',
   String? compatibilityReason,
+  String? projectSourceJson,
   String? title,
   String? author,
   String? description,
@@ -85,6 +86,7 @@ WallpaperDto wallpaper(
   wallpaperType: category,
   compatibility: compatibility,
   compatibilityReason: compatibilityReason,
+  projectSourceJson: projectSourceJson,
   metadata: WallpaperMetadataDto(
     title: title,
     author: author,
@@ -172,6 +174,7 @@ class FakeService implements WayvidService {
   final events = <ServiceEvent>[];
   final calls = <String>[];
   final configs = <EngineConfigDto>[];
+  final applications = <({WallpaperSourceDto source, String? output})>[];
   final previews = <String, PreviewDto>{};
   int previewLoads = 0;
 
@@ -212,14 +215,18 @@ class FakeService implements WayvidService {
   }
 
   @override
-  Future<void> applyWallpaper({required String path, String? output}) async =>
-      calls.add('apply:${output ?? 'all'}:$path');
+  Future<void> applyWallpaper({required String path, String? output}) async {
+    throw StateError('Controller must apply a full wallpaper source');
+  }
 
   @override
   Future<void> applyWallpaperSource({
     required WallpaperSourceDto source,
     String? output,
-  }) => applyWallpaper(path: source.sourcePath, output: output);
+  }) async {
+    applications.add((source: source, output: output));
+    calls.add('apply:${output ?? 'all'}:${source.sourcePath}');
+  }
 
   @override
   Future<void> clearWallpaper({String? output}) async =>

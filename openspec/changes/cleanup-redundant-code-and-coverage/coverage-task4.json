@@ -1,0 +1,134 @@
+{
+  "metadata": {
+    "head": "2dc69c16634645effbbb7f0a567d618ee14ea14c",
+    "utc": "2026-10-16T13:13:21.386153+00:00",
+    "status": " M coverage/lcov.info\n M crates/wayvid-library/src/project.rs\n M crates/wayvid-library/src/scanner.rs\n M lib/main.dart\n M openspec/changes/cleanup-redundant-code-and-coverage/tasks.md\n M openspec/changes/cleanup-redundant-code-and-coverage/validation.md\n M rust/src/boundary_tests.rs\n M rust/src/bridge.rs\n M rust/src/engine.rs\n M rust/src/web_component.rs\n M rust/src/web_lifecycle_tests.rs\n M test/controller_logic_test.dart\n M test/controller_restore_test.dart\n M test/settings_store_test.dart\n M test/support/fakes.dart\n M test/tray_controls_test.dart\n?? openspec/changes/cleanup-redundant-code-and-coverage/coverage-task3.json\n",
+    "command": "puro flutter test --coverage",
+    "flutter": "3.47.4 (9584c6713b)",
+    "dart": "3.13.3"
+  },
+  "method": "LCOV DA records merged by repository-relative path and line; hit if sum of counts > 0. Filtered view uses fnmatchcase against existing codecov.yml ignore patterns. Rust test code remains included when emitted by llvm-cov. Local line view; not remote Codecov region/branch calculation.",
+  "ignore_patterns": [
+    "crates/wayvid-engine/src/egl.rs",
+    "crates/wayvid-engine/src/engine/mod.rs",
+    "crates/wayvid-engine/src/engine/session.rs",
+    "crates/wayvid-engine/src/engine/x11.rs",
+    "crates/wayvid-engine/src/mpv.rs",
+    "crates/wayvid-engine/src/wayland/**",
+    "rust/src/frb_generated.rs",
+    "lib/src/bridge_generated.dart/**",
+    "lib/src/storage/settings_store.g.dart",
+    "lib/**/*.g.dart",
+    "lib/**/*.freezed.dart",
+    "lib/l10n/app_localizations*.dart"
+  ],
+  "flutter": {
+    "report_sha256": "9fc6dfd79a7f1cf14efd40537fc119a02c5b0a9c64533815e36b4c27b09b18bc",
+    "raw": {
+      "covered": 1513,
+      "total": 2649,
+      "uncovered": 1136,
+      "percent": 57.1159
+    },
+    "filtered": {
+      "covered": 1475,
+      "total": 1518,
+      "uncovered": 43,
+      "percent": 97.1673
+    },
+    "files": [
+      {
+        "path": "lib/main.dart",
+        "covered": 1202,
+        "total": 1231,
+        "uncovered": 29,
+        "percent": 97.6442,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/bridge.dart",
+        "covered": 38,
+        "total": 175,
+        "uncovered": 137,
+        "percent": 21.7143,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/frb_generated.dart",
+        "covered": 0,
+        "total": 944,
+        "uncovered": 944,
+        "percent": 0.0,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/bridge_generated.dart/frb_generated.io.dart",
+        "covered": 0,
+        "total": 12,
+        "uncovered": 12,
+        "percent": 0.0,
+        "excluded": true
+      },
+      {
+        "path": "lib/src/l10n.dart",
+        "covered": 11,
+        "total": 11,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/preview_cache.dart",
+        "covered": 39,
+        "total": 39,
+        "uncovered": 0,
+        "percent": 100.0,
+        "excluded": false
+      },
+      {
+        "path": "lib/src/storage/settings_store.dart",
+        "covered": 223,
+        "total": 237,
+        "uncovered": 14,
+        "percent": 94.0928,
+        "excluded": false
+      }
+    ]
+  },
+  "unchanged_line_comparison": {
+    "lib/main.dart": {
+      "newly_covered_unchanged_lines": [
+        {
+          "baseline_line": 319,
+          "current_line": 318
+        },
+        {
+          "baseline_line": 320,
+          "current_line": 319
+        }
+      ],
+      "lost_covered_unchanged_lines": []
+    },
+    "lib/src/storage/settings_store.dart": {
+      "newly_covered_unchanged_lines": [
+        {
+          "baseline_line": 83,
+          "current_line": 83
+        },
+        {
+          "baseline_line": 97,
+          "current_line": 97
+        },
+        {
+          "baseline_line": 439,
+          "current_line": 439
+        },
+        {
+          "baseline_line": 440,
+          "current_line": 440
+        }
+      ],
+      "lost_covered_unchanged_lines": []
+    }
+  }
+}

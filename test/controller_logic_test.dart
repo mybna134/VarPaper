@@ -17,6 +17,138 @@ Future<WayvidController> _create(FakeStore store, FakeService service) async {
 }
 
 void main() {
+  test('typed application waits for acknowledgement before saving each type', () async {
+    final store = FakeStore();
+    final service = _AcknowledgedService(
+      monitors: [monitor('A'), monitor('B')],
+    );
+    final controller = await _create(store, service);
+    try {
+      service.webSupport = _componentStatus('installed');
+      await controller.refreshWebSupport();
+      for (final type in ['video', 'scene', 'web', 'image', 'gif']) {
+        final item = wallpaper(
+          type,
+          category: type,
+          projectSourceJson: '{"properties":{"caption":{"value":"initial"}}}',
+        );
+        controller.wallpapers = [item];
+        const properties =
+            '{"caption":{"value":"saved"},"enabled":{"value":true},"speed":{"value":1.5}}';
+        final output = type == 'video' ? null : 'A';
+        final before = Map.of(controller.appliedByOutput);
+        final saved = Map.of(store.assignments);
+        service.acknowledgement = Completer<void>();
+        final applying = controller.apply(
+          type,
+          output: output,
+          propertyOverridesJson: properties,
+        );
+        // apply records the source synchronously, then waits for the engine.
+        expect(
+          service.applications.last.source,
+          WallpaperSourceDto(
+            version: 1,
+            sourceId: type,
+            sourcePath: item.sourcePath,
+            wallpaperType: type,
+            projectSourceJson: item.projectSourceJson,
+            propertyOverridesJson: properties,
+          ),
+        );
+        expect(service.applications.last.output, output);
+        expect(controller.appliedByOutput, before);
+        expect(store.assignments, saved);
+        service.acknowledgement.complete();
+        await applying;
+        expect(controller.error, isNull);
+        expect(controller.isAppliedTo(type, 'A'), isTrue);
+        expect(
+          store.assignments[output ?? 'all']!.sourceDescription,
+          service.applications.last.source,
+        );
+      }
+      final before = Map.of(controller.appliedByOutput);
+      final saved = Map.of(store.assignments);
+      service.acknowledgement = Completer<void>();
+      final applying = controller.apply('gif', output: 'B');
+      service.acknowledgement.completeError(
+        const BridgeError(code: 'apply_failed', message: 'candidate failed'),
+      );
+      await applying;
+      expect(controller.error, 'candidate failed');
+      expect(controller.appliedByOutput, before);
+      expect(store.assignments, saved);
+      // Delayed engine events cannot overwrite an acknowledged assignment.
+      service.events.add(
+        const ServiceEvent.wallpaperApplied(output: 'A', path: '/stale.mp4'),
+      );
+      await controller.pollEvents();
+      expect(controller.appliedByOutput, before);
+      expect(store.assignments, saved);
+    } finally {
+      await controller.shutdown();
+      controller.dispose();
+    }
+  });
+
+  test('component actions reject overlap, poll busy state and recover after cancellation failure', () async {
+    final service = _PendingComponentService();
+    final controller = await _create(FakeStore(), service);
+    try {
+      final installing = controller.installWebSupport();
+      expect(controller.webSupportActionPending, isTrue);
+      await controller.installWebSupport();
+      await controller.uninstallWebSupport();
+      expect(
+        service.calls.where((call) => call == 'installWebSupport'),
+        hasLength(1),
+      );
+      expect(service.calls, isNot(contains('uninstallWebSupport')));
+      service.webSupport = _componentStatus('downloading');
+      service.installation.complete();
+      await installing;
+      expect(controller.webSupportActionPending, isFalse);
+      expect(controller.webSupportBusy, isTrue);
+      final loads = service.webStatusLoads;
+      await controller.pollEvents();
+      expect(service.webStatusLoads, loads + 1);
+      await controller.cancelWebSupportInstall();
+      expect(controller.error, 'cancel failed');
+      expect(controller.webSupportActionPending, isFalse);
+      service.cancelFailure = false;
+      await controller.cancelWebSupportInstall();
+      expect(controller.error, isNull);
+      expect(controller.webSupport?.state, 'not_installed');
+      expect(controller.webSupportBusy, isFalse);
+      controller.navigate('settings');
+      // Leaving the busy state still permits the scheduled settings status poll.
+      final before = service.webStatusLoads;
+      await controller.pollEvents();
+      expect(service.webStatusLoads, before); // throttled for two seconds
+    } finally {
+      await controller.shutdown();
+      controller.dispose();
+    }
+  });
+
+  test(
+    'reverse cycling starts at last item when the current id is absent',
+    () async {
+      final service = FakeService();
+      final controller = await _create(FakeStore(), service);
+      try {
+        controller.wallpapers = [wallpaper('a'), wallpaper('b')];
+        await controller.cycleWallpaper(-1);
+        expect(controller.appliedByOutput, {'A': 'b'});
+        expect(service.applications.single.source.sourceId, 'b');
+      } finally {
+        await controller.shutdown();
+        controller.dispose();
+      }
+    },
+  );
+
   test(
     'Web support never installs during startup or applying a missing component',
     () async {
@@ -500,3 +632,46 @@ class _DelayedPreviewService extends FakeService {
     return result.future;
   }
 }
+
+class _AcknowledgedService extends FakeService {
+  _AcknowledgedService({required super.monitors});
+  late Completer<void> acknowledgement;
+
+  @override
+  Future<void> applyWallpaperSource({
+    required WallpaperSourceDto source,
+    String? output,
+  }) async {
+    await super.applyWallpaperSource(source: source, output: output);
+    await acknowledgement.future;
+  }
+}
+
+class _PendingComponentService extends FakeService {
+  final installation = Completer<void>();
+  bool cancelFailure = true;
+
+  @override
+  Future<void> installWebSupport() async {
+    await super.installWebSupport();
+    await installation.future;
+  }
+
+  @override
+  Future<void> cancelWebSupportInstall() async {
+    await super.cancelWebSupportInstall();
+    if (cancelFailure) {
+      throw const BridgeError(code: 'cancel_failed', message: 'cancel failed');
+    }
+    webSupport = _componentStatus('not_installed');
+  }
+}
+
+WebSupportDto _componentStatus(String state) => WebSupportDto(
+  state: state,
+  version: 'test',
+  diskBytes: 0,
+  downloadedBytes: 0,
+  source: 'fixture',
+  supported: true,
+);

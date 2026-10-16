@@ -370,6 +370,141 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
+    #[test]
+    fn loose_resources_normalize_names_and_reject_nonfiles_and_missing_roots() {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir(dir.path().join("assets")).unwrap();
+        fs::write(dir.path().join("assets/image.png"), b"image").unwrap();
+        assert_eq!(
+            resource_name("./assets//image.png").unwrap(),
+            PathBuf::from("assets/image.png")
+        );
+        for name in [".", "./", "assets/../image.png", "file:name"] {
+            assert!(resource_name(name).is_err(), "{name}");
+        }
+        assert_eq!(
+            loose_resource(dir.path(), "./assets/image.png").unwrap(),
+            Some(dir.path().join("assets/image.png"))
+        );
+        assert!(loose_resource(dir.path(), "missing.png").unwrap().is_none());
+        assert!(loose_resource(dir.path(), "assets").is_err());
+        assert!(loose_resource(&dir.path().join("missing-root"), "image.png").is_err());
+    }
+
+    #[test]
+    fn resources_deduplicate_roots_and_reject_oversized_loose_assets() {
+        let dir = TempDir::new().unwrap();
+        let shared = TempDir::new().unwrap();
+        fs::write(
+            dir.path().join("project.json"),
+            r#"{"type":"scene","file":"scene.json"}"#,
+        )
+        .unwrap();
+        fs::write(dir.path().join("scene.json"), "{}").unwrap();
+        let mut source = discover_project(
+            dir.path(),
+            SourceType::LocalDirectory,
+            None,
+            vec![
+                dir.path().into(),
+                shared.path().into(),
+                shared.path().into(),
+            ],
+        )
+        .unwrap()
+        .project
+        .unwrap();
+        let resources = ProjectResources::new(&source).unwrap();
+        assert_eq!(resources.roots.len(), 2);
+        assert!(!resources.exists("missing.tex").unwrap());
+        let oversized = dir.path().join("oversized.tex");
+        File::create(&oversized)
+            .unwrap()
+            .set_len(MAX_RESOURCE_BYTES + 1)
+            .unwrap();
+        assert!(resources
+            .exists("oversized.tex")
+            .unwrap_err()
+            .to_string()
+            .contains("budget"));
+        assert!(resources
+            .read("oversized.tex")
+            .unwrap_err()
+            .to_string()
+            .contains("budget"));
+        source.shared_asset_roots = vec![dir.path().join("scene.json")];
+        assert!(ProjectResources::new(&source).is_err());
+        source.shared_asset_roots = vec![dir.path().join("missing-root")];
+        assert!(ProjectResources::new(&source).is_err());
+    }
+
+    #[test]
+    fn invalid_manifests_entries_and_previews_remain_diagnostic() {
+        let dir = TempDir::new().unwrap();
+        for contents in [
+            None,
+            Some("{broken"),
+            Some(r#"{"type":"scene"}"#),
+            Some(r#"{"type":"scene","file":"../outside.json"}"#),
+        ] {
+            if let Some(contents) = contents {
+                fs::write(dir.path().join("project.json"), contents).unwrap();
+            }
+            let item =
+                discover_project(dir.path(), SourceType::LocalDirectory, None, vec![]).unwrap();
+            assert_eq!(item.compatibility, CompatibilityStatus::Invalid);
+            assert!(item.compatibility_reason.is_some());
+        }
+        fs::write(dir.path().join("scene.json"), "{}").unwrap();
+        fs::write(
+            dir.path().join("project.json"),
+            r#"{"type":"scene","file":"scene.json","preview":"../outside.png"}"#,
+        )
+        .unwrap();
+        let item = discover_project(dir.path(), SourceType::LocalDirectory, None, vec![]).unwrap();
+        assert_eq!(item.compatibility, CompatibilityStatus::Ready);
+        assert!(item.thumbnail_path.is_none());
+    }
+
+    #[test]
+    fn package_index_validates_duplicates_headers_and_reads_after_truncation() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("scene.pkg");
+        package(&path, "scene.json", b"{}");
+        let index = PackageIndex::open(&path).unwrap();
+        assert!(!index.contains("missing.json").unwrap());
+        assert!(index.read("missing.json").unwrap().is_none());
+        assert!(index.contains("../outside").is_err());
+        File::create(&path).unwrap();
+        assert!(index.read("scene.json").is_err());
+        let mut bytes = Vec::new();
+        bytes.extend(8u32.to_le_bytes());
+        bytes.extend(b"PKGV0001");
+        bytes.extend(2u32.to_le_bytes());
+        for name in ["scene.json", "./scene.json"] {
+            bytes.extend((name.len() as u32).to_le_bytes());
+            bytes.extend(name.as_bytes());
+            bytes.extend(0u32.to_le_bytes());
+            bytes.extend(2u32.to_le_bytes());
+        }
+        bytes.extend(b"{}");
+        fs::write(&path, &bytes).unwrap();
+        assert!(PackageIndex::open(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate"));
+        bytes[4..12].copy_from_slice(b"BAD00001");
+        fs::write(&path, bytes).unwrap();
+        assert!(PackageIndex::open(&path)
+            .unwrap_err()
+            .to_string()
+            .contains("header"));
+        assert!(sized_string(&mut std::io::Cursor::new([1, 0, 0, 0, 255]))
+            .unwrap_err()
+            .to_string()
+            .contains("encoding"));
+    }
+
     fn package(path: &Path, name: &str, data: &[u8]) {
         let mut bytes = Vec::new();
         for value in ["PKGV0001", name] {

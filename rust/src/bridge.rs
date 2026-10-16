@@ -418,17 +418,7 @@ impl WayvidService {
         output: Option<String>,
     ) -> Result<(), BridgeError> {
         let source = validate_source(Path::new(&path), self.web_component.playback_allowed())?;
-        let mut guard = self.lock()?;
-        let source = validate_source(&source, self.web_component.playback_allowed())?;
-        guard
-            .engine
-            .wait_for_outputs(Duration::from_secs(5))
-            .map_err(|message| BridgeError::message("engine_not_ready", message))?;
-        guard
-            .engine
-            .apply_wallpaper(output.clone(), source)
-            .map_err(|message| BridgeError::message("apply_failed", message))?;
-        Ok(())
+        apply_prepared_source(self, source, serde_json::json!({}), output)
     }
 
     pub async fn clear_wallpaper(&self, output: Option<String>) -> Result<(), BridgeError> {
@@ -448,17 +438,7 @@ impl WayvidService {
         output: Option<String>,
     ) -> Result<(), BridgeError> {
         let (path, properties) = prepare_source(&source, self.web_component.playback_allowed())?;
-        let mut guard = self.lock()?;
-        // Uninstall uses the same lock; recheck availability before dispatch.
-        validate_source(&path, self.web_component.playback_allowed())?;
-        guard
-            .engine
-            .wait_for_outputs(Duration::from_secs(5))
-            .map_err(|message| BridgeError::message("engine_not_ready", message))?;
-        guard
-            .engine
-            .apply_with_properties(output, path, properties)
-            .map_err(|message| BridgeError::message("apply_failed", message))
+        apply_prepared_source(self, path, properties, output)
     }
 
     pub async fn update_wallpaper_properties(
@@ -623,6 +603,27 @@ fn describe_source(path: &Path) -> Result<WallpaperSourceDto, BridgeError> {
         project_source_json: dto.project_source_json,
         property_overrides_json: "{}".into(),
     })
+}
+
+// Both public apply APIs keep preparation outside the service lock, then share
+// the locked availability check and first-frame acknowledgement path.
+fn apply_prepared_source(
+    service: &WayvidService,
+    path: PathBuf,
+    properties: serde_json::Value,
+    output: Option<String>,
+) -> Result<(), BridgeError> {
+    let mut guard = service.lock()?;
+    // Uninstall uses the same lock; recheck availability before dispatch.
+    let path = validate_source(&path, service.web_component.playback_allowed())?;
+    guard
+        .engine
+        .wait_for_outputs(Duration::from_secs(5))
+        .map_err(|message| BridgeError::message("engine_not_ready", message))?;
+    guard
+        .engine
+        .apply_with_properties(output, path, properties)
+        .map_err(|message| BridgeError::message("apply_failed", message))
 }
 
 fn prepare_source(
